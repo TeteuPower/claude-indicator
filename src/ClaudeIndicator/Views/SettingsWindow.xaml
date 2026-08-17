@@ -51,6 +51,16 @@
                         <RadioButton x:Name="ModeTray" GroupName="Mode" Content="Ícone na barra de tarefas (bandeja do sistema)"/>
                         <RadioButton x:Name="ModeGadget" GroupName="Mode" Content="Gadget flutuante sempre por cima (arrastável)"/>
                         <RadioButton x:Name="ModeBoth" GroupName="Mode" Content="Os dois ao mesmo tempo"/>
+
+                        <TextBlock Text="Barras dentro do ícone da bandeja" Margin="0,14,0,4"/>
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="OrientVertical" GroupName="TrayOrient"
+                                         Content="Vertical (colunas lado a lado)" Margin="0,0,20,0"/>
+                            <RadioButton x:Name="OrientHorizontal" GroupName="TrayOrient"
+                                         Content="Horizontal (linhas empilhadas)"/>
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0"
+                                   Text="A horizontal costuma ficar mais legível quando há duas ou três barras, porque cada uma ocupa toda a largura do ícone. Com uma única barra o ícone mostra a porcentagem em número, independente da opção."/>
                     </StackPanel>
                 </Border>
 

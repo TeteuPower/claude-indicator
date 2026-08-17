@@ -13,6 +13,16 @@ public enum DisplayMode
     Both
 }
 
+/// <summary>Como as barras são desenhadas no ícone da bandeja.</summary>
+public enum TrayOrientation
+{
+    /// <summary>Uma coluna por barra, preenchendo de baixo para cima.</summary>
+    Vertical,
+
+    /// <summary>Uma linha por barra, preenchendo da esquerda para a direita.</summary>
+    Horizontal
+}
+
 /// <summary>
 /// Todas as preferências do usuário. Persistido em %APPDATA%\ClaudeIndicator\settings.json
 /// </summary>
@@ -20,6 +30,7 @@ public class AppSettings
 {
     // ---- Exibição ----
     public DisplayMode DisplayMode { get; set; } = DisplayMode.Tray;
+    public TrayOrientation TrayOrientation { get; set; } = TrayOrientation.Vertical;
 
     // ---- Barras ----
     public bool ShowSession { get; set; } = true;

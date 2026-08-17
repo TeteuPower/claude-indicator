@@ -84,6 +84,8 @@ Ou seja: se o formato mudar, basta olhar a resposta bruta e ajustar as palavras-
 ## Configurações disponíveis
 
 - **Como exibir**: bandeja, gadget flutuante ou os dois
+- **Barras dentro do ícone da bandeja**: verticais (colunas lado a lado) ou horizontais (linhas
+  empilhadas) — a horizontal costuma ser mais legível com duas ou três barras
 - **Quais barras** mostrar e o rótulo de cada uma
 - **Gadget**: opacidade, tamanho, sempre por cima, travar posição, mostrar horário de renovação,
   reposicionar no canto inferior direito
@@ -95,9 +97,10 @@ As preferências ficam em `%APPDATA%\ClaudeIndicator\settings.json`.
 
 ## Uso no dia a dia
 
-- **Ícone da bandeja**: as barras são desenhadas no próprio ícone (uma coluna por barra; com uma
-  única barra ativa ele mostra a porcentagem). Duplo clique abre as configurações; botão direito
-  tem atualizar, configurações, mostrar/ocultar gadget e sair.
+- **Ícone da bandeja**: as barras são desenhadas no próprio ícone (uma coluna ou uma linha por
+  barra, conforme a orientação escolhida; com uma única barra ativa ele mostra a porcentagem).
+  Duplo clique abre as configurações; botão direito tem atualizar, configurações, mostrar/ocultar
+  gadget e sair.
 - **Gadget**: arraste com o botão esquerdo; passe o mouse para ver os botões de atualizar,
   configurar e ocultar; botão direito abre o menu.
 

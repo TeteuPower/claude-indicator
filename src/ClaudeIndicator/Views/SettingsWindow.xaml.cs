@@ -36,6 +36,9 @@ public partial class SettingsWindow : Window
         ModeGadget.IsChecked = s.DisplayMode == DisplayMode.Gadget;
         ModeBoth.IsChecked = s.DisplayMode == DisplayMode.Both;
 
+        OrientVertical.IsChecked = s.TrayOrientation == TrayOrientation.Vertical;
+        OrientHorizontal.IsChecked = s.TrayOrientation == TrayOrientation.Horizontal;
+
         ChkSession.IsChecked = s.ShowSession;
         ChkWeekly.IsChecked = s.ShowWeekly;
         ChkFable.IsChecked = s.ShowFable;
@@ -95,6 +98,10 @@ public partial class SettingsWindow : Window
             : ModeBoth.IsChecked == true
                 ? DisplayMode.Both
                 : DisplayMode.Tray;
+
+        s.TrayOrientation = OrientHorizontal.IsChecked == true
+            ? TrayOrientation.Horizontal
+            : TrayOrientation.Vertical;
 
         s.ShowSession = ChkSession.IsChecked == true;
         s.ShowWeekly = ChkWeekly.IsChecked == true;
