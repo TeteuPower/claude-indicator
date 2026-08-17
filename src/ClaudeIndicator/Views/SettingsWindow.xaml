@@ -149,6 +149,38 @@
                     </StackPanel>
                 </Border>
 
+                <!-- Histórico -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <Grid>
+                            <TextBlock Text="Histórico de consumo" Style="{StaticResource Title}"/>
+                            <Button Content="Abrir histórico" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                    Padding="10,4" FontSize="11.5" Click="OnHistoryClick"/>
+                        </Grid>
+
+                        <RadioButton x:Name="KeepForever" GroupName="Retencao"
+                                     Content="Guardar todo o histórico (padrão)" Checked="OnRetentionChanged"/>
+                        <RadioButton x:Name="KeepDays" GroupName="Retencao"
+                                     Content="Apagar registros antigos automaticamente" Checked="OnRetentionChanged"/>
+
+                        <Grid Margin="27,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="80"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="LblRetentionCaption" Text="Manter os últimos" VerticalAlignment="Center"/>
+                            <Slider x:Name="SldRetention" Grid.Column="1" Minimum="7" Maximum="730" TickFrequency="1"
+                                    IsSnapToTickEnabled="True" Value="31" VerticalAlignment="Center" Margin="8,0"
+                                    ValueChanged="OnRetentionDaysChanged"/>
+                            <TextBlock x:Name="LblRetention" Grid.Column="2" Text="31 dias" VerticalAlignment="Center"
+                                       HorizontalAlignment="Right" Foreground="{StaticResource MutedBrush}"/>
+                        </Grid>
+
+                        <TextBlock x:Name="HistoryInfo" Style="{StaticResource Hint}" Margin="0,10,0,0"/>
+                    </StackPanel>
+                </Border>
+
                 <!-- Conta -->
                 <Border Style="{StaticResource Card}">
                     <StackPanel>

@@ -116,6 +116,7 @@ respeita o intervalo pedido pela API (ou espera com backoff) antes de tentar de 
 - **Gadget**: disposição das barras (vertical, uma por linha; ou horizontal, lado a lado com
   separador), opacidade, tamanho, sempre por cima, travar posição, mostrar horário de renovação,
   reposicionar no canto inferior direito
+- **Histórico de consumo**: guardar tudo (padrão) ou apagar registros com mais de N dias
 - **Conta**: login do Claude Code ou token manual, com botão "Testar conexão"
 - **Sistema**: iniciar com o Windows, iniciar sem abrir a janela, intervalo de atualização
   (15 s a 15 min), limites de atenção/alerta e notificação ao atingir o alerta
@@ -131,9 +132,13 @@ As preferências ficam em `%APPDATA%\ClaudeIndicator\settings.json`.
 - **Gadget**: arraste com o botão esquerdo; passe o mouse para ver os botões de atualizar,
   configurar e ocultar; botão direito abre o menu.
 - **Histórico**: menu da bandeja ou do gadget › "Histórico de consumo…". Mostra o nível de cada
-  barra ao longo do tempo, o consumo por hora (últimas 24 h) ou por dia (7/30 dias) e os totais da
-  última hora e das últimas 24 h, em pontos percentuais do limite. O histórico é gravado em
-  `%APPDATA%\ClaudeIndicator\history.jsonl` enquanto o app está aberto.
+  barra ao longo do tempo, o consumo por hora (últimas 24 h) ou por dia (7 dias, 30 dias ou tudo) e
+  os totais da última hora e das últimas 24 h, em pontos percentuais do limite. O histórico é
+  gravado em `%APPDATA%\ClaudeIndicator\history.jsonl` enquanto o app está aberto e, por padrão,
+  **nada é apagado** — dá para ligar uma retenção em Configurações › Histórico de consumo.
+
+  Não há como importar consumo anterior: a API devolve só o estado atual dos limites, sem série
+  histórica. O gráfico começa vazio e enche a partir do primeiro uso.
 
 ## Estrutura do código
 

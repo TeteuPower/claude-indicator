@@ -54,6 +54,10 @@ public class AppSettings
     public bool GadgetShowReset { get; set; } = true;
     public BarOrientation GadgetOrientation { get; set; } = BarOrientation.Vertical;
 
+    // ---- Histórico ----
+    /// <summary>Dias de histórico mantidos. 0 (padrão) = guardar para sempre, nada é apagado.</summary>
+    public int HistoryRetentionDays { get; set; } = 0;
+
     // ---- Sistema ----
     public bool StartWithWindows { get; set; } = false;
     public bool StartHidden { get; set; } = true;
@@ -146,6 +150,8 @@ public class AppSettings
         if (GadgetOpacity > 1.0) GadgetOpacity = 1.0;
         if (GadgetScale < 0.7) GadgetScale = 0.7;
         if (GadgetScale > 2.0) GadgetScale = 2.0;
+        if (HistoryRetentionDays < 0) HistoryRetentionDays = 0;
+        if (HistoryRetentionDays > 3650) HistoryRetentionDays = 3650;
         if (WarnThreshold < 1) WarnThreshold = 1;
         if (WarnThreshold > 99) WarnThreshold = 99;
         if (AlertThreshold <= WarnThreshold) AlertThreshold = Math.Min(100, WarnThreshold + 5);

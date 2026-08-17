@@ -216,6 +216,7 @@ public sealed class AppHost
         Settings.Save();
 
         StartupManager.Apply(Settings.StartWithWindows);
+        UsageHistory.Prune(Settings.HistoryRetentionDays, force: true); // aplica na hora se acabou de ligar a retenção
         _store.Invalidate();
         _service.ForgetEndpointFailures();
         _pausedUntil = DateTimeOffset.MinValue;
@@ -262,7 +263,7 @@ public sealed class AppHost
         {
             _lastGood = snap;
             _rateLimitStreak = 0;
-            UsageHistory.Append(snap);
+            UsageHistory.Append(snap, Settings);
         }
         else if (snap.Bars.Count == 0 && _lastGood != null)
         {

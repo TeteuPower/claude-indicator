@@ -52,11 +52,30 @@ public partial class HistoryWindow : Window
         SerSession.IsChecked == true ? BarKind.Session :
         SerFable.IsChecked == true ? BarKind.Fable : BarKind.Weekly;
 
-    private TimeSpan Range =>
-        Rng7d.IsChecked == true ? TimeSpan.FromDays(7) :
-        Rng30d.IsChecked == true ? TimeSpan.FromDays(30) : TimeSpan.FromHours(24);
+    private TimeSpan Range
+    {
+        get
+        {
+            if (Rng7d.IsChecked == true) return TimeSpan.FromDays(7);
+            if (Rng30d.IsChecked == true) return TimeSpan.FromDays(30);
+            if (RngAll.IsChecked == true)
+            {
+                // do ponto mais antigo até agora, com um mínimo de 1 dia para o eixo não colapsar
+                var oldest = _all.Count > 0 ? _all[0].At : DateTimeOffset.Now.AddDays(-1);
+                var span = DateTimeOffset.Now - oldest;
+                return span < TimeSpan.FromDays(1) ? TimeSpan.FromDays(1) : span + TimeSpan.FromHours(1);
+            }
+            return TimeSpan.FromHours(24);
+        }
+    }
 
     private bool HourlyBuckets => Rng24h.IsChecked == true;
+
+    /// <summary>Quantos baldes diários o gráfico de colunas mostra no período selecionado.</summary>
+    private int DailyBucketCount =>
+        Rng7d.IsChecked == true ? 7 :
+        Rng30d.IsChecked == true ? 30 :
+        Math.Clamp((int)Math.Ceiling(Range.TotalDays), 1, 400);
 
     private void OnFilterChanged(object sender, RoutedEventArgs e)
     {
@@ -82,7 +101,8 @@ public partial class HistoryWindow : Window
 
     private void ReloadData()
     {
-        _all = UsageHistory.Load(TimeSpan.FromDays(31));
+        // TimeSpan.MaxValue: o filtro por período é feito no desenho, não na leitura
+        _all = UsageHistory.Load(TimeSpan.MaxValue);
         Redraw();
     }
 
@@ -98,7 +118,9 @@ public partial class HistoryWindow : Window
             ? $"Consumo por hora — {kindLabel} (pts do limite)"
             : $"Consumo por dia — {kindLabel} (pts do limite)";
         StatRangeCaption.Text = Rng30d.IsChecked == true ? "últimos 30 dias"
-            : Rng7d.IsChecked == true ? "últimos 7 dias" : "últimas 24 horas";
+            : Rng7d.IsChecked == true ? "últimos 7 dias"
+            : RngAll.IsChecked == true ? $"todo o histórico ({Range.TotalDays:0} dias)"
+            : "últimas 24 horas";
 
         StatHour.Text = FormatPts(SumConsumption(TimeSpan.FromHours(1)));
         StatDay.Text = FormatPts(SumConsumption(TimeSpan.FromHours(24)));
@@ -263,7 +285,9 @@ public partial class HistoryWindow : Window
         }
         else
         {
-            var step = Rng30d.IsChecked == true ? 5 : 1;
+            // no máximo ~8 marcações, para os rótulos não se atropelarem
+            var days = Math.Max(1, (int)Math.Ceiling((to - from).TotalDays));
+            var step = Math.Max(1, (int)Math.Ceiling(days / 8.0));
             var t = new DateTimeOffset(from.Year, from.Month, from.Day, 0, 0, 0, from.Offset).AddDays(1);
             var i = 0;
             while (t < to)
@@ -321,7 +345,7 @@ public partial class HistoryWindow : Window
 
         var now = DateTimeOffset.Now;
         var bucket = HourlyBuckets ? TimeSpan.FromHours(1) : TimeSpan.FromDays(1);
-        var count = HourlyBuckets ? 24 : (Rng30d.IsChecked == true ? 30 : 7);
+        var count = HourlyBuckets ? 24 : DailyBucketCount;
 
         // início alinhado à hora/dia cheio
         var end = HourlyBuckets
@@ -410,8 +434,8 @@ public partial class HistoryWindow : Window
                     AddText(c, "+" + sums[i].ToString("0.#"), x + barW / 2 - 12, y - 15, 10.5, BarRenderer.Swatch("TextBrush"));
             }
 
-            // rótulos de tempo
-            var every = HourlyBuckets ? 4 : (Rng30d.IsChecked == true ? 5 : 1);
+            // rótulos de tempo: no máximo ~8, senão colidem
+            var every = HourlyBuckets ? 4 : Math.Max(1, (int)Math.Ceiling(count / 8.0));
             if (i % every == 0)
             {
                 var label = HourlyBuckets ? bucketStart.ToLocalTime().ToString("HH'h'") : bucketStart.ToLocalTime().ToString("dd/MM");

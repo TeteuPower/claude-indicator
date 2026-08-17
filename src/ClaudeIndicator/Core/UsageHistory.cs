@@ -32,15 +32,17 @@ public static class UsageHistory
 {
     private static readonly object Lock = new();
     private static DateTimeOffset _lastAppend = DateTimeOffset.MinValue;
+    private static DateTimeOffset _lastPrune = DateTimeOffset.MinValue;
 
     public static string FilePath => Path.Combine(AppSettings.DataDir, "history.jsonl");
 
     /// <summary>Espaço mínimo entre pontos; abaixo disso a consulta não vira registro.</summary>
     private static readonly TimeSpan MinSpacing = TimeSpan.FromSeconds(55);
 
-    private static readonly TimeSpan Retention = TimeSpan.FromDays(35);
+    /// <summary>Com retenção ligada, a limpeza roda no máximo uma vez a cada 6 horas.</summary>
+    private static readonly TimeSpan PruneInterval = TimeSpan.FromHours(6);
 
-    public static void Append(UsageSnapshot snap)
+    public static void Append(UsageSnapshot snap, AppSettings settings)
     {
         if (snap.Bars.Count == 0) return;
         lock (Lock)
@@ -57,7 +59,7 @@ public static class UsageHistory
                 }
                 File.AppendAllText(FilePath, JsonSerializer.Serialize(obj) + Environment.NewLine);
                 _lastAppend = snap.FetchedAt;
-                PruneIfLarge();
+                Prune(settings.HistoryRetentionDays);
             }
             catch
             {
@@ -66,9 +68,46 @@ public static class UsageHistory
         }
     }
 
+    /// <summary>Data do ponto mais antigo guardado, ou null se não há histórico.</summary>
+    public static DateTimeOffset? OldestPoint()
+    {
+        try
+        {
+            if (!File.Exists(FilePath)) return null;
+            foreach (var line in File.ReadLines(FilePath))
+            {
+                var p = ParseLine(line);
+                if (p != null) return p.At;
+            }
+        }
+        catch
+        {
+            // arquivo em uso: sem data conhecida
+        }
+        return null;
+    }
+
+    /// <summary>Tamanho do arquivo de histórico em bytes (0 se ainda não existe).</summary>
+    public static long FileSizeBytes()
+    {
+        try
+        {
+            var info = new FileInfo(FilePath);
+            return info.Exists ? info.Length : 0;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    /// <summary>Pontos gravados na janela pedida. Use <see cref="TimeSpan.MaxValue"/> para tudo.</summary>
     public static List<HistoryPoint> Load(TimeSpan window)
     {
-        var cutoff = DateTimeOffset.Now - window;
+        // janelas muito grandes estourariam a subtração: nesse caso não há corte
+        var cutoff = window >= TimeSpan.FromDays(36500)
+            ? DateTimeOffset.MinValue
+            : DateTimeOffset.Now - window;
         var list = new List<HistoryPoint>();
         try
         {
@@ -118,26 +157,34 @@ public static class UsageHistory
         _ => null
     };
 
-    /// <summary>Reescreve o arquivo sem os pontos além da retenção quando ele passa de ~2 MB.</summary>
-    private static void PruneIfLarge()
+    /// <summary>
+    /// Descarta pontos mais antigos que <paramref name="retentionDays"/>.
+    /// Com 0 (padrão) nada é apagado: o arquivo nunca é reescrito.
+    /// </summary>
+    public static void Prune(int retentionDays, bool force = false)
     {
+        if (retentionDays <= 0) return;
+        if (!force && DateTimeOffset.Now - _lastPrune < PruneInterval) return;
+        _lastPrune = DateTimeOffset.Now;
+
         try
         {
-            var info = new FileInfo(FilePath);
-            if (!info.Exists || info.Length < 2_000_000) return;
+            if (!File.Exists(FilePath)) return;
 
-            var cutoff = DateTimeOffset.Now - Retention;
-            var sb = new StringBuilder();
+            var cutoff = DateTimeOffset.Now - TimeSpan.FromDays(retentionDays);
+            var kept = new StringBuilder();
+            var dropped = false;
             foreach (var line in File.ReadLines(FilePath))
             {
                 var p = ParseLine(line);
-                if (p != null && p.At >= cutoff) sb.AppendLine(line);
+                if (p != null && p.At >= cutoff) kept.Append(line).Append(Environment.NewLine);
+                else if (p != null) dropped = true;
             }
-            File.WriteAllText(FilePath, sb.ToString());
+            if (dropped) File.WriteAllText(FilePath, kept.ToString());
         }
         catch
         {
-            // sem espaço/permissão: tenta de novo no próximo estouro
+            // sem espaço/permissão/arquivo em uso: tenta de novo no próximo ciclo
         }
     }
 }

@@ -34,6 +34,7 @@
                     <RadioButton x:Name="Rng24h" GroupName="Rng" Content="24 horas" Margin="10,0,0,0" Checked="OnFilterChanged"/>
                     <RadioButton x:Name="Rng7d" GroupName="Rng" Content="7 dias" Margin="14,0,0,0" Checked="OnFilterChanged"/>
                     <RadioButton x:Name="Rng30d" GroupName="Rng" Content="30 dias" Margin="14,0,0,0" Checked="OnFilterChanged"/>
+                    <RadioButton x:Name="RngAll" GroupName="Rng" Content="Tudo" Margin="14,0,0,0" Checked="OnFilterChanged"/>
                 </StackPanel>
             </Grid>
         </Border>

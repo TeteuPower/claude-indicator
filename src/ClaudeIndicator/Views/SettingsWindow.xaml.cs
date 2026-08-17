@@ -59,6 +59,10 @@ public partial class SettingsWindow : Window
         TxtToken.Text = s.ManualAccessToken;
         TxtToken.IsEnabled = SrcManual.IsChecked == true;
 
+        KeepForever.IsChecked = s.HistoryRetentionDays <= 0;
+        KeepDays.IsChecked = s.HistoryRetentionDays > 0;
+        SldRetention.Value = s.HistoryRetentionDays > 0 ? Math.Clamp(s.HistoryRetentionDays, 7, 730) : 31;
+
         ChkStartup.IsChecked = s.StartWithWindows;
         ChkStartHidden.IsChecked = s.StartHidden;
         ChkNotify.IsChecked = s.NotifyOnThreshold;
@@ -129,6 +133,8 @@ public partial class SettingsWindow : Window
 
         s.CredentialSource = SrcManual.IsChecked == true ? "Manual" : "ClaudeCode";
         s.ManualAccessToken = TxtToken.Text.Trim();
+
+        s.HistoryRetentionDays = KeepDays.IsChecked == true ? (int)Math.Round(SldRetention.Value) : 0;
 
         s.StartWithWindows = ChkStartup.IsChecked == true;
         s.StartHidden = ChkStartHidden.IsChecked == true;
@@ -242,6 +248,49 @@ public partial class SettingsWindow : Window
         LblRefresh.Text = FormatInterval((int)Math.Round(SldRefresh.Value));
         LblWarn.Text = Math.Round(SldWarn.Value) + "%";
         LblAlert.Text = Math.Round(SldAlert.Value) + "%";
+        LblRetention.Text = Math.Round(SldRetention.Value) + " dias";
+        UpdateRetentionUi();
+    }
+
+    private void UpdateRetentionUi()
+    {
+        var keepDays = KeepDays.IsChecked == true;
+        SldRetention.IsEnabled = keepDays;
+        LblRetentionCaption.Opacity = keepDays ? 1 : 0.45;
+        LblRetention.Opacity = keepDays ? 1 : 0.45;
+
+        var sb = new StringBuilder();
+        var bytes = UsageHistory.FileSizeBytes();
+        var oldest = UsageHistory.OldestPoint();
+
+        if (bytes == 0)
+        {
+            sb.Append("Nenhum registro ainda. ");
+        }
+        else
+        {
+            sb.Append(bytes < 1024 * 1024
+                ? $"Arquivo atual: {bytes / 1024.0:0.#} KB"
+                : $"Arquivo atual: {bytes / (1024.0 * 1024.0):0.#} MB");
+            if (oldest != null)
+                sb.Append(", desde ").Append(oldest.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm"));
+            sb.Append(". ");
+        }
+
+        sb.Append("Cada consulta grava uma linha: no intervalo atual dá cerca de ")
+          .Append(EstimateKbPerMonth()).Append(" KB por mês. ")
+          .Append(keepDays
+              ? "Registros mais antigos que o limite são apagados."
+              : "Nada é apagado automaticamente.");
+
+        HistoryInfo.Text = sb.ToString();
+    }
+
+    private int EstimateKbPerMonth()
+    {
+        var seconds = Math.Max(15, (int)Math.Round(SldRefresh.Value));
+        var pointsPerMonth = 30.0 * 24 * 3600 / Math.Max(60, seconds); // 1 ponto por minuto no máximo
+        return (int)Math.Round(pointsPerMonth * 62 / 1024.0);          // ~62 bytes por linha
     }
 
     private static string FormatInterval(int seconds) =>
@@ -282,6 +331,18 @@ public partial class SettingsWindow : Window
         if (!_ready) return;
         LblAlert.Text = Math.Round(e.NewValue) + "%";
         RenderPreview();
+    }
+
+    private void OnRetentionChanged(object sender, RoutedEventArgs e)
+    {
+        if (!_ready) return;
+        UpdateRetentionUi();
+    }
+
+    private void OnRetentionDaysChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (!_ready) return;
+        LblRetention.Text = Math.Round(e.NewValue) + " dias";
     }
 
     private void OnSourceChanged(object sender, RoutedEventArgs e)
