@@ -28,6 +28,7 @@ public sealed class AppHost
     private Drawing.Icon? _trayIcon;
     private GadgetWindow? _gadget;
     private SettingsWindow? _settingsWindow;
+    private HistoryWindow? _historyWindow;
     private bool _busy;
 
     // Resiliência: última consulta que veio com barras, e pausa imposta por HTTP 429.
@@ -87,6 +88,7 @@ public sealed class AppHost
 
         var menu = new WinForms.ContextMenuStrip();
         menu.Items.Add("Atualizar agora", null, (_, _) => _ = RefreshAsync(true));
+        menu.Items.Add("Histórico de consumo…", null, (_, _) => ShowHistory());
         menu.Items.Add("Configurações…", null, (_, _) => ShowSettings());
         menu.Items.Add(new WinForms.ToolStripSeparator());
         menu.Items.Add("Mostrar/ocultar gadget", null, (_, _) => ToggleGadget());
@@ -189,6 +191,22 @@ public sealed class AppHost
         _settingsWindow.Activate();
     }
 
+    public void ShowHistory()
+    {
+        if (_historyWindow != null)
+        {
+            if (_historyWindow.WindowState == System.Windows.WindowState.Minimized)
+                _historyWindow.WindowState = System.Windows.WindowState.Normal;
+            _historyWindow.Activate();
+            return;
+        }
+
+        _historyWindow = new HistoryWindow(this);
+        _historyWindow.Closed += (_, _) => _historyWindow = null;
+        _historyWindow.Show();
+        _historyWindow.Activate();
+    }
+
     public void ApplySettings(AppSettings updated)
     {
         updated.Sanitize();
@@ -244,6 +262,7 @@ public sealed class AppHost
         {
             _lastGood = snap;
             _rateLimitStreak = 0;
+            UsageHistory.Append(snap);
         }
         else if (snap.Bars.Count == 0 && _lastGood != null)
         {
