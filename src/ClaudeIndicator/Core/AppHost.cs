@@ -40,6 +40,15 @@ public sealed class AppHost
     {
         var firstRun = !AppSettings.Exists;
         Settings = AppSettings.Load();
+
+        // Instalação nova: o instalador pode ter marcado "iniciar junto com o Windows".
+        // Sem isto o app apagaria a chave logo no primeiro start, por causa do padrão false.
+        if (firstRun && StartupManager.IsEnabled())
+        {
+            Settings.StartWithWindows = true;
+            Settings.Save();
+        }
+
         StartupManager.Apply(Settings.StartWithWindows);
 
         BuildTray();

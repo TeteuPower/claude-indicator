@@ -2,7 +2,7 @@
 ; Gere com: .\build.ps1   (ou abra este arquivo no Inno Setup Compiler)
 
 #define MyAppName "Claude Indicator"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.1.0"
 #define MyAppExe "ClaudeIndicator.exe"
 
 [Setup]
@@ -11,10 +11,20 @@ AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher=Claude Indicator
+AppPublisherURL=https://github.com/TeteuPower/claude-indicator
+AppSupportURL=https://github.com/TeteuPower/claude-indicator/issues
+AppUpdatesURL=https://github.com/TeteuPower/claude-indicator/releases
+VersionInfoVersion={#MyAppVersion}
+UninstallDisplayName={#MyAppName}
 DefaultDirName={autopf}\Claude Indicator
 DefaultGroupName=Claude Indicator
 DisableProgramGroupPage=yes
-DisableDirPage=no
+; numa atualização a pasta e as opções anteriores são reaproveitadas sem perguntar de novo
+DisableDirPage=auto
+UsePreviousAppDir=yes
+UsePreviousTasks=yes
+; o app rodando é fechado pelo código abaixo, não pelo Restart Manager (a janela fica oculta na bandeja)
+CloseApplications=no
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 OutputDir=dist
@@ -52,3 +62,48 @@ Filename: "{app}\{#MyAppExe}"; Description: "Abrir o {#MyAppName} agora"; Flags:
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{userappdata}\ClaudeIndicator"
+
+[Code]
+const
+  UninstallKey =
+    'Software\Microsoft\Windows\CurrentVersion\Uninstall\{7C4E2B10-9A3F-4D6E-B8C1-2F5A9D7E4B31}_is1';
+
+var
+  IsUpgrade: Boolean;
+
+{ Fecha a instância que estiver na bandeja: sem isso o executável fica em uso e não pode ser trocado.
+  As preferências ficam em %APPDATA% e são gravadas na hora em que mudam, então nada se perde. }
+procedure StopRunningApp;
+var
+  ResultCode: Integer;
+begin
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/IM {#MyAppExe} /F', '',
+       SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Sleep(800);
+end;
+
+function InitializeSetup(): Boolean;
+var
+  Previous: String;
+begin
+  IsUpgrade := RegQueryStringValue(HKA, UninstallKey, 'UninstallString', Previous);
+  Result := True;
+end;
+
+{ Atualização: nada de perguntar pasta, tarefas ou confirmação de novo. }
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := IsUpgrade and ((PageID = wpSelectTasks) or (PageID = wpReady));
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  StopRunningApp;
+  Result := '';
+end;
+
+function InitializeUninstall(): Boolean;
+begin
+  StopRunningApp;
+  Result := True;
+end;

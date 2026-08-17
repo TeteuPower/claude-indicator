@@ -34,7 +34,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~150 MB)
-- `dist\ClaudeIndicator-Setup-1.0.0.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-1.1.0.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -46,6 +46,11 @@ Variações:
 
 O instalador não pede administrador (instala para o usuário atual) e tem a opção
 "iniciar junto com o Windows".
+
+Rodar o instalador com o app já instalado é uma **atualização**: ele fecha a instância que está na
+bandeja, reaproveita a pasta e as opções da instalação anterior sem perguntar de novo, troca o
+executável e mantém as suas preferências (`%APPDATA%\ClaudeIndicator\settings.json`). Não é preciso
+desinstalar antes.
 
 ## Login / de onde vêm os dados
 
