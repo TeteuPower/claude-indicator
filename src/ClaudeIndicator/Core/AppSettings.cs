@@ -74,6 +74,19 @@ public class AppSettings
         "https://api.anthropic.com/api/claude_cli/usage"
     };
 
+    // ---- Consumo por projeto (transcrições do Claude Code) ----
+    /// <summary>
+    /// Pesos do custo aproximado de cada tipo de token. A API não publica a fórmula do limite,
+    /// então isto é uma aproximação: serve para repartir o consumo entre projetos, não para
+    /// calcular valor absoluto. Entrada é a referência (peso 1).
+    /// </summary>
+    public double WeightOutput { get; set; } = 5.0;
+    public double WeightCacheWrite { get; set; } = 1.25;
+    public double WeightCacheRead { get; set; } = 0.1;
+
+    /// <summary>Trechos de id de modelo que contam no limite próprio do Fable (separados por vírgula).</summary>
+    public string FableModelIds { get; set; } = "fable";
+
     public string SessionKeywords { get; set; } = "five_hour,fivehour,5h,session,current";
     public string WeeklyKeywords { get; set; } = "seven_day,sevenday,7d,week,weekly";
     public string FableKeywords { get; set; } = "opus,fable";
@@ -150,6 +163,10 @@ public class AppSettings
         if (GadgetOpacity > 1.0) GadgetOpacity = 1.0;
         if (GadgetScale < 0.7) GadgetScale = 0.7;
         if (GadgetScale > 2.0) GadgetScale = 2.0;
+        if (WeightOutput <= 0 || double.IsNaN(WeightOutput)) WeightOutput = 5.0;
+        if (WeightCacheWrite < 0 || double.IsNaN(WeightCacheWrite)) WeightCacheWrite = 1.25;
+        if (WeightCacheRead < 0 || double.IsNaN(WeightCacheRead)) WeightCacheRead = 0.1;
+        if (string.IsNullOrWhiteSpace(FableModelIds)) FableModelIds = "fable";
         if (HistoryRetentionDays < 0) HistoryRetentionDays = 0;
         if (HistoryRetentionDays > 3650) HistoryRetentionDays = 3650;
         if (WarnThreshold < 1) WarnThreshold = 1;

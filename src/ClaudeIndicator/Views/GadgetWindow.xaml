@@ -19,6 +19,7 @@
         <ContextMenu>
             <MenuItem Header="Atualizar agora" Click="OnRefreshClick"/>
             <MenuItem Header="Histórico de consumo…" Click="OnHistoryClick"/>
+            <MenuItem Header="Consumo por projeto…" Click="OnProjectsClick"/>
             <MenuItem Header="Configurações…" Click="OnSettingsClick"/>
             <Separator/>
             <MenuItem Header="Ocultar gadget" Click="OnHideClick"/>

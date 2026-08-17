@@ -29,6 +29,7 @@ public sealed class AppHost
     private GadgetWindow? _gadget;
     private SettingsWindow? _settingsWindow;
     private HistoryWindow? _historyWindow;
+    private ProjectsWindow? _projectsWindow;
     private bool _busy;
 
     // Resiliência: última consulta que veio com barras, e pausa imposta por HTTP 429.
@@ -89,6 +90,7 @@ public sealed class AppHost
         var menu = new WinForms.ContextMenuStrip();
         menu.Items.Add("Atualizar agora", null, (_, _) => _ = RefreshAsync(true));
         menu.Items.Add("Histórico de consumo…", null, (_, _) => ShowHistory());
+        menu.Items.Add("Consumo por projeto…", null, (_, _) => ShowProjects());
         menu.Items.Add("Configurações…", null, (_, _) => ShowSettings());
         menu.Items.Add(new WinForms.ToolStripSeparator());
         menu.Items.Add("Mostrar/ocultar gadget", null, (_, _) => ToggleGadget());
@@ -205,6 +207,22 @@ public sealed class AppHost
         _historyWindow.Closed += (_, _) => _historyWindow = null;
         _historyWindow.Show();
         _historyWindow.Activate();
+    }
+
+    public void ShowProjects()
+    {
+        if (_projectsWindow != null)
+        {
+            if (_projectsWindow.WindowState == System.Windows.WindowState.Minimized)
+                _projectsWindow.WindowState = System.Windows.WindowState.Normal;
+            _projectsWindow.Activate();
+            return;
+        }
+
+        _projectsWindow = new ProjectsWindow(this);
+        _projectsWindow.Closed += (_, _) => _projectsWindow = null;
+        _projectsWindow.Show();
+        _projectsWindow.Activate();
     }
 
     public void ApplySettings(AppSettings updated)

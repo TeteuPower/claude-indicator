@@ -27,6 +27,7 @@
                     <TextBlock x:Name="HeaderStatus" Style="{StaticResource Hint}" Text="Carregando consumo…"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Content="Por projeto" Click="OnProjectsClick" Margin="0,0,10,0"/>
                     <Button Content="Histórico" Click="OnHistoryClick" Margin="0,0,10,0"/>
                     <Button Content="Atualizar agora" Click="OnRefreshClick"/>
                 </StackPanel>
@@ -291,6 +292,34 @@
                                 <TextBlock Text="Fable / Opus" VerticalAlignment="Center" Grid.Row="2"/>
                                 <TextBox x:Name="TxtKwFable" Grid.Row="2" Grid.Column="1" Margin="0,3"/>
                             </Grid>
+
+                            <TextBlock Text="Peso de cada tipo de token no consumo por projeto" Margin="0,14,0,4"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                    <TextBlock Text="Saída" FontSize="11.5" Foreground="{StaticResource MutedBrush}"/>
+                                    <TextBox x:Name="TxtWeightOutput" Margin="0,3,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="6,0,6,0">
+                                    <TextBlock Text="Escrita de cache" FontSize="11.5" Foreground="{StaticResource MutedBrush}"/>
+                                    <TextBox x:Name="TxtWeightCacheWrite" Margin="0,3,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Margin="6,0,6,0">
+                                    <TextBlock Text="Leitura de cache" FontSize="11.5" Foreground="{StaticResource MutedBrush}"/>
+                                    <TextBox x:Name="TxtWeightCacheRead" Margin="0,3,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="3" Margin="6,0,0,0">
+                                    <TextBlock Text="Modelos do Fable" FontSize="11.5" Foreground="{StaticResource MutedBrush}"/>
+                                    <TextBox x:Name="TxtFableModels" Margin="0,3,0,0"/>
+                                </StackPanel>
+                            </Grid>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0"
+                                       Text="Entrada é a referência (peso 1). A API não publica como o limite é calculado, então estes pesos são uma aproximação usada só para repartir o consumo entre projetos — mudam as fatias, não o total medido."/>
 
                             <TextBlock Text="Resposta bruta da API" Margin="0,12,0,4"/>
                             <TextBox x:Name="TxtRaw" AcceptsReturn="True" IsReadOnly="True" Height="180"

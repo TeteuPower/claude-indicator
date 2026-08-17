@@ -140,6 +140,45 @@ As preferências ficam em `%APPDATA%\ClaudeIndicator\settings.json`.
   Não há como importar consumo anterior: a API devolve só o estado atual dos limites, sem série
   histórica. O gráfico começa vazio e enche a partir do primeiro uso.
 
+- **Consumo por projeto**: menu da bandeja ou do gadget › "Consumo por projeto…". Reparte o
+  consumo entre os projetos do Claude Code e lista os prompts de cada um, com o custo do turno que
+  cada prompt disparou. Detalhes e ressalvas na seção abaixo.
+
+## Consumo por projeto
+
+A API informa **porcentagem do limite**; ela não diz em que você gastou. Quem sabe disso são as
+transcrições que o Claude Code guarda em `%USERPROFILE%\.claude\projects\**\*.jsonl`: cada resposta
+traz `message.usage` (tokens de entrada, saída e cache), `message.model` e o `cwd` do projeto.
+
+O app lê esses arquivos e reparte o consumo:
+
+- **Fatia relativa** de cada projeto, pelo custo estimado dos tokens.
+- **Pontos do limite**, multiplicando a fatia pelo total realmente medido. Na "semana atual" esse
+  total é exato: a barra semanal é, por definição, o quanto já foi gasto desde a renovação.
+- **Só Fable 5**, filtrando pelos modelos que contam no limite próprio dele.
+- **Prompts de cada projeto**, com horário, texto e o custo do turno que cada um disparou —
+  ordenáveis por mais recentes ou mais caros.
+
+Os arquivos só crescem no fim, então o índice guarda o offset já lido de cada um: a primeira
+varredura leva alguns segundos (~3 s para 280 MB) e as seguintes, milissegundos. O texto dos prompts
+não é copiado para o índice — fica só o arquivo e o offset, e a linha é lida quando a tela precisa.
+Nada sai da máquina.
+
+Três coisas que o número **não** é:
+
+1. **A repartição é proporcional, não medida.** A conversão de tokens para porcentagem do limite não
+   é publicada, então usamos pesos aproximados (ajustáveis em Configurações › Diagnóstico). Eles
+   mudam as fatias, nunca o total.
+2. **O que você consome fora do Claude Code** (claude.ai, outra máquina, outro app) não está nas
+   transcrições e acaba diluído entre os projetos.
+3. **Turnos de subagentes** entram no projeto onde rodaram. Um projeto pode aparecer com consumo e
+   nenhum prompt digitado quando o prompt de origem está em outro.
+
+Duas armadilhas do formato que o parser trata, e que sem tratamento dobrariam os números: sessões
+retomadas **copiam o histórico** para o arquivo novo (48% de turnos repetidos no acervo testado, por
+isso a deduplicação por `uuid`), e um mesmo `requestId` emite vários registros **repetindo o mesmo
+`usage`** (vale um por request, o maior).
+
 ## Estrutura do código
 
 ```
@@ -151,12 +190,14 @@ src/ClaudeIndicator/
     CredentialStore.cs   leitura do login do Claude Code + refresh OAuth
     UsageService.cs      HTTP + parser tolerante do JSON de consumo
     UsageHistory.cs      grava/lê o histórico de consumo (history.jsonl)
+    TranscriptIndex.cs   índice incremental das transcrições do Claude Code
     TrayIconRenderer.cs  desenha o ícone da bandeja em tempo real
     StartupManager.cs    inicialização automática (HKCU\...\Run)
   Views/
     GadgetWindow.xaml    gadget transparente, arrastável, sempre por cima
     SettingsWindow.xaml  tela de configuração
     HistoryWindow.xaml   gráficos do histórico (nível e consumo por hora/dia)
+    ProjectsWindow.xaml  consumo por projeto e prompts de cada um
     BarRenderer.cs       desenho das barras (gadget e prévia)
 ```
 

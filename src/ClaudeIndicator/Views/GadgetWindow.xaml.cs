@@ -185,6 +185,8 @@ public partial class GadgetWindow : Window
 
     private void OnHistoryClick(object sender, RoutedEventArgs e) => AppHost.Current?.ShowHistory();
 
+    private void OnProjectsClick(object sender, RoutedEventArgs e) => AppHost.Current?.ShowProjects();
+
     private void OnHideClick(object sender, RoutedEventArgs e)
     {
         if (!_canHide)

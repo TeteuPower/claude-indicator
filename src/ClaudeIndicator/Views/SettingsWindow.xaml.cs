@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
@@ -74,6 +75,10 @@ public partial class SettingsWindow : Window
         TxtKwSession.Text = s.SessionKeywords;
         TxtKwWeekly.Text = s.WeeklyKeywords;
         TxtKwFable.Text = s.FableKeywords;
+        TxtWeightOutput.Text = s.WeightOutput.ToString(CultureInfo.InvariantCulture);
+        TxtWeightCacheWrite.Text = s.WeightCacheWrite.ToString(CultureInfo.InvariantCulture);
+        TxtWeightCacheRead.Text = s.WeightCacheRead.ToString(CultureInfo.InvariantCulture);
+        TxtFableModels.Text = s.FableModelIds;
 
         AccountStatus.Text = DescribeAccount();
     }
@@ -154,6 +159,10 @@ public partial class SettingsWindow : Window
         if (TxtKwSession.Text.Trim().Length > 0) s.SessionKeywords = TxtKwSession.Text.Trim();
         if (TxtKwWeekly.Text.Trim().Length > 0) s.WeeklyKeywords = TxtKwWeekly.Text.Trim();
         if (TxtKwFable.Text.Trim().Length > 0) s.FableKeywords = TxtKwFable.Text.Trim();
+        if (TxtFableModels.Text.Trim().Length > 0) s.FableModelIds = TxtFableModels.Text.Trim();
+        s.WeightOutput = ParseWeight(TxtWeightOutput.Text, s.WeightOutput);
+        s.WeightCacheWrite = ParseWeight(TxtWeightCacheWrite.Text, s.WeightCacheWrite);
+        s.WeightCacheRead = ParseWeight(TxtWeightCacheRead.Text, s.WeightCacheRead);
 
         s.Sanitize();
         return s;
@@ -296,6 +305,15 @@ public partial class SettingsWindow : Window
     private static string FormatInterval(int seconds) =>
         seconds < 60 ? seconds + " s" : (seconds / 60) + " min";
 
+    /// <summary>Aceita vírgula ou ponto como separador decimal; valor inválido mantém o anterior.</summary>
+    private static double ParseWeight(string text, double fallback)
+    {
+        var t = (text ?? "").Trim().Replace(',', '.');
+        return double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var v) && v >= 0 && !double.IsNaN(v)
+            ? v
+            : fallback;
+    }
+
     // ------------------------------------------------------------------
     // Eventos
     // ------------------------------------------------------------------
@@ -366,6 +384,8 @@ public partial class SettingsWindow : Window
     }
 
     private void OnHistoryClick(object sender, RoutedEventArgs e) => _host.ShowHistory();
+
+    private void OnProjectsClick(object sender, RoutedEventArgs e) => _host.ShowProjects();
 
     private async void OnRefreshClick(object sender, RoutedEventArgs e)
     {
