@@ -1,0 +1,90 @@
+<Window x:Class="ClaudeIndicator.Views.PromptDetailWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Prompt"
+        Width="760" Height="620"
+        MinWidth="520" MinHeight="380"
+        Background="{StaticResource BgBrush}"
+        Foreground="{StaticResource TextBrush}"
+        WindowStartupLocation="CenterOwner"
+        Icon="/Assets/app.ico"
+        FontFamily="Segoe UI">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Cabeçalho -->
+        <Border Grid.Row="0" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource LineBrush}"
+                BorderThickness="0,0,0,1" Padding="22,16">
+            <StackPanel>
+                <TextBlock x:Name="HeaderWhen" FontSize="16" FontWeight="SemiBold"/>
+                <TextBlock x:Name="HeaderProject" Style="{StaticResource Hint}" Margin="0,3,0,0"
+                           TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Custo -->
+        <Border Grid.Row="1" Style="{StaticResource Card}" Margin="22,16,22,10" Padding="16,13">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock x:Name="StatShare" FontSize="19" FontWeight="SemiBold"
+                               Foreground="{StaticResource AccentBrush}"/>
+                    <TextBlock Text="do consumo do período" Style="{StaticResource Hint}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                    <TextBlock x:Name="StatTurns" FontSize="19" FontWeight="SemiBold"/>
+                    <TextBlock Text="turnos disparados" Style="{StaticResource Hint}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock x:Name="StatOutput" FontSize="19" FontWeight="SemiBold"/>
+                    <TextBlock Text="tokens de saída" Style="{StaticResource Hint}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="3">
+                    <TextBlock x:Name="StatCache" FontSize="19" FontWeight="SemiBold"/>
+                    <TextBlock Text="leitura de cache" Style="{StaticResource Hint}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Texto -->
+        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="22,0,22,10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <TextBlock Text="Prompt enviado" Style="{StaticResource Title}" Margin="0,0,0,8"/>
+                <TextBox x:Name="TxtPrompt" Grid.Row="1" IsReadOnly="True" AcceptsReturn="True"
+                         TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                         FontSize="12.5" BorderThickness="0" Background="Transparent"
+                         Foreground="{StaticResource TextBrush}"/>
+            </Grid>
+        </Border>
+
+        <!-- Rodapé -->
+        <Border Grid.Row="3" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource LineBrush}"
+                BorderThickness="0,1,0,0" Padding="22,12">
+            <Grid>
+                <TextBlock x:Name="FooterSource" Style="{StaticResource Hint}" VerticalAlignment="Center"
+                           Margin="0" TextTrimming="CharacterEllipsis" MaxWidth="420"
+                           HorizontalAlignment="Left"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Copiar texto" Click="OnCopyClick" Margin="0,0,10,0"/>
+                    <Button Content="Fechar" Style="{StaticResource PrimaryButton}" Click="OnCloseClick" MinWidth="96"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

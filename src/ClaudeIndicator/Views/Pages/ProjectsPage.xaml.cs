@@ -250,7 +250,10 @@ public partial class ProjectsPage : UserControl
             Padding = new Thickness(14, 12, 14, 13),
             Margin = new Thickness(0, 0, 12, 12),
             Cursor = Cursors.Hand,
-            ToolTip = p.Path
+            ToolTip = p.FolderExists
+                ? p.Path
+                : p.Path + "\n\nEsta pasta não existe mais. O caminho é o que estava gravado na "
+                         + "transcrição quando o consumo aconteceu — o projeto foi movido, renomeado ou apagado desde então."
         };
         card.MouseLeftButtonUp += (_, _) =>
         {
@@ -312,12 +315,15 @@ public partial class ProjectsPage : UserControl
         track.Child = grid;
         stack.Children.Add(track);
 
+        var meta = $"{totals.Turns:n0} turnos · {p.Prompts:n0} prompts";
+        if (!p.FolderExists) meta += "  ·  pasta não existe mais";
         stack.Children.Add(new TextBlock
         {
-            Text = $"{totals.Turns:n0} turnos · {p.Prompts:n0} prompts",
+            Text = meta,
             FontSize = 10.5,
-            Foreground = BarRenderer.Swatch("MutedBrush"),
-            Margin = new Thickness(0, 9, 0, 0)
+            Foreground = BarRenderer.Swatch(p.FolderExists ? "MutedBrush" : "WarnBrush"),
+            Margin = new Thickness(0, 9, 0, 0),
+            TextTrimming = TextTrimming.CharacterEllipsis
         });
 
         if (!FableScope && p.Fable.Turns > 0)
@@ -389,7 +395,7 @@ public partial class ProjectsPage : UserControl
         var oneLine = text.Replace("\r", " ").Replace("\n", " ").Trim();
         if (oneLine.Length > 150) oneLine = oneLine.Substring(0, 150) + "…";
 
-        var grid = new Grid { Margin = new Thickness(0, 0, 0, 9) };
+        var grid = new Grid { Margin = new Thickness(0, 0, 0, 2) };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(92) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(56) });
@@ -410,12 +416,7 @@ public partial class ProjectsPage : UserControl
             Text = oneLine,
             FontSize = 12,
             TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 0, 10, 0),
-            ToolTip = new ToolTip
-            {
-                Content = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, MaxWidth = 520 },
-                MaxWidth = 560
-            }
+            Margin = new Thickness(0, 0, 10, 0)
         };
         Grid.SetColumn(body, 1);
         grid.Children.Add(body);
@@ -461,7 +462,33 @@ public partial class ProjectsPage : UserControl
         Grid.SetColumn(cost, 3);
         grid.Children.Add(cost);
 
-        return grid;
+        // linha inteira clicável: abre o prompt completo, com o custo detalhado
+        var row = new Border
+        {
+            Child = grid,
+            Background = Brushes.Transparent,
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(6, 5, 6, 5),
+            Margin = new Thickness(-6, 0, -6, 4),
+            Cursor = Cursors.Hand,
+            ToolTip = "Clique para ver o prompt completo"
+        };
+        row.MouseEnter += (_, _) => row.Background = BarRenderer.Swatch("PanelBrush2");
+        row.MouseLeave += (_, _) => row.Background = Brushes.Transparent;
+        row.MouseLeftButtonUp += (_, _) => ShowPromptDetail(e);
+
+        return row;
+    }
+
+    private void ShowPromptDetail(PromptEntry entry)
+    {
+        var project = _projects.Find(p => p.Path == entry.Project);
+        var window = new PromptDetailWindow(entry, project?.Name ?? TranscriptIndex.FriendlyName(entry.Project),
+            project?.FolderExists ?? true)
+        {
+            Owner = Window.GetWindow(this)
+        };
+        window.ShowDialog();
     }
 
     private static TextBlock Hint(string text) => new()

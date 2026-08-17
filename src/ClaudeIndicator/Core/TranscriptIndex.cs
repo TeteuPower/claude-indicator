@@ -36,6 +36,13 @@ public sealed class ProjectUsage
 {
     public string Path = "";
     public string Name = "";
+
+    /// <summary>
+    /// A pasta ainda existe? O caminho vem do cwd gravado na transcrição, então projetos movidos,
+    /// renomeados ou apagados aparecem com o caminho de quando foram usados.
+    /// </summary>
+    public bool FolderExists { get; set; } = true;
+
     public TokenTotals All { get; } = new();
     public TokenTotals Fable { get; } = new();
     public int Prompts { get; set; }
@@ -680,6 +687,18 @@ public sealed class TranscriptIndex
                 pu.Share = total > 0 ? pu.All.Weighted(settings) / total : 0;
                 pu.FableShare = totalFable > 0 ? pu.Fable.Weighted(settings) / totalFable : 0;
                 result.Add(pu);
+            }
+
+            foreach (var pu in result)
+            {
+                try
+                {
+                    pu.FolderExists = Directory.Exists(pu.Path);
+                }
+                catch
+                {
+                    pu.FolderExists = true; // caminho inválido para o SO: não vale acusar
+                }
             }
 
             Disambiguate(result);

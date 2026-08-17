@@ -11,9 +11,9 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
-    <Version>1.7.1</Version>
-    <FileVersion>1.7.1.0</FileVersion>
-    <AssemblyVersion>1.7.1.0</AssemblyVersion>
+    <Version>1.7.2</Version>
+    <FileVersion>1.7.2.0</FileVersion>
+    <AssemblyVersion>1.7.2.0</AssemblyVersion>
     <Product>Claude Indicator</Product>
     <Company>Claude Indicator</Company>
     <AssemblyTitle>Claude Indicator</AssemblyTitle>
