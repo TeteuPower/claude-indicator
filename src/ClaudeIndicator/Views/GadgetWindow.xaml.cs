@@ -24,6 +24,9 @@ public partial class GadgetWindow : Window
     {
         Topmost = s.GadgetTopmost;
         Opacity = s.GadgetOpacity;
+
+        // vertical: largura fixa (as linhas se esticam); horizontal: a largura vem das células
+        Root.Width = s.GadgetOrientation == BarOrientation.Horizontal ? double.NaN : 214;
         RootScale.ScaleX = s.GadgetScale;
         RootScale.ScaleY = s.GadgetScale;
         _locked = s.GadgetLocked;
@@ -96,14 +99,28 @@ public partial class GadgetWindow : Window
             btn.Click += OnSettingsClick;
             BarsPanel.Children.Add(btn);
         }
+        else if (s.GadgetOrientation == BarOrientation.Horizontal)
+        {
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
+            for (var i = 0; i < bars.Count; i++)
+            {
+                if (i > 0) row.Children.Add(BarRenderer.BuildCellSeparator());
+                row.Children.Add(BarRenderer.BuildCell(bars[i], s, s.GadgetShowReset));
+            }
+            BarsPanel.Children.Add(row);
+        }
         else
         {
             foreach (var bar in bars)
                 BarsPanel.Children.Add(BuildRow(bar, s));
         }
 
-        var footer = $"atualizado {snap.FetchedAt.ToLocalTime():HH:mm}";
-        if (!snap.Ok && bars.Count > 0) footer += " · falha ao atualizar";
+        var when = (snap.DataAt ?? snap.FetchedAt).ToLocalTime();
+        string footer;
+        if (snap.Stale)
+            footer = (snap.RateLimited ? "aguardando limite da API" : "falha ao atualizar") + $" · dados de {when:HH:mm}";
+        else
+            footer = $"atualizado {when:HH:mm}" + (!snap.Ok && bars.Count > 0 ? " · falha ao atualizar" : "");
         FooterText.Text = footer;
     }
 
@@ -165,6 +182,8 @@ public partial class GadgetWindow : Window
     }
 
     private void OnSettingsClick(object sender, RoutedEventArgs e) => AppHost.Current?.ShowSettings();
+
+    private void OnHistoryClick(object sender, RoutedEventArgs e) => AppHost.Current?.ShowHistory();
 
     private void OnHideClick(object sender, RoutedEventArgs e)
     {

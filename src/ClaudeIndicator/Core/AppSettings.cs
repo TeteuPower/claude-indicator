@@ -13,13 +13,13 @@ public enum DisplayMode
     Both
 }
 
-/// <summary>Como as barras são desenhadas no ícone da bandeja.</summary>
-public enum TrayOrientation
+/// <summary>Como as barras são organizadas (ícone da bandeja e gadget).</summary>
+public enum BarOrientation
 {
-    /// <summary>Uma coluna por barra, preenchendo de baixo para cima.</summary>
+    /// <summary>Empilhadas: no ícone, colunas lado a lado; no gadget, uma barra por linha.</summary>
     Vertical,
 
-    /// <summary>Uma linha por barra, preenchendo da esquerda para a direita.</summary>
+    /// <summary>Lado a lado na horizontal: no ícone, linhas; no gadget, uma célula por barra na mesma linha.</summary>
     Horizontal
 }
 
@@ -30,7 +30,7 @@ public class AppSettings
 {
     // ---- Exibição ----
     public DisplayMode DisplayMode { get; set; } = DisplayMode.Tray;
-    public TrayOrientation TrayOrientation { get; set; } = TrayOrientation.Vertical;
+    public BarOrientation TrayOrientation { get; set; } = BarOrientation.Vertical;
 
     // ---- Barras ----
     public bool ShowSession { get; set; } = true;
@@ -52,6 +52,7 @@ public class AppSettings
     public bool GadgetTopmost { get; set; } = true;
     public bool GadgetLocked { get; set; } = false;
     public bool GadgetShowReset { get; set; } = true;
+    public BarOrientation GadgetOrientation { get; set; } = BarOrientation.Vertical;
 
     // ---- Sistema ----
     public bool StartWithWindows { get; set; } = false;

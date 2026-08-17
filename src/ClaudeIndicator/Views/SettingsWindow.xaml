@@ -27,6 +27,7 @@
                     <TextBlock x:Name="HeaderStatus" Style="{StaticResource Hint}" Text="Carregando consumo…"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Content="Histórico" Click="OnHistoryClick" Margin="0,0,10,0"/>
                     <Button Content="Atualizar agora" Click="OnRefreshClick"/>
                 </StackPanel>
             </Grid>
@@ -126,7 +127,17 @@
                                        HorizontalAlignment="Right" Foreground="{StaticResource MutedBrush}"/>
                         </Grid>
 
-                        <CheckBox x:Name="ChkTopmost" Content="Sempre por cima de qualquer aplicativo"/>
+                        <TextBlock Text="Disposição das barras" Margin="0,12,0,0"/>
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="GadgetVertical" GroupName="GadgetOrient"
+                                         Content="Vertical (uma barra por linha)" Margin="0,4,20,0"/>
+                            <RadioButton x:Name="GadgetHorizontal" GroupName="GadgetOrient"
+                                         Content="Horizontal (lado a lado)" Margin="0,4,0,0"/>
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,0"
+                                   Text="Na horizontal o gadget vira um retângulo com cada indicador na mesma linha, separados por um traço."/>
+
+                        <CheckBox x:Name="ChkTopmost" Content="Sempre por cima de qualquer aplicativo" Margin="0,12,0,0"/>
                         <CheckBox x:Name="ChkLocked" Content="Travar posição (impede arrastar sem querer)"/>
                         <CheckBox x:Name="ChkShowReset" Content="Mostrar horário de renovação em cada barra"/>
 

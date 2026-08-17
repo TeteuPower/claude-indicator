@@ -36,8 +36,10 @@ public partial class SettingsWindow : Window
         ModeGadget.IsChecked = s.DisplayMode == DisplayMode.Gadget;
         ModeBoth.IsChecked = s.DisplayMode == DisplayMode.Both;
 
-        OrientVertical.IsChecked = s.TrayOrientation == TrayOrientation.Vertical;
-        OrientHorizontal.IsChecked = s.TrayOrientation == TrayOrientation.Horizontal;
+        OrientVertical.IsChecked = s.TrayOrientation == BarOrientation.Vertical;
+        OrientHorizontal.IsChecked = s.TrayOrientation == BarOrientation.Horizontal;
+        GadgetVertical.IsChecked = s.GadgetOrientation == BarOrientation.Vertical;
+        GadgetHorizontal.IsChecked = s.GadgetOrientation == BarOrientation.Horizontal;
 
         ChkSession.IsChecked = s.ShowSession;
         ChkWeekly.IsChecked = s.ShowWeekly;
@@ -100,8 +102,11 @@ public partial class SettingsWindow : Window
                 : DisplayMode.Tray;
 
         s.TrayOrientation = OrientHorizontal.IsChecked == true
-            ? TrayOrientation.Horizontal
-            : TrayOrientation.Vertical;
+            ? BarOrientation.Horizontal
+            : BarOrientation.Vertical;
+        s.GadgetOrientation = GadgetHorizontal.IsChecked == true
+            ? BarOrientation.Horizontal
+            : BarOrientation.Vertical;
 
         s.ShowSession = ChkSession.IsChecked == true;
         s.ShowWeekly = ChkWeekly.IsChecked == true;
@@ -298,6 +303,8 @@ public partial class SettingsWindow : Window
         MessageBox.Show(this, "O gadget voltará ao canto inferior direito ao salvar.",
             "Claude Indicator", MessageBoxButton.OK, MessageBoxImage.Information);
     }
+
+    private void OnHistoryClick(object sender, RoutedEventArgs e) => _host.ShowHistory();
 
     private async void OnRefreshClick(object sender, RoutedEventArgs e)
     {

@@ -85,4 +85,89 @@ public static class BarRenderer
         container.Children.Add(track);
         return container;
     }
+
+    /// <summary>
+    /// Célula do gadget horizontal: rótulo em cima, porcentagem + barra na linha de baixo,
+    /// horário de renovação embaixo. As células ficam lado a lado, com um separador entre elas.
+    /// </summary>
+    public static UIElement BuildCell(UsageBar bar, AppSettings s, bool showReset)
+    {
+        var cell = new StackPanel { Width = 118 };
+
+        cell.Children.Add(new TextBlock
+        {
+            Text = s.LabelFor(bar.Kind),
+            FontSize = 10.5,
+            Foreground = Swatch("MutedBrush"),
+            TextTrimming = TextTrimming.CharacterEllipsis
+        });
+
+        var row = new Grid { Margin = new Thickness(0, 4, 0, 0) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var value = new TextBlock
+        {
+            Text = Math.Round(bar.Percent).ToString("0") + "%",
+            FontSize = 15,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = BrushFor(bar.Percent, s),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        Grid.SetColumn(value, 0);
+        row.Children.Add(value);
+
+        var track = new Border
+        {
+            Height = 6,
+            CornerRadius = new CornerRadius(3),
+            Background = Swatch("TrackBrush"),
+            Margin = new Thickness(8, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            ClipToBounds = true
+        };
+        var grid = new Grid();
+        var frac = Math.Max(0.0, Math.Min(1.0, bar.Fraction));
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(frac, 0.0001), GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(1 - frac, 0.0001), GridUnitType.Star) });
+        var fill = new Border
+        {
+            CornerRadius = new CornerRadius(3),
+            Background = BrushFor(bar.Percent, s),
+            MinWidth = bar.Percent > 0 ? 3 : 0
+        };
+        Grid.SetColumn(fill, 0);
+        grid.Children.Add(fill);
+        track.Child = grid;
+        Grid.SetColumn(track, 1);
+        row.Children.Add(track);
+
+        cell.Children.Add(row);
+
+        if (showReset && bar.ResetsAt != null)
+        {
+            cell.Children.Add(new TextBlock
+            {
+                Text = bar.ResetText(),
+                FontSize = 9.5,
+                Foreground = Swatch("MutedBrush"),
+                Margin = new Thickness(0, 3, 0, 0),
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
+        }
+
+        return cell;
+    }
+
+    /// <summary>Separador vertical entre as células do gadget horizontal.</summary>
+    public static UIElement BuildCellSeparator()
+    {
+        return new Border
+        {
+            Width = 1,
+            Background = Swatch("LineBrush"),
+            Margin = new Thickness(12, 2, 12, 2),
+            VerticalAlignment = VerticalAlignment.Stretch
+        };
+    }
 }

@@ -53,7 +53,7 @@ public static class TrayIconRenderer
             {
                 DrawSingle(g, bars[0], settings);
             }
-            else if (settings.TrayOrientation == TrayOrientation.Horizontal)
+            else if (settings.TrayOrientation == BarOrientation.Horizontal)
             {
                 DrawRows(g, bars, settings);
             }
