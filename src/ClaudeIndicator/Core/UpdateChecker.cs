@@ -239,12 +239,14 @@ public sealed class UpdateChecker
             }
         }
 
-        // prioridade: tag numérica > nome da release ("Build 1.6.1 (main)") > nome do instalador
+        // Prioridade: tag numérica > nome do instalador > nome da release.
+        // O instalador vem antes do nome porque é o arquivo que será de fato instalado; o nome é
+        // texto editável e pode ficar defasado se a chamada que o atualiza falhar.
         var fromTag = NormalizeVersion(tag);
         var fromName = VersionFromName(Str(rel, "name") ?? "");
         info.Version = Version.TryParse(Pad(fromTag), out _)
             ? fromTag
-            : fromName ?? assetVersion ?? "";
+            : assetVersion ?? fromName ?? "";
 
         return string.IsNullOrEmpty(info.Version) ? null : info;
     }

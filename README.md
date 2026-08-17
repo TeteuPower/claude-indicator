@@ -62,8 +62,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.7.0
-git push origin v1.7.0
+git tag v1.7.1
+git push origin v1.7.1
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -83,8 +83,15 @@ Dois detalhes do GitHub que o app precisa contornar:
 - O endpoint `/releases/latest` **ignora pré-releases**, e a build de cada push é exatamente uma
   pré-release. Por isso o app lista as releases e escolhe a maior versão, com uma opção para
   considerar ou não as pré-releases.
-- A pré-release usa a tag fixa `latest`, que não é uma versão. A versão sai então do nome do
-  instalador anexado (`ClaudeIndicator-Setup-1.7.0.exe`).
+- A pré-release usa a tag fixa `latest`, que não é uma versão. A versão sai então do **nome do
+  instalador anexado** (`ClaudeIndicator-Setup-1.7.1.exe`) — de propósito antes do título da
+  release, porque o instalador é o arquivo que será realmente instalado e o título é texto que
+  pode ficar defasado se a chamada que o atualiza falhar.
+
+No workflow, anexar o instalador é o único passo obrigatório: atualizar título e remover os
+instaladores antigos são acabamento e apenas registram um aviso quando falham. A API do GitHub tem
+devolvido `503` de forma persistente nas chamadas que alteram essa release, e não faz sentido
+perder a publicação inteira por causa do texto do título.
 
 ## Como compilar
 
@@ -102,7 +109,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~63 MB)
-- `dist\ClaudeIndicator-Setup-1.7.0.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-1.7.1.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 

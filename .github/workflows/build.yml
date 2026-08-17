@@ -91,26 +91,38 @@ jobs:
             }
           }
 
+          # O instalador e o unico passo obrigatorio: e o arquivo que sera instalado, e o nome dele
+          # carrega a versao que o app le. Titulo e limpeza sao acabamento e nao derrubam o job --
+          # a API do GitHub vem devolvendo 503 nas chamadas que alteram esta release.
           if ($exists) {
             Write-Host "atualizando a release latest"
             if (-not (Invoke-Gh @('release', 'upload', 'latest', $setup, '--clobber'))) { throw "falha ao enviar o instalador" }
-            if (-not (Invoke-Gh @('release', 'edit', 'latest', '--title', $title, '--notes', $notes, '--prerelease'))) { throw "falha ao editar a release" }
           }
 
-          # O nome do instalador carrega a versao, entao --clobber nunca substitui o anterior:
-          # sem limpar, a release acumula um .exe por build e quem consome nao sabe qual e o atual.
+          # --clobber so substitui arquivo de mesmo nome, e o nome carrega a versao: sem limpar,
+          # a release acumula um .exe por build.
           $current = Split-Path $setup -Leaf
           $names = & gh release view latest --json assets --jq '.assets[].name'
           if ($LASTEXITCODE -eq 0) {
             foreach ($name in $names) {
               if ($name -and $name -ne $current -and $name -like 'ClaudeIndicator-Setup-*.exe') {
                 Write-Host "removendo instalador antigo: $name"
-                Invoke-Gh @('release', 'delete-asset', 'latest', $name, '--yes') -Tries 2 | Out-Null
+                if (-not (Invoke-Gh @('release', 'delete-asset', 'latest', $name, '--yes') -Tries 2)) {
+                  Write-Host "::warning::nao consegui remover $name; segue com mais de um instalador anexado"
+                }
               }
+            }
+          } else {
+            Write-Host "::warning::nao consegui listar os assets para limpar os antigos"
+          }
+
+          if ($exists) {
+            if (-not (Invoke-Gh @('release', 'edit', 'latest', '--title', $title, '--notes', $notes, '--prerelease') -Tries 2)) {
+              Write-Host "::warning::titulo da release nao atualizado (o instalador anexado ja esta correto)"
             }
           }
 
-          Write-Host "release latest atualizada para $version (asset unico: $current)"
+          Write-Host "release latest publicada com $current"
 
       # Só em tags v*: cria a release numerada com o instalador anexado (link estável).
       - name: Criar a release
