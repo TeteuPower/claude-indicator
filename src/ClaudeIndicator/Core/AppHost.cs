@@ -351,6 +351,37 @@ public sealed class AppHost
         Rate = ConsumptionRate.Measure(UsageHistory.Load(TimeSpan.FromHours(2)), snap.Get(kind), kind);
     }
 
+    /// <summary>
+    /// Passa o ritmo para o próximo limite — é o clique no velocímetro. Só entram os limites
+    /// ligados e que a API devolveu, senão o clique levaria a um velocímetro vazio.
+    /// </summary>
+    public void CycleRateKind()
+    {
+        var available = new List<BarKind>();
+        foreach (var kind in new[] { BarKind.Session, BarKind.Weekly, BarKind.Fable })
+        {
+            if (Settings.IsEnabled(kind) && Last?.Get(kind) != null) available.Add(kind);
+        }
+        if (available.Count == 0)
+        {
+            foreach (var kind in new[] { BarKind.Session, BarKind.Weekly, BarKind.Fable })
+            {
+                if (Settings.IsEnabled(kind)) available.Add(kind);
+            }
+        }
+        if (available.Count == 0) return;
+
+        var index = available.IndexOf(Settings.RateKind);
+        Settings.RateKind = available[(index + 1) % available.Count];
+        Settings.Save();
+
+        if (Last != null) UpdateRate(Last);
+        UpdateTray();
+        _gadget?.Render(Last, Settings);
+        _taskbarBar?.Render(Last, Settings);
+        Updated?.Invoke(Last);
+    }
+
     private void Publish(UsageSnapshot snap)
     {
         if (snap.Ok && snap.Bars.Count > 0)

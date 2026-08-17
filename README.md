@@ -55,8 +55,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.6.2
-git push origin v1.6.2
+git tag v1.6.3
+git push origin v1.6.3
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -77,7 +77,7 @@ Dois detalhes do GitHub que o app precisa contornar:
   pré-release. Por isso o app lista as releases e escolhe a maior versão, com uma opção para
   considerar ou não as pré-releases.
 - A pré-release usa a tag fixa `latest`, que não é uma versão. A versão sai então do nome do
-  instalador anexado (`ClaudeIndicator-Setup-1.6.2.exe`).
+  instalador anexado (`ClaudeIndicator-Setup-1.6.3.exe`).
 
 ## Como compilar
 
@@ -95,7 +95,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~63 MB)
-- `dist\ClaudeIndicator-Setup-1.6.2.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-1.6.3.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 

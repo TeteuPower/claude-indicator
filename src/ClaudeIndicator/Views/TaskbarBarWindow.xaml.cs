@@ -42,8 +42,13 @@ public partial class TaskbarBarWindow : Window
     public void ApplySettings(AppSettings s)
     {
         _settings = s;
-        Root.Background = new SolidColorBrush(Color.FromArgb(
-            (byte)Math.Clamp(s.TaskbarBarOpacity * 255, 0, 255), 0x1F, 0x1E, 0x1D));
+
+        // Alfa 0 deixaria o painel clicável-através: numa janela transparente o Windows decide o
+        // hit-test pelo alfa do pixel, e o clique iria para a barra de tarefas embaixo. Um alfa
+        // de 1/255 é invisível a olho nu e mantém a janela clicável.
+        var alpha = (byte)Math.Clamp(Math.Round(s.TaskbarBarOpacity * 255), 1, 255);
+        Root.Background = new SolidColorBrush(Color.FromArgb(alpha, 0x1F, 0x1E, 0x1D));
+
         Render(_snapshot, s);
         Reposition();
     }
@@ -95,12 +100,15 @@ public partial class TaskbarBarWindow : Window
         Margin = new Thickness(10, 9, 10, 9)
     };
 
-    /// <summary>Velocímetro do ritmo: arco pequeno + o número, que é o que se lê de relance.</summary>
+    /// <summary>
+    /// Velocímetro do ritmo: arco pequeno + o número, que é o que se lê de relance. O rótulo diz
+    /// de qual limite é o ritmo, e clicar passa para o próximo — por isso ele não diz só "Ritmo".
+    /// </summary>
     private UIElement BuildGaugeCell(RateReading rate, AppSettings s)
     {
         var scale = Math.Clamp(s.TaskbarBarScale, 0.8, 1.6);
-        var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
 
+        var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         row.Children.Add(new Border
         {
             Child = GaugeRenderer.Build(rate, 34 * scale),
@@ -109,13 +117,24 @@ public partial class TaskbarBarWindow : Window
         });
 
         var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        text.Children.Add(new TextBlock
+
+        // linha do filtro: nome do limite + seta, indicando que dá para trocar
+        var header = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 2) };
+        header.Children.Add(new TextBlock
         {
-            Text = "Ritmo",
+            Text = s.LabelFor(s.RateKind),
             FontSize = 9.5 * scale,
-            Foreground = BarRenderer.Swatch("MutedBrush"),
-            Margin = new Thickness(0, 0, 0, 2)
+            Foreground = BarRenderer.Swatch("MutedBrush")
         });
+        header.Children.Add(new TextBlock
+        {
+            Text = " ↻",
+            FontSize = 9 * scale,
+            Foreground = BarRenderer.Swatch("MutedBrush"),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        text.Children.Add(header);
+
         text.Children.Add(new TextBlock
         {
             Text = ConsumptionRate.Format(rate),
@@ -125,8 +144,22 @@ public partial class TaskbarBarWindow : Window
         });
         row.Children.Add(text);
 
-        row.ToolTip = GaugeRenderer.Describe(rate, s, s.RateKind);
-        return row;
+        var cell = new Border
+        {
+            Child = row,
+            Background = System.Windows.Media.Brushes.Transparent,
+            Cursor = Cursors.Hand,
+            Padding = new Thickness(2, 0, 2, 0),
+            ToolTip = GaugeRenderer.Describe(rate, s, s.RateKind) + "\n\nClique para ver o ritmo de outro limite."
+        };
+        cell.MouseLeftButtonUp += (_, e) =>
+        {
+            // sem isto o clique subiria para o painel e abriria a janela
+            e.Handled = true;
+            AppHost.Current?.CycleRateKind();
+        };
+
+        return cell;
     }
 
     /// <summary>Célula compacta: cabe na altura da barra sem apertar o texto.</summary>
@@ -183,9 +216,23 @@ public partial class TaskbarBarWindow : Window
 
         var tip = $"{s.LabelFor(bar.Kind)}: {bar.Percent:0.#}% usado, restam {Math.Max(0, 100 - bar.Percent):0.#}%";
         if (bar.ResetsAt != null) tip += $"\n{bar.ResetText()} (às {bar.ResetClock()})";
-        cell.ToolTip = tip;
+        tip += "\n\nClique para abrir o painel.";
 
-        return cell;
+        // área de clique da célula inteira, e não só onde há pixel pintado
+        var hit = new Border
+        {
+            Child = cell,
+            Background = System.Windows.Media.Brushes.Transparent,
+            Cursor = Cursors.Hand,
+            ToolTip = tip
+        };
+        hit.MouseLeftButtonUp += (_, e) =>
+        {
+            e.Handled = true;
+            AppHost.Current?.ShowDashboard();
+        };
+
+        return hit;
     }
 
     // ------------------------------------------------------------------

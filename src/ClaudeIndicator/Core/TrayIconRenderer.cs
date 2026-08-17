@@ -219,7 +219,7 @@ public static class TrayIconRenderer
 
         if (rate is { HasData: true })
         {
-            text += $"\nRitmo: {ConsumptionRate.Format(rate)}";
+            text += $"\n{settings.LabelFor(settings.RateKind)}: {ConsumptionRate.Format(rate)}";
             var left = ConsumptionRate.FormatTimeLeft(rate);
             if (left.Length > 0) text += " · " + left;
         }

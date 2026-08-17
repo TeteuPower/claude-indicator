@@ -148,7 +148,15 @@ public partial class GadgetWindow : Window
             BorderThickness = new Thickness(0, 1, 0, 0),
             Padding = new Thickness(0, 9, 0, 0),
             Margin = new Thickness(0, 2, 0, 0),
-            ToolTip = GaugeRenderer.Describe(rate, s, s.RateKind)
+            Background = Brushes.Transparent,
+            Cursor = Cursors.Hand,
+            ToolTip = GaugeRenderer.Describe(rate, s, s.RateKind) + "\n\nClique para ver o ritmo de outro limite."
+        };
+        border.MouseLeftButtonUp += (_, e) =>
+        {
+            // o gadget inteiro arrasta com o botão esquerdo: aqui o clique é só do velocímetro
+            e.Handled = true;
+            AppHost.Current?.CycleRateKind();
         };
 
         var row = new StackPanel { Orientation = Orientation.Horizontal };
@@ -160,22 +168,36 @@ public partial class GadgetWindow : Window
         });
 
         var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        text.Children.Add(new TextBlock
+
+        var head = new StackPanel { Orientation = Orientation.Horizontal };
+        head.Children.Add(new TextBlock
         {
             Text = ConsumptionRate.Format(rate),
             FontSize = 14,
             FontWeight = FontWeights.SemiBold,
             Foreground = new SolidColorBrush(GaugeRenderer.ColorFor(rate))
         });
+        head.Children.Add(new TextBlock
+        {
+            Text = "  " + s.LabelFor(s.RateKind) + " ↻",
+            FontSize = 10,
+            Foreground = Swatch("MutedBrush"),
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(0, 0, 0, 2)
+        });
+        text.Children.Add(head);
 
         var caption = ConsumptionRate.FormatTimeLeft(rate);
-        text.Children.Add(new TextBlock
+        if (caption.Length > 0)
         {
-            Text = caption.Length > 0 ? caption : s.LabelFor(s.RateKind).ToLowerInvariant(),
-            FontSize = 10.5,
-            Foreground = Swatch("MutedBrush"),
-            Margin = new Thickness(0, 1, 0, 0)
-        });
+            text.Children.Add(new TextBlock
+            {
+                Text = caption,
+                FontSize = 10.5,
+                Foreground = Swatch("MutedBrush"),
+                Margin = new Thickness(0, 1, 0, 0)
+            });
+        }
         row.Children.Add(text);
 
         border.Child = row;

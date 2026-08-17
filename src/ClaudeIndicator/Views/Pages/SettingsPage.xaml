@@ -182,6 +182,8 @@
                                        Text="No ícone da bandeja o ritmo aparece ao passar o mouse — no desenho de 16 px não há espaço."/>
 
                             <TextBlock Text="Ritmo de qual limite" Style="{StaticResource FieldLabel}" Margin="0,14,0,5"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,5"
+                                       Text="Também dá para trocar clicando no próprio velocímetro, na barra de tarefas ou no gadget — o rótulo ao lado dele mostra qual está ativo."/>
                             <Border Style="{StaticResource SegmentGroup}">
                                 <StackPanel Orientation="Horizontal">
                                     <RadioButton x:Name="RateWeekly" GroupName="RateKind" Style="{StaticResource Segment}" Content="Semanal"/>
