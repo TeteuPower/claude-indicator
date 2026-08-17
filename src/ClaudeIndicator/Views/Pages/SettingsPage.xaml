@@ -16,6 +16,7 @@
             <StackPanel Orientation="Horizontal">
                 <RadioButton x:Name="TabDisplay" GroupName="Tab" Style="{StaticResource Segment}" Content="Onde exibir" Checked="OnTabChanged"/>
                 <RadioButton x:Name="TabBars" GroupName="Tab" Style="{StaticResource Segment}" Content="Barras" Checked="OnTabChanged"/>
+                <RadioButton x:Name="TabRate" GroupName="Tab" Style="{StaticResource Segment}" Content="Ritmo" Checked="OnTabChanged"/>
                 <RadioButton x:Name="TabAccount" GroupName="Tab" Style="{StaticResource Segment}" Content="Conta" Checked="OnTabChanged"/>
                 <RadioButton x:Name="TabSystem" GroupName="Tab" Style="{StaticResource Segment}" Content="Sistema" Checked="OnTabChanged"/>
                 <RadioButton x:Name="TabData" GroupName="Tab" Style="{StaticResource Segment}" Content="Dados" Checked="OnTabChanged"/>
@@ -163,6 +164,41 @@
 
                             <Button Content="Reposicionar no canto inferior direito" Click="OnResetPositionClick"
                                     HorizontalAlignment="Left" Margin="0,14,0,0"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ============ Ritmo (velocímetro) ============ -->
+                <StackPanel x:Name="PanelRate" Visibility="Collapsed">
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Text="Velocímetro de consumo" Style="{StaticResource Title}"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4"
+                                       Text="Mostra quanto do limite você está gastando por minuto. O meio da escala é o ritmo que o limite aguenta até renovar: ponteiro à esquerda dele significa que dá para seguir assim, à direita significa que vai acabar antes."/>
+
+                            <CheckBox x:Name="ChkRateTaskbar" Style="{StaticResource Switch}" Content="Mostrar no painel da barra de tarefas"/>
+                            <CheckBox x:Name="ChkRateGadget" Style="{StaticResource Switch}" Content="Mostrar no gadget flutuante"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0"
+                                       Text="No ícone da bandeja o ritmo aparece ao passar o mouse — no desenho de 16 px não há espaço."/>
+
+                            <TextBlock Text="Ritmo de qual limite" Style="{StaticResource FieldLabel}" Margin="0,14,0,5"/>
+                            <Border Style="{StaticResource SegmentGroup}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton x:Name="RateWeekly" GroupName="RateKind" Style="{StaticResource Segment}" Content="Semanal"/>
+                                    <RadioButton x:Name="RateSession" GroupName="RateKind" Style="{StaticResource Segment}" Content="Sessão"/>
+                                    <RadioButton x:Name="RateFable" GroupName="RateKind" Style="{StaticResource Segment}" Content="Fable 5"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Background="{StaticResource BgBrush}" CornerRadius="9" Padding="16,13" Margin="0,16,0,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <ContentControl x:Name="RatePreviewHost" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock x:Name="RatePreviewValue" FontSize="16" FontWeight="SemiBold"/>
+                                        <TextBlock x:Name="RatePreviewCaption" Style="{StaticResource Hint}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -393,6 +429,29 @@
                                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                                      FontFamily="Consolas" FontSize="11.5"/>
                             <TextBlock x:Name="DiagInfo" Style="{StaticResource Hint}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Text="Atualizações" Style="{StaticResource Title}"/>
+                            <TextBlock x:Name="UpdateStatus" Style="{StaticResource Hint}" FontSize="12.5"/>
+
+                            <CheckBox x:Name="ChkCheckUpdates" Style="{StaticResource Switch}"
+                                      Content="Procurar versão nova automaticamente"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
+                                       Text="Consulta as releases do repositório no máximo uma vez a cada 6 horas."/>
+
+                            <TextBlock Text="Repositório" Style="{StaticResource FieldLabel}" Margin="0,14,0,5"/>
+                            <TextBox x:Name="TxtUpdateRepo" FontFamily="Consolas" FontSize="11.5" TextChanged="OnAnyTextChanged"/>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                <Button x:Name="BtnCheckUpdate" Content="Procurar agora" Click="OnCheckUpdateClick"/>
+                                <Button x:Name="BtnInstallUpdate" Content="Baixar e instalar" Click="OnInstallUpdateClick"
+                                        Style="{StaticResource PrimaryButton}" Margin="10,0,0,0" Visibility="Collapsed"/>
+                                <TextBlock x:Name="UpdateResult" Style="{StaticResource Hint}" VerticalAlignment="Center"
+                                           Margin="12,0,0,0" MaxWidth="360"/>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 

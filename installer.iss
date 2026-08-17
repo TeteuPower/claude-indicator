@@ -2,7 +2,7 @@
 ; Gere com: .\build.ps1   (ou abra este arquivo no Inno Setup Compiler)
 
 #define MyAppName "Claude Indicator"
-#define MyAppVersion "1.4.0"
+#define MyAppVersion "1.5.0"
 #define MyAppExe "ClaudeIndicator.exe"
 
 [Setup]
@@ -59,6 +59,9 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 Filename: "{app}\{#MyAppExe}"; Description: "Abrir o {#MyAppName} agora"; Flags: nowait postinstall skipifsilent
+; atualização feita pelo próprio app: ele foi fechado para a troca do executável, então
+; quem o inicia de volta é o instalador
+Filename: "{app}\{#MyAppExe}"; Parameters: "--minimized"; Flags: nowait; Check: WizardSilent
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{userappdata}\ClaudeIndicator"

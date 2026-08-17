@@ -237,8 +237,7 @@ public partial class OverviewPage : UserControl
             : $"projeção de {_host.Settings.LabelFor(MainKind).ToLowerInvariant()} na renovação";
     }
 
-    private static string Format(double? pts) =>
-        pts == null ? "—" : "+" + pts.Value.ToString("0.#") + " pts";
+    private static string Format(double? pts) => BarRenderer.FormatLimitDelta(pts);
 
     /// <summary>Soma das subidas da barra principal na janela pedida.</summary>
     private double? SumConsumption(TimeSpan window)
@@ -320,7 +319,7 @@ public partial class OverviewPage : UserControl
 
         var max = 0.0;
         foreach (var v in sums) if (v > max) max = v;
-        SparkCaption.Text = $"pico de {max:0.#} pts em uma hora";
+        SparkCaption.Text = $"pico de {BarRenderer.FormatLimitDelta(max)} do limite em uma hora";
 
         const double labelH = 15;
         var plotH = h - labelH;
@@ -342,7 +341,7 @@ public partial class OverviewPage : UserControl
                     RadiusX = 2.5,
                     RadiusY = 2.5,
                     Fill = BarRenderer.Swatch("AccentBrush"),
-                    ToolTip = $"{bucket.ToLocalTime():HH'h'} · +{sums[i]:0.#} pts"
+                    ToolTip = $"{bucket.ToLocalTime():HH'h'} · {BarRenderer.FormatLimitDelta(sums[i])} do limite"
                 };
                 Canvas.SetLeft(rect, x);
                 Canvas.SetTop(rect, plotH - barH);
@@ -468,14 +467,14 @@ public partial class OverviewPage : UserControl
 
         var value = new TextBlock
         {
-            Text = measuredPts != null
-                ? (p.Share * measuredPts.Value).ToString("0.#") + " pts"
-                : (p.Share * 100).ToString("0.#") + "%",
+            Text = BarRenderer.FormatShare(p.Share),
             FontSize = 12.5,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
             Foreground = BarRenderer.Swatch("AccentBrush"),
-            ToolTip = $"{p.Share * 100:0.#}% do consumo da semana"
+            ToolTip = measuredPts != null
+                ? $"{BarRenderer.FormatShare(p.Share)} do consumo da semana — cerca de {p.Share * measuredPts.Value:0.#} pontos do limite"
+                : $"{BarRenderer.FormatShare(p.Share)} do consumo da semana"
         };
         Grid.SetColumn(value, 2);
         grid.Children.Add(value);

@@ -197,11 +197,15 @@ public static class TrayIconRenderer
         return path;
     }
 
-    /// <summary>Tooltip da bandeja (máx. 63 caracteres por segurança).</summary>
-    public static string Tooltip(UsageSnapshot? snap, AppSettings settings)
+    /// <summary>
+    /// Tooltip da bandeja. É onde o ritmo de consumo aparece no modo ícone: no desenho de 16 px
+    /// não cabe, mas passar o mouse é gesto natural para "quero o detalhe".
+    /// O limite do Windows é 127 caracteres.
+    /// </summary>
+    public static string Tooltip(UsageSnapshot? snap, AppSettings settings, RateReading? rate = null)
     {
         if (snap == null) return "Claude Indicator — carregando…";
-        if (!snap.Ok && snap.Bars.Count == 0) return Truncate("Claude Indicator — " + snap.Error, 63);
+        if (!snap.Ok && snap.Bars.Count == 0) return Truncate("Claude Indicator — " + snap.Error, 127);
 
         var parts = new List<string>();
         foreach (var kind in settings.EnabledKinds())
@@ -212,9 +216,20 @@ public static class TrayIconRenderer
         }
 
         var text = parts.Count > 0 ? string.Join(" · ", parts) : "Claude Indicator";
-        var first = snap.Visible(settings).FirstOrDefault();
-        if (first?.ResetsAt != null) text += $"\n{first.ResetText()}";
-        return Truncate(text, 63);
+
+        if (rate is { HasData: true })
+        {
+            text += $"\nRitmo: {ConsumptionRate.Format(rate)}";
+            var left = ConsumptionRate.FormatTimeLeft(rate);
+            if (left.Length > 0) text += " · " + left;
+        }
+        else
+        {
+            var first = snap.Visible(settings).FirstOrDefault();
+            if (first?.ResetsAt != null) text += $"\n{first.ResetText()}";
+        }
+
+        return Truncate(text, 127);
     }
 
     private static string Truncate(string s, int max) =>

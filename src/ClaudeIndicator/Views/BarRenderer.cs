@@ -15,6 +15,30 @@ public static class BarRenderer
         return res as Brush ?? Brushes.Gray;
     }
 
+    /// <summary>
+    /// Fatia (0..1) como porcentagem legível em qualquer ordem de grandeza: 20,3% e 0,004% têm
+    /// que caber na mesma coluna sem virar "0%" nem "20,300%".
+    /// </summary>
+    public static string FormatShare(double share)
+    {
+        var pct = share * 100.0;
+        if (pct <= 0) return "0%";
+        if (pct < 0.001) return "<0,001%";
+        if (pct < 0.1) return pct.ToString("0.###") + "%";
+        if (pct < 1) return pct.ToString("0.##") + "%";
+        if (pct < 10) return pct.ToString("0.#") + "%";
+        return pct.ToString("0") + "%";
+    }
+
+    /// <summary>Consumo medido em pontos do limite (a barra subiu tanto), com sinal.</summary>
+    public static string FormatLimitDelta(double? points)
+    {
+        if (points == null) return "—";
+        var v = points.Value;
+        if (v <= 0) return "0%";
+        return "+" + (v < 0.1 ? v.ToString("0.##") : v < 10 ? v.ToString("0.#") : v.ToString("0")) + "%";
+    }
+
     public static Brush BrushFor(double percent, AppSettings s)
     {
         if (percent >= s.AlertThreshold) return Swatch("DangerBrush");

@@ -4,7 +4,9 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using ClaudeIndicator.Core;
+using ClaudeIndicator.Views;
 
 namespace ClaudeIndicator.Views;
 
@@ -116,6 +118,13 @@ public partial class GadgetWindow : Window
                 BarsPanel.Children.Add(BuildRow(bar, s));
         }
 
+        if (bars.Count > 0 && s.ShowRateGadget)
+            BarsPanel.Children.Add(BuildRateRow(s));
+
+        // o conteúdo muda de tamanho (linha do ritmo, orientação, rótulos): reencaixa na tela
+        // depois do layout, senão a largura ainda é a antiga e o gadget fica cortado na borda
+        Dispatcher.BeginInvoke(new Action(ClampToScreen), DispatcherPriority.Loaded);
+
         var when = (snap.DataAt ?? snap.FetchedAt).ToLocalTime();
         string footer;
         if (snap.Stale)
@@ -127,6 +136,51 @@ public partial class GadgetWindow : Window
 
     private UIElement BuildRow(UsageBar bar, AppSettings s)
         => BarRenderer.BuildRow(bar, s, s.GadgetShowReset);
+
+    /// <summary>Linha do velocímetro: arco à esquerda, ritmo e tempo restante à direita.</summary>
+    private UIElement BuildRateRow(AppSettings s)
+    {
+        var rate = AppHost.Current?.Rate ?? RateReading.Empty;
+
+        var border = new Border
+        {
+            BorderBrush = Swatch("LineBrush"),
+            BorderThickness = new Thickness(0, 1, 0, 0),
+            Padding = new Thickness(0, 9, 0, 0),
+            Margin = new Thickness(0, 2, 0, 0),
+            ToolTip = GaugeRenderer.Describe(rate, s, s.RateKind)
+        };
+
+        var row = new StackPanel { Orientation = Orientation.Horizontal };
+        row.Children.Add(new Border
+        {
+            Child = GaugeRenderer.Build(rate, 44),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 10, 0)
+        });
+
+        var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        text.Children.Add(new TextBlock
+        {
+            Text = ConsumptionRate.Format(rate),
+            FontSize = 14,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(GaugeRenderer.ColorFor(rate))
+        });
+
+        var caption = ConsumptionRate.FormatTimeLeft(rate);
+        text.Children.Add(new TextBlock
+        {
+            Text = caption.Length > 0 ? caption : s.LabelFor(s.RateKind).ToLowerInvariant(),
+            FontSize = 10.5,
+            Foreground = Swatch("MutedBrush"),
+            Margin = new Thickness(0, 1, 0, 0)
+        });
+        row.Children.Add(text);
+
+        border.Child = row;
+        return border;
+    }
 
     private static Brush Swatch(string key) => BarRenderer.Swatch(key);
 
@@ -152,10 +206,14 @@ public partial class GadgetWindow : Window
         if (double.IsNaN(Left)) Left = area.Left + 40;
         if (double.IsNaN(Top)) Top = area.Top + 40;
 
+        var before = (Left, Top);
+
         if (Left + w > area.Right) Left = Math.Max(area.Left, area.Right - w);
         if (Top + h > area.Bottom) Top = Math.Max(area.Top, area.Bottom - h);
-        if (Left < area.Left - w / 2) Left = area.Left + 20;
-        if (Top < area.Top) Top = area.Top + 20;
+        if (Left < area.Left) Left = area.Left + 8;
+        if (Top < area.Top) Top = area.Top + 8;
+
+        if (before != (Left, Top)) AppHost.Current?.SaveGadgetPosition(Left, Top);
     }
 
     private void OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)

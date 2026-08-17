@@ -73,7 +73,7 @@
             <Border Style="{StaticResource Card}">
                 <StackPanel>
                     <Grid Margin="0,0,0,10">
-                        <TextBlock Text="Onde foi gasto nesta semana" Style="{StaticResource Title}" Margin="0"/>
+                        <TextBlock Text="Onde foi gasto nesta semana (% do consumo)" Style="{StaticResource Title}" Margin="0"/>
                         <Button Content="Ver todos" Click="OnSeeProjectsClick" Padding="10,4" FontSize="11.5"
                                 HorizontalAlignment="Right" VerticalAlignment="Top"/>
                     </Grid>

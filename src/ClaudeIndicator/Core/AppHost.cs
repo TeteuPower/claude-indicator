@@ -19,8 +19,14 @@ public sealed class AppHost
 
     public event Action<UsageSnapshot?>? Updated;
 
+    /// <summary>Disparado quando o GitHub tem uma versão mais nova que a instalada.</summary>
+    public event Action<UpdateInfo>? UpdateFound;
+
+    public UpdateChecker Updates => _updates;
+
     private readonly CredentialStore _store = new();
     private readonly UsageService _service;
+    private readonly UpdateChecker _updates = new();
     private readonly DispatcherTimer _timer = new();
     private readonly Dictionary<BarKind, bool> _alerted = new();
 
@@ -83,6 +89,8 @@ public sealed class AppHost
 
         if (firstRun || (!minimized && !Settings.StartHidden))
             ShowDashboard();
+
+        _ = CheckUpdatesAsync();
     }
 
     // ------------------------------------------------------------------
@@ -133,7 +141,7 @@ public sealed class AppHost
         _tray.Icon = icon;
         _trayIcon?.Dispose();
         _trayIcon = icon;
-        _tray.Text = TrayIconRenderer.Tooltip(Last, Settings);
+        _tray.Text = TrayIconRenderer.Tooltip(Last, Settings, Rate);
         _tray.Visible = true;
     }
 
@@ -330,6 +338,15 @@ public sealed class AppHost
         return true;
     }
 
+    /// <summary>Ritmo de consumo atual, recalculado a cada publicação.</summary>
+    public RateReading Rate { get; private set; } = RateReading.Empty;
+
+    private void UpdateRate(UsageSnapshot snap)
+    {
+        var kind = Settings.RateKind;
+        Rate = ConsumptionRate.Measure(UsageHistory.Load(TimeSpan.FromHours(2)), snap.Get(kind), kind);
+    }
+
     private void Publish(UsageSnapshot snap)
     {
         if (snap.Ok && snap.Bars.Count > 0)
@@ -371,6 +388,7 @@ public sealed class AppHost
         }
 
         Last = snap;
+        UpdateRate(snap);
         ScheduleNext();
         UpdateTray();
         _gadget?.Render(snap, Settings);
@@ -416,6 +434,47 @@ public sealed class AppHost
         _taskbarBar?.Close();
         _main?.Close();
         System.Windows.Application.Current?.Shutdown();
+    }
+
+    // ------------------------------------------------------------------
+    // Atualização
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Procura versão nova. Avisa uma vez por versão: quem mandou ignorar não é incomodado de
+    /// novo até sair uma posterior.
+    /// </summary>
+    public async Task<UpdateInfo?> CheckUpdatesAsync(bool force = false)
+    {
+        try
+        {
+            var info = await _updates.CheckAsync(Settings, force).ConfigureAwait(true);
+            if (info == null) return null;
+
+            if (!force && string.Equals(info.Version, Settings.SkippedVersion, StringComparison.OrdinalIgnoreCase))
+                return info;
+
+            UpdateFound?.Invoke(info);
+
+            if (_tray is { Visible: true } && !force)
+            {
+                _tray.ShowBalloonTip(7000, AppInfo.Name,
+                    $"Versão {info.Version} disponível. Abra o painel para atualizar.",
+                    WinForms.ToolTipIcon.Info);
+            }
+            return info;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Marca a versão como ignorada até sair uma mais nova.</summary>
+    public void SkipUpdate(UpdateInfo info)
+    {
+        Settings.SkippedVersion = info.Version;
+        Settings.Save();
     }
 
     public CredentialStore Credentials => _store;

@@ -688,10 +688,45 @@ public sealed class TranscriptIndex
         return result;
     }
 
-    /// <summary>Prompts de um projeto no período, do mais recente para o mais antigo.</summary>
-    public List<PromptEntry> PromptsFor(string projectPath, DateTimeOffset from, DateTimeOffset to, AppSettings settings)
+    /// <summary>
+    /// Custo total do período, somando todos os projetos. É o denominador das fatias, para que
+    /// projeto e prompt sejam lidos na mesma régua: "quanto do que gastei na semana foi aqui".
+    /// </summary>
+    public double TotalWeight(DateTimeOffset from, DateTimeOffset to, AppSettings settings, bool fableOnly)
+    {
+        lock (_lock)
+        {
+            var fableIds = fableOnly ? FableModelSet(settings) : null;
+            var fromHour = from.ToUnixTimeSeconds() / 3600;
+            var toHour = to.ToUnixTimeSeconds() / 3600;
+
+            double total = 0;
+            foreach (var b in _data.Buckets)
+            {
+                if (b.Hour < fromHour || b.Hour > toHour) continue;
+                if (fableIds != null && !fableIds.Contains(b.Model)) continue;
+
+                total += new TokenTotals
+                {
+                    Input = b.Input, Output = b.Output, CacheRead = b.CacheRead,
+                    CacheWrite = b.CacheWrite, Turns = b.Turns
+                }.Weighted(settings);
+            }
+            return total;
+        }
+    }
+
+    /// <summary>
+    /// Prompts de um projeto no período, do mais recente para o mais antigo. A fatia de cada um
+    /// é medida contra o consumo total do período — não contra o do projeto —, então um prompt
+    /// pequeno aparece como uma fração pequena mesmo, e as fatias somam a fatia do projeto.
+    /// </summary>
+    public List<PromptEntry> PromptsFor(string projectPath, DateTimeOffset from, DateTimeOffset to,
+        AppSettings settings, double? periodTotal = null)
     {
         var list = new List<PromptEntry>();
+        var total = periodTotal ?? TotalWeight(from, to, settings, fableOnly: false);
+
         lock (_lock)
         {
             var pid = _data.Projects.FindIndex(p => string.Equals(p, projectPath, StringComparison.OrdinalIgnoreCase));
@@ -699,7 +734,6 @@ public sealed class TranscriptIndex
 
             var fromUnix = from.ToUnixTimeSeconds();
             var toUnix = to.ToUnixTimeSeconds();
-            double total = 0;
 
             foreach (var p in _data.Prompts)
             {
@@ -715,11 +749,10 @@ public sealed class TranscriptIndex
                 };
                 e.Cost.Input = p.Input; e.Cost.Output = p.Output;
                 e.Cost.CacheRead = p.CacheRead; e.Cost.CacheWrite = p.CacheWrite; e.Cost.Turns = p.Turns;
-                total += e.Cost.Weighted(settings);
+                e.Share = total > 0 ? e.Cost.Weighted(settings) / total : 0;
                 list.Add(e);
             }
 
-            foreach (var e in list) e.Share = total > 0 ? e.Cost.Weighted(settings) / total : 0;
             list.Sort((a, b) => b.At.CompareTo(a.At));
         }
         return list;

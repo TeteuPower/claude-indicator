@@ -25,6 +25,7 @@ public partial class ProjectsPage : UserControl
     private CancellationTokenSource? _cts;
 
     private List<ProjectUsage> _projects = new();
+    private double _periodTotal;
     private string? _selected;
     private bool _ready;
     private bool _scanning;
@@ -175,16 +176,16 @@ public partial class ProjectsPage : UserControl
         var (from, to, label) = Period();
         var settings = _host.Settings;
         _projects = _index.Aggregate(from, to, settings);
+        _periodTotal = _index.TotalWeight(from, to, settings, FableScope);
 
         var kindLabel = settings.LabelFor(AnchorKind);
         var bar = _host.Last?.Get(AnchorKind);
         var (measured, exact) = MeasuredPts(from, to);
 
-        // Resumo
         if (bar != null)
         {
             var remaining = Math.Max(0, 100 - bar.Percent);
-            SummaryLine.Text = $"{kindLabel}: {bar.Percent:0.#}% consumido · restam {remaining:0.#}%"
+            SummaryLine.Text = $"{kindLabel}: {bar.Percent:0.#}% do limite consumido · restam {remaining:0.#}%"
                                + (bar.ResetsAt != null ? $" · {bar.ResetText()}" : "");
         }
         else
@@ -193,41 +194,31 @@ public partial class ProjectsPage : UserControl
         }
 
         var hint = new System.Text.StringBuilder();
-        hint.Append("Período: ").Append(label).Append(". ");
-        if (measured != null)
-        {
-            hint.Append(exact
-                ? $"Os {measured:0.#} pts consumidos na janela são repartidos abaixo na proporção do custo de cada projeto."
-                : $"Repartindo {measured:0.#} pts somados do histórico local (só o tempo com o app aberto).");
-        }
-        else
-        {
-            hint.Append("Sem medição de pontos para este período: as fatias são relativas.");
-        }
-        hint.Append(" Consumo fora do Claude Code (claude.ai, outra máquina) não aparece nas transcrições e acaba diluído entre os projetos.");
+        hint.Append("Período: ").Append(label)
+            .Append(". As fatias abaixo são do consumo do período, não do limite: somadas dão 100%. ");
+        if (measured != null && exact)
+            hint.Append($"Como {measured:0.#}% do limite foi gasto na janela, cada 10% aqui equivale a {measured.Value / 10:0.#} pontos do limite. ");
+        hint.Append("Consumo fora do Claude Code (claude.ai, outra máquina) não aparece nas transcrições e acaba diluído entre os projetos.");
         SummaryHint.Text = hint.ToString();
 
         ProjectsTitle.Text = FableScope ? "Projetos — só Fable 5" : "Projetos — todos os modelos";
-        DrawProjects(measured);
+        DrawProjects();
 
         if (_selected != null && !_projects.Exists(p => p.Path == _selected)) _selected = null;
         if (_selected == null && _projects.Count > 0) _selected = _projects[0].Path;
         DrawPrompts();
     }
 
-    private void DrawProjects(double? measuredPts)
+    private void DrawProjects()
     {
         ProjectsPanel.Children.Clear();
 
         if (_projects.Count == 0)
         {
-            ProjectsPanel.Children.Add(Hint(_scanning
-                ? "Lendo…"
-                : "Nenhum consumo registrado neste período."));
+            ProjectsPanel.Children.Add(Hint(_scanning ? "Lendo…" : "Nenhum consumo registrado neste período."));
             return;
         }
 
-        var settings = _host.Settings;
         var top = 0.0;
         foreach (var p in _projects)
         {
@@ -240,115 +231,109 @@ public partial class ProjectsPage : UserControl
             var share = FableScope ? p.FableShare : p.Share;
             var totals = FableScope ? p.Fable : p.All;
             if (totals.Turns == 0) continue;
-
-            ProjectsPanel.Children.Add(BuildProjectRow(p, share, totals, measuredPts, top));
+            ProjectsPanel.Children.Add(BuildProjectCard(p, share, totals, top));
         }
     }
 
-    private UIElement BuildProjectRow(ProjectUsage p, double share, TokenTotals totals, double? measuredPts, double topShare)
+    /// <summary>Cartão de um projeto: fatia do consumo em destaque, com o volume como apoio.</summary>
+    private UIElement BuildProjectCard(ProjectUsage p, double share, TokenTotals totals, double topShare)
     {
         var selected = p.Path == _selected;
 
-        var border = new Border
+        var card = new Border
         {
-            Background = selected ? BarRenderer.Swatch("PanelBrush2") : Brushes.Transparent,
-            CornerRadius = new CornerRadius(7),
-            Padding = new Thickness(10, 7, 10, 7),
-            Margin = new Thickness(0, 0, 0, 3),
+            Width = 254,
+            Background = BarRenderer.Swatch(selected ? "PanelBrush2" : "PanelBrush"),
+            BorderBrush = selected ? BarRenderer.Swatch("AccentBrush") : BarRenderer.Swatch("LineBrush"),
+            BorderThickness = new Thickness(selected ? 1.5 : 1),
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(14, 12, 14, 13),
+            Margin = new Thickness(0, 0, 12, 12),
             Cursor = Cursors.Hand,
             ToolTip = p.Path
         };
-        border.MouseLeftButtonUp += (_, _) =>
+        card.MouseLeftButtonUp += (_, _) =>
         {
             _selected = p.Path;
-            DrawProjects(MeasuredPts(Period().From, Period().To).Pts);
+            DrawProjects();
             DrawPrompts();
         };
 
-        var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var stack = new StackPanel();
 
-        var name = new TextBlock
+        stack.Children.Add(new TextBlock
         {
             Text = p.Name,
-            FontSize = 13,
+            FontSize = 12.5,
             FontWeight = selected ? FontWeights.SemiBold : FontWeights.Normal,
-            TextTrimming = TextTrimming.CharacterEllipsis
-        };
-        Grid.SetColumn(name, 0);
-        grid.Children.Add(name);
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            Foreground = BarRenderer.Swatch("TextBrush")
+        });
 
-        var pct = new TextBlock
+        var valueRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 7, 0, 0) };
+        valueRow.Children.Add(new TextBlock
         {
-            Text = (share * 100).ToString("0.#") + "%",
-            FontSize = 13,
+            Text = BarRenderer.FormatShare(share),
+            FontSize = 25,
             FontWeight = FontWeights.SemiBold,
-            HorizontalAlignment = HorizontalAlignment.Right,
             Foreground = BarRenderer.Swatch("AccentBrush")
-        };
-        Grid.SetColumn(pct, 1);
-        grid.Children.Add(pct);
-
-        var ptsText = measuredPts != null
-            ? (share * measuredPts.Value).ToString("0.#") + " pts"
-            : "—";
-        var pts = new TextBlock
+        });
+        valueRow.Children.Add(new TextBlock
         {
-            Text = ptsText,
-            FontSize = 13,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            Foreground = BarRenderer.Swatch("TextBrush"),
-            ToolTip = "Pontos percentuais do limite atribuídos a este projeto"
-        };
-        Grid.SetColumn(pts, 2);
-        grid.Children.Add(pts);
+            Text = "do consumo",
+            FontSize = 11,
+            Foreground = BarRenderer.Swatch("MutedBrush"),
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(6, 0, 0, 4)
+        });
+        stack.Children.Add(valueRow);
 
-        // barra de participação, normalizada pelo maior projeto
+        // barra proporcional ao maior projeto, para comparar de relance
         var track = new Border
         {
-            Height = 5,
-            CornerRadius = new CornerRadius(2.5),
+            Height = 6,
+            CornerRadius = new CornerRadius(3),
             Background = BarRenderer.Swatch("TrackBrush"),
-            Margin = new Thickness(0, 6, 0, 0),
-            ClipToBounds = true,
-            HorizontalAlignment = HorizontalAlignment.Stretch
+            Margin = new Thickness(0, 9, 0, 0),
+            ClipToBounds = true
         };
-        var inner = new Grid();
+        var grid = new Grid();
         var frac = topShare > 0 ? Math.Clamp(share / topShare, 0, 1) : 0;
-        inner.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(frac, 0.0001), GridUnitType.Star) });
-        inner.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(1 - frac, 0.0001), GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(frac, 0.0001), GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(1 - frac, 0.0001), GridUnitType.Star) });
         var fill = new Border
         {
-            CornerRadius = new CornerRadius(2.5),
+            CornerRadius = new CornerRadius(3),
             Background = BarRenderer.Swatch("AccentBrush"),
             MinWidth = share > 0 ? 3 : 0
         };
         Grid.SetColumn(fill, 0);
-        inner.Children.Add(fill);
-        track.Child = inner;
-        Grid.SetRow(track, 1);
-        Grid.SetColumnSpan(track, 3);
-        grid.Children.Add(track);
+        grid.Children.Add(fill);
+        track.Child = grid;
+        stack.Children.Add(track);
 
-        var detail = new TextBlock
+        stack.Children.Add(new TextBlock
         {
-            Text = $"{totals.Turns:n0} turnos · {p.Prompts:n0} prompts · {totals.Output:n0} tokens de saída",
+            Text = $"{totals.Turns:n0} turnos · {p.Prompts:n0} prompts",
             FontSize = 10.5,
             Foreground = BarRenderer.Swatch("MutedBrush"),
-            Margin = new Thickness(0, 5, 0, 0)
-        };
-        Grid.SetRow(detail, 1);
-        Grid.SetColumnSpan(detail, 3);
+            Margin = new Thickness(0, 9, 0, 0)
+        });
 
-        var stack = new StackPanel();
-        stack.Children.Add(grid);
-        stack.Children.Add(detail);
-        border.Child = stack;
-        return border;
+        if (!FableScope && p.Fable.Turns > 0)
+        {
+            stack.Children.Add(new TextBlock
+            {
+                Text = _host.Settings.FableLabel + ": " + BarRenderer.FormatShare(p.FableShare) + " do consumo do modelo",
+                FontSize = 10.5,
+                Foreground = BarRenderer.Swatch("WarnBrush"),
+                Margin = new Thickness(0, 3, 0, 0),
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
+        }
+
+        card.Child = stack;
+        return card;
     }
 
     private void DrawPrompts()
@@ -364,7 +349,7 @@ public partial class ProjectsPage : UserControl
 
         var (from, to, _) = Period();
         var settings = _host.Settings;
-        var prompts = _index.PromptsFor(_selected, from, to, settings);
+        var prompts = _index.PromptsFor(_selected, from, to, settings, _periodTotal);
 
         PromptsTitle.Text = "Prompts — " + TranscriptIndex.FriendlyName(_selected);
 
@@ -377,36 +362,38 @@ public partial class ProjectsPage : UserControl
         }
 
         if (SortCost.IsChecked == true)
-            prompts.Sort((a, b) => b.Cost.Weighted(settings).CompareTo(a.Cost.Weighted(settings)));
+            prompts.Sort((a, b) => b.Share.CompareTo(a.Share));
 
-        var project = _projects.Find(p => p.Path == _selected);
-        var projectShare = project != null ? (FableScope ? project.FableShare : project.Share) : 0;
-        var (measured, _) = MeasuredPts(from, to);
-        var projectPts = measured != null ? projectShare * measured.Value : (double?)null;
+        var maxShare = 0.0;
+        foreach (var e in prompts)
+        {
+            if (e.Share > maxShare) maxShare = e.Share;
+        }
 
         const int max = 300;
         var shown = 0;
         foreach (var e in prompts)
         {
             if (shown++ >= max) break;
-            PromptsPanel.Children.Add(BuildPromptRow(e, projectPts));
+            PromptsPanel.Children.Add(BuildPromptRow(e, maxShare));
         }
 
         if (prompts.Count > max)
             PromptsPanel.Children.Add(Hint($"Mostrando {max} de {prompts.Count} prompts do período."));
     }
 
-    private UIElement BuildPromptRow(PromptEntry e, double? projectPts)
+    private UIElement BuildPromptRow(PromptEntry e, double maxShare)
     {
         var text = TranscriptIndex.ReadPromptText(e.File, e.Offset, 600);
         if (string.IsNullOrWhiteSpace(text)) text = "(sem texto)";
         var oneLine = text.Replace("\r", " ").Replace("\n", " ").Trim();
         if (oneLine.Length > 150) oneLine = oneLine.Substring(0, 150) + "…";
 
-        var grid = new Grid { Margin = new Thickness(0, 0, 0, 8) };
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(96) });
+        var grid = new Grid { Margin = new Thickness(0, 0, 0, 9) };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(92) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(78) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(56) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(74) });
 
         var when = new TextBlock
         {
@@ -423,6 +410,7 @@ public partial class ProjectsPage : UserControl
             Text = oneLine,
             FontSize = 12,
             TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 10, 0),
             ToolTip = new ToolTip
             {
                 Content = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, MaxWidth = 520 },
@@ -432,20 +420,45 @@ public partial class ProjectsPage : UserControl
         Grid.SetColumn(body, 1);
         grid.Children.Add(body);
 
-        var costText = projectPts != null
-            ? (e.Share * projectPts.Value).ToString("0.##") + " pts"
-            : (e.Share * 100).ToString("0.#") + "%";
+        // barrinha relativa ao prompt mais caro do projeto: dá escala a valores minúsculos
+        var track = new Border
+        {
+            Height = 5,
+            Width = 46,
+            CornerRadius = new CornerRadius(2.5),
+            Background = BarRenderer.Swatch("TrackBrush"),
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(0, 5, 0, 0),
+            ClipToBounds = true
+        };
+        var inner = new Grid();
+        var frac = maxShare > 0 ? Math.Clamp(e.Share / maxShare, 0, 1) : 0;
+        inner.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(frac, 0.0001), GridUnitType.Star) });
+        inner.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(1 - frac, 0.0001), GridUnitType.Star) });
+        var fill = new Border
+        {
+            CornerRadius = new CornerRadius(2.5),
+            Background = BarRenderer.Swatch("AccentBrush"),
+            MinWidth = e.Share > 0 ? 2 : 0
+        };
+        Grid.SetColumn(fill, 0);
+        inner.Children.Add(fill);
+        track.Child = inner;
+        Grid.SetColumn(track, 2);
+        grid.Children.Add(track);
+
         var cost = new TextBlock
         {
-            Text = costText,
+            Text = BarRenderer.FormatShare(e.Share),
             FontSize = 11.5,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Top,
             Foreground = BarRenderer.Swatch("AccentBrush"),
-            ToolTip = $"{e.Cost.Turns} turnos · {e.Cost.Output:n0} tokens de saída · " +
+            ToolTip = $"{BarRenderer.FormatShare(e.Share)} do consumo do período\n" +
+                      $"{e.Cost.Turns} turnos · {e.Cost.Output:n0} tokens de saída · " +
                       $"{e.Cost.CacheRead:n0} de leitura de cache"
         };
-        Grid.SetColumn(cost, 2);
+        Grid.SetColumn(cost, 3);
         grid.Children.Add(cost);
 
         return grid;
@@ -460,3 +473,4 @@ public partial class ProjectsPage : UserControl
     };
 }
 
+   

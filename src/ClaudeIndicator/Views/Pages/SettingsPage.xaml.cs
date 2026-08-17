@@ -87,9 +87,17 @@ public partial class SettingsPage : UserControl
         TxtToken.Text = s.ManualAccessToken;
         TxtToken.IsEnabled = SrcManual.IsChecked == true;
 
+        ChkRateTaskbar.IsChecked = s.ShowRateTaskbar;
+        ChkRateGadget.IsChecked = s.ShowRateGadget;
+        RateWeekly.IsChecked = s.RateKind == BarKind.Weekly;
+        RateSession.IsChecked = s.RateKind == BarKind.Session;
+        RateFable.IsChecked = s.RateKind == BarKind.Fable;
+
         ChkStartup.IsChecked = s.StartWithWindows;
         ChkStartHidden.IsChecked = s.StartHidden;
         SldRefresh.Value = s.RefreshSeconds;
+        ChkCheckUpdates.IsChecked = s.CheckUpdates;
+        TxtUpdateRepo.Text = s.UpdateRepository;
 
         KeepForever.IsChecked = s.HistoryRetentionDays <= 0;
         KeepDays.IsChecked = s.HistoryRetentionDays > 0;
@@ -148,9 +156,16 @@ public partial class SettingsPage : UserControl
         s.CredentialSource = SrcManual.IsChecked == true ? "Manual" : "ClaudeCode";
         s.ManualAccessToken = TxtToken.Text.Trim();
 
+        s.ShowRateTaskbar = ChkRateTaskbar.IsChecked == true;
+        s.ShowRateGadget = ChkRateGadget.IsChecked == true;
+        s.RateKind = RateSession.IsChecked == true ? BarKind.Session
+            : RateFable.IsChecked == true ? BarKind.Fable : BarKind.Weekly;
+
         s.StartWithWindows = ChkStartup.IsChecked == true;
         s.StartHidden = ChkStartHidden.IsChecked == true;
         s.RefreshSeconds = (int)Math.Round(SldRefresh.Value);
+        s.CheckUpdates = ChkCheckUpdates.IsChecked == true;
+        if (TxtUpdateRepo.Text.Trim().Length > 0) s.UpdateRepository = TxtUpdateRepo.Text.Trim();
 
         s.HistoryRetentionDays = KeepDays.IsChecked == true ? (int)Math.Round(SldRetention.Value) : 0;
 
@@ -192,7 +207,8 @@ public partial class SettingsPage : UserControl
                      ChkTray, ChkTaskbar, ChkGadget, ChkTopmost, ChkLocked, ChkShowReset,
                      ChkSession, ChkWeekly, ChkFable, ChkNotify, ChkStartup, ChkStartHidden,
                      OrientVertical, OrientHorizontal, TbLeft, TbRight,
-                     GadgetVertical, GadgetHorizontal
+                     GadgetVertical, GadgetHorizontal, ChkCheckUpdates,
+                     ChkRateTaskbar, ChkRateGadget, RateWeekly, RateSession, RateFable
                  })
         {
             Hook(c);
@@ -224,6 +240,7 @@ public partial class SettingsPage : UserControl
         if (PanelDisplay == null) return;
         PanelDisplay.Visibility = Vis(TabDisplay);
         PanelBars.Visibility = Vis(TabBars);
+        PanelRate.Visibility = Vis(TabRate);
         PanelAccount.Visibility = Vis(TabAccount);
         PanelSystem.Visibility = Vis(TabSystem);
         PanelData.Visibility = Vis(TabData);
@@ -231,6 +248,8 @@ public partial class SettingsPage : UserControl
 
         if (TabData.IsChecked == true) UpdateRetentionUi();
         if (TabBars.IsChecked == true) RenderPreview();
+        if (TabRate.IsChecked == true) RenderRatePreview();
+        if (TabAdvanced.IsChecked == true) UpdateUpdateUi();
     }
 
     private static Visibility Vis(RadioButton rb) => rb.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
@@ -456,6 +475,116 @@ public partial class SettingsPage : UserControl
           .Append(keepDays ? "Registros mais antigos que o limite são apagados." : "Nada é apagado automaticamente.");
 
         HistoryInfo.Text = sb.ToString();
+    }
+
+    /// <summary>Prévia do velocímetro com o ritmo real do momento.</summary>
+    private void RenderRatePreview()
+    {
+        var s = CollectDraft();
+        var kind = s.RateKind;
+        var rate = ConsumptionRate.Measure(UsageHistory.Load(TimeSpan.FromHours(2)), _host.Last?.Get(kind), kind);
+
+        RatePreviewHost.Content = GaugeRenderer.Build(rate, 64);
+        RatePreviewValue.Text = ConsumptionRate.Format(rate);
+        RatePreviewValue.Foreground = new System.Windows.Media.SolidColorBrush(GaugeRenderer.ColorFor(rate));
+
+        if (!rate.HasData)
+        {
+            RatePreviewCaption.Text = "Ainda sem medição suficiente — o ritmo aparece depois de alguns minutos de histórico.";
+            return;
+        }
+
+        var left = ConsumptionRate.FormatTimeLeft(rate);
+        RatePreviewCaption.Text = rate.Sustainable > 0
+            ? (left.Length > 0 ? left + " · " : "") +
+              $"o limite aguenta até {rate.Sustainable:0.###}% p/min"
+            : left;
+    }
+
+    // ------------------------------------------------------------------
+    // Atualizações
+    // ------------------------------------------------------------------
+
+    private void UpdateUpdateUi()
+    {
+        var info = _host.Updates.Available;
+        var last = _host.Updates.LastCheck;
+
+        UpdateStatus.Text = $"Instalada: versão {AppInfo.Version}."
+                            + (last == DateTimeOffset.MinValue
+                                ? " Ainda não consultei o GitHub."
+                                : $" Última consulta: {last.ToLocalTime():dd/MM HH:mm}.");
+
+        if (info != null)
+        {
+            UpdateResult.Text = $"Versão {info.Version} disponível.";
+            BtnInstallUpdate.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            BtnInstallUpdate.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private async void OnCheckUpdateClick(object sender, RoutedEventArgs e)
+    {
+        BtnCheckUpdate.IsEnabled = false;
+        UpdateResult.Text = "Consultando o GitHub…";
+        try
+        {
+            var info = await _host.CheckUpdatesAsync(force: true);
+            UpdateResult.Text = info == null
+                ? $"Você está na versão mais recente ({AppInfo.Version})."
+                : $"Versão {info.Version} disponível.";
+            BtnInstallUpdate.Visibility = info == null ? Visibility.Collapsed : Visibility.Visible;
+        }
+        catch (Exception ex)
+        {
+            UpdateResult.Text = "Falha ao consultar: " + ex.Message;
+        }
+        finally
+        {
+            BtnCheckUpdate.IsEnabled = true;
+            UpdateUpdateUi();
+        }
+    }
+
+    private async void OnInstallUpdateClick(object sender, RoutedEventArgs e)
+    {
+        var info = _host.Updates.Available;
+        if (info == null) return;
+
+        if (string.IsNullOrWhiteSpace(info.DownloadUrl))
+        {
+            UpdateResult.Text = "A release não tem instalador anexado. Abrindo a página…";
+            UpdateChecker.OpenPage(info.PageUrl);
+            return;
+        }
+
+        BtnInstallUpdate.IsEnabled = false;
+        var progress = new Progress<double>(p => UpdateResult.Text = $"Baixando… {p * 100:0}%");
+        try
+        {
+            var file = await UpdateChecker.DownloadAsync(info, progress);
+            if (file == null)
+            {
+                UpdateResult.Text = "Não foi possível baixar. Abrindo a página da release…";
+                UpdateChecker.OpenPage(info.PageUrl);
+                return;
+            }
+
+            UpdateResult.Text = "Instalando…";
+            if (!UpdateChecker.RunInstaller(file))
+                UpdateResult.Text = "Não foi possível iniciar o instalador.";
+        }
+        catch (Exception ex)
+        {
+            UpdateResult.Text = "Falha: " + ex.Message;
+        }
+        finally
+        {
+            BtnInstallUpdate.IsEnabled = true;
+        }
     }
 
     private string DescribeAccount()

@@ -9,6 +9,11 @@ acompanhar o consumo sem abrir nada — combináveis entre si:
 | **Painel na barra de tarefas** | faixa no espaço livre da barra, com rótulo, porcentagem e barra de cada limite |
 | **Gadget flutuante** | janela arrastável que fica por cima dos outros aplicativos |
 
+O painel da barra e o gadget mostram também um **velocímetro do ritmo de consumo** (`0,15% p/min`):
+o meio da escala é o ritmo que o limite aguenta até renovar, então ponteiro à esquerda significa
+que dá para seguir assim e à direita que vai acabar antes. No ícone da bandeja o ritmo aparece ao
+passar o mouse — em 16 px não há espaço para desenhá-lo.
+
 ![ícone](docs/icon-preview.png)
 
 ## O painel
@@ -19,7 +24,8 @@ Uma janela só, com navegação à esquerda:
   projeção até a renovação no ritmo atual, consumo por hora do último dia e os projetos que mais
   gastaram na semana.
 - **Histórico** — nível de cada barra ao longo do tempo e consumo por hora ou por dia.
-- **Projetos** — repartição do consumo entre os projetos do Claude Code e os prompts de cada um.
+- **Projetos** — repartição do consumo entre os projetos do Claude Code, em cartões, e os prompts
+  de cada um.
 - **Configurações** — agrupadas por assunto, com a barra de salvar aparecendo só quando há
   alteração pendente.
 
@@ -49,12 +55,24 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.4.0
-git push origin v1.4.0
+git tag v1.5.0
+git push origin v1.5.0
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
 úteis para builds de pull request — exigem login e expiram em 90 dias.
+
+## Atualização pelo próprio app
+
+Em **Configurações › Avançado › Atualizações** o app consulta
+`https://api.github.com/repos/<dono>/<repo>/releases/latest` (no máximo uma vez a cada 6 horas) e,
+havendo versão mais nova, avisa no painel e na bandeja. O botão **Baixar e instalar** pega o
+instalador anexado à release e roda em modo silencioso — o instalador fecha o app, troca o
+executável e o inicia de volta, mantendo suas preferências. Instalar em `Program Files` exige
+elevação, então o Windows pede confirmação uma vez.
+
+Isso depende de existir uma release com o `.exe` anexado, que é o que o workflow faz em pushes na
+`main` (pré-release `latest`) e em tags `v*`.
 
 ## Como compilar
 
@@ -72,7 +90,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~150 MB)
-- `dist\ClaudeIndicator-Setup-1.4.0.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-1.5.0.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -154,7 +172,10 @@ Por isso o intervalo escolhido nas configurações é um **mínimo**, e não uma
 - **Gadget**: disposição das barras (vertical, uma por linha; ou horizontal, lado a lado com
   separador), opacidade, tamanho, sempre por cima, travar posição, mostrar horário de renovação,
   reposicionar no canto inferior direito
+- **Ritmo**: velocímetro no painel da barra e/ou no gadget, e de qual limite ele acompanha
 - **Histórico de consumo**: guardar tudo (padrão) ou apagar registros com mais de N dias
+- **Atualizações**: procurar versão nova no GitHub automaticamente, repositório consultado, e
+  botão para baixar e instalar sem sair do app
 - **Conta**: login do Claude Code ou token manual, com botão "Testar conexão"
 - **Sistema**: iniciar com o Windows, iniciar sem abrir a janela, intervalo de atualização
   (60 s a 15 min, usado como **mínimo** — veja abaixo), limites de atenção/alerta e notificação ao
@@ -191,12 +212,16 @@ traz `message.usage` (tokens de entrada, saída e cache), `message.model` e o `c
 
 O app lê esses arquivos e reparte o consumo:
 
-- **Fatia relativa** de cada projeto, pelo custo estimado dos tokens.
-- **Pontos do limite**, multiplicando a fatia pelo total realmente medido. Na "semana atual" esse
-  total é exato: a barra semanal é, por definição, o quanto já foi gasto desde a renovação.
+- **Fatia do consumo do período** de cada projeto, pelo custo estimado dos tokens: somadas dão
+  100%. É a mesma régua dos prompts, então "este projeto foi 27% do que gastei" e "este prompt foi
+  0,8%" se comparam direto.
 - **Só Fable 5**, filtrando pelos modelos que contam no limite próprio dele.
-- **Prompts de cada projeto**, com horário, texto e o custo do turno que cada um disparou —
+- **Prompts de cada projeto**, com horário, texto e a fatia do consumo que cada um disparou —
   ordenáveis por mais recentes ou mais caros.
+
+Duas unidades convivem no app e não devem ser confundidas: em **Projetos** as porcentagens são do
+*consumo* (quanto do que você gastou foi ali); em **Visão geral** e **Histórico** são do *limite*
+(quanto da sua cota foi consumido no intervalo).
 
 Os arquivos só crescem no fim, então o índice guarda o offset já lido de cada um: a primeira
 varredura leva alguns segundos (~3 s para 280 MB) e as seguintes, milissegundos. O texto dos prompts

@@ -74,19 +74,59 @@ public partial class TaskbarBarWindow : Window
 
         for (var i = 0; i < bars.Count; i++)
         {
-            if (i > 0)
-            {
-                CellsPanel.Children.Add(new Border
-                {
-                    Width = 1,
-                    Background = BarRenderer.Swatch("LineBrush"),
-                    Margin = new Thickness(10, 9, 10, 9)
-                });
-            }
+            if (i > 0) CellsPanel.Children.Add(Divider());
             CellsPanel.Children.Add(BuildCell(bars[i], s));
         }
 
+        if (s.ShowRateTaskbar)
+        {
+            var rate = AppHost.Current?.Rate ?? RateReading.Empty;
+            CellsPanel.Children.Add(Divider());
+            CellsPanel.Children.Add(BuildGaugeCell(rate, s));
+        }
+
         Reposition();
+    }
+
+    private static UIElement Divider() => new Border
+    {
+        Width = 1,
+        Background = BarRenderer.Swatch("LineBrush"),
+        Margin = new Thickness(10, 9, 10, 9)
+    };
+
+    /// <summary>Velocímetro do ritmo: arco pequeno + o número, que é o que se lê de relance.</summary>
+    private UIElement BuildGaugeCell(RateReading rate, AppSettings s)
+    {
+        var scale = Math.Clamp(s.TaskbarBarScale, 0.8, 1.6);
+        var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+
+        row.Children.Add(new Border
+        {
+            Child = GaugeRenderer.Build(rate, 34 * scale),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 7, 0)
+        });
+
+        var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        text.Children.Add(new TextBlock
+        {
+            Text = "Ritmo",
+            FontSize = 9.5 * scale,
+            Foreground = BarRenderer.Swatch("MutedBrush"),
+            Margin = new Thickness(0, 0, 0, 2)
+        });
+        text.Children.Add(new TextBlock
+        {
+            Text = ConsumptionRate.Format(rate),
+            FontSize = 12 * scale,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(GaugeRenderer.ColorFor(rate))
+        });
+        row.Children.Add(text);
+
+        row.ToolTip = GaugeRenderer.Describe(rate, s, s.RateKind);
+        return row;
     }
 
     /// <summary>Célula compacta: cabe na altura da barra sem apertar o texto.</summary>

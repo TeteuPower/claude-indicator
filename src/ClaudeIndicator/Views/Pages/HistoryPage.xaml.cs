@@ -120,8 +120,8 @@ public partial class HistoryPage : UserControl
         var kindLabel = _host.Settings.LabelFor(Kind);
         LineTitle.Text = $"Nível — {kindLabel} (%)";
         BarsTitle.Text = HourlyBuckets
-            ? $"Consumo por hora — {kindLabel} (pts do limite)"
-            : $"Consumo por dia — {kindLabel} (pts do limite)";
+            ? $"Consumo por hora — {kindLabel} (% do limite)"
+            : $"Consumo por dia — {kindLabel} (% do limite)";
         StatRangeCaption.Text = Rng30d.IsChecked == true ? "últimos 30 dias"
             : Rng7d.IsChecked == true ? "últimos 7 dias"
             : RngAll.IsChecked == true ? $"todo o histórico ({Range.TotalDays:0} dias)"
@@ -135,8 +135,7 @@ public partial class HistoryPage : UserControl
         DrawBarChart();
     }
 
-    private static string FormatPts(double? v) =>
-        v == null ? "—" : "+" + v.Value.ToString("0.#") + " pts";
+    private static string FormatPts(double? v) => BarRenderer.FormatLimitDelta(v);
 
     /// <summary>Soma das subidas da barra na janela (as quedas são renovações, não consumo).</summary>
     private double? SumConsumption(TimeSpan window)
@@ -427,8 +426,8 @@ public partial class HistoryPage : UserControl
                     RadiusX = Math.Min(3, barW / 2),
                     RadiusY = Math.Min(3, barW / 2),
                     ToolTip = HourlyBuckets
-                        ? $"{bucketStart.ToLocalTime():HH'h'}–{(bucketStart + bucket).ToLocalTime():HH'h'} · +{sums[i]:0.#} pts"
-                        : $"{bucketStart.ToLocalTime():dd/MM} · +{sums[i]:0.#} pts"
+                        ? $"{bucketStart.ToLocalTime():HH'h'}–{(bucketStart + bucket).ToLocalTime():HH'h'} · {BarRenderer.FormatLimitDelta(sums[i])} do limite"
+                        : $"{bucketStart.ToLocalTime():dd/MM} · {BarRenderer.FormatLimitDelta(sums[i])} do limite"
                 };
                 Canvas.SetLeft(rect, x);
                 Canvas.SetTop(rect, y);

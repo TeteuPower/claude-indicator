@@ -55,7 +55,7 @@
                 </Grid.RowDefinitions>
                 <TextBlock x:Name="ProjectsTitle" Text="Projetos" Style="{StaticResource Title}" Margin="0,0,0,8"/>
                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                    <StackPanel x:Name="ProjectsPanel"/>
+                    <WrapPanel x:Name="ProjectsPanel" Orientation="Horizontal"/>
                 </ScrollViewer>
             </Grid>
         </Border>

@@ -77,6 +77,26 @@ public class AppSettings
     /// <summary>Dias de histórico mantidos. 0 (padrão) = guardar para sempre, nada é apagado.</summary>
     public int HistoryRetentionDays { get; set; } = 0;
 
+    // ---- Velocímetro (ritmo de consumo) ----
+    /// <summary>Mostra o ritmo de consumo no gadget.</summary>
+    public bool ShowRateGadget { get; set; } = true;
+
+    /// <summary>Mostra o ritmo de consumo no painel da barra de tarefas.</summary>
+    public bool ShowRateTaskbar { get; set; } = true;
+
+    /// <summary>Qual limite o ritmo acompanha.</summary>
+    public BarKind RateKind { get; set; } = BarKind.Weekly;
+
+    // ---- Atualização ----
+    /// <summary>Procurar versão nova no GitHub (uma vez a cada 6 h, no máximo).</summary>
+    public bool CheckUpdates { get; set; } = true;
+
+    /// <summary>Repositório consultado, no formato dono/nome.</summary>
+    public string UpdateRepository { get; set; } = "TeteuPower/claude-indicator";
+
+    /// <summary>Versão que o usuário mandou ignorar; não avisa de novo até sair uma posterior.</summary>
+    public string SkippedVersion { get; set; } = "";
+
     // ---- Sistema ----
     public bool StartWithWindows { get; set; } = false;
     public bool StartHidden { get; set; } = true;
