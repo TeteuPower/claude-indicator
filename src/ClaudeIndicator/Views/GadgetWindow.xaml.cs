@@ -33,8 +33,8 @@ public partial class GadgetWindow : Window
         _locked = s.GadgetLocked;
         Root.Cursor = _locked ? Cursors.Arrow : Cursors.SizeAll;
 
-        // no modo "somente gadget" não deixamos fechar sem outra forma de acesso
-        _canHide = s.DisplayMode != DisplayMode.Gadget;
+        // sendo o único indicador visível, esconder deixaria o app sem porta de entrada
+        _canHide = s.TrayEnabled || s.ShowTaskbarBar;
         CloseBtn.Visibility = _canHide ? Visibility.Visible : Visibility.Collapsed;
 
         if (s.GadgetLeft >= 0 && s.GadgetTop >= 0)
@@ -183,6 +183,8 @@ public partial class GadgetWindow : Window
     }
 
     private void OnSettingsClick(object sender, RoutedEventArgs e) => AppHost.Current?.ShowSettings();
+
+    private void OnDashboardClick(object sender, RoutedEventArgs e) => AppHost.Current?.ShowDashboard();
 
     private void OnHistoryClick(object sender, RoutedEventArgs e) => AppHost.Current?.ShowHistory();
 

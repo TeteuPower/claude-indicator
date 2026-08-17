@@ -1,9 +1,30 @@
 # Claude Indicator
 
-Indicador de consumo da assinatura Claude para Windows: ícone na barra de tarefas **ou** gadget
-flutuante arrastável que fica sempre por cima de qualquer aplicativo.
+Indicador de consumo da assinatura Claude para Windows, com painel de análise e três formas de
+acompanhar o consumo sem abrir nada — combináveis entre si:
+
+| Onde | O que é |
+|---|---|
+| **Ícone na bandeja** | as barras desenhadas no próprio ícone, ao lado do relógio |
+| **Painel na barra de tarefas** | faixa no espaço livre da barra, com rótulo, porcentagem e barra de cada limite |
+| **Gadget flutuante** | janela arrastável que fica por cima dos outros aplicativos |
 
 ![ícone](docs/icon-preview.png)
+
+## O painel
+
+Uma janela só, com navegação à esquerda:
+
+- **Visão geral** — quanto resta de cada limite, ritmo de consumo (última hora, últimas 24 h),
+  projeção até a renovação no ritmo atual, consumo por hora do último dia e os projetos que mais
+  gastaram na semana.
+- **Histórico** — nível de cada barra ao longo do tempo e consumo por hora ou por dia.
+- **Projetos** — repartição do consumo entre os projetos do Claude Code e os prompts de cada um.
+- **Configurações** — agrupadas por assunto, com a barra de salvar aparecendo só quando há
+  alteração pendente.
+
+Abre com duplo clique no ícone da bandeja, clique no painel da barra de tarefas ou pelo menu de
+qualquer um dos indicadores.
 
 ## O que ele mostra
 
@@ -28,8 +49,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.3.0
-git push origin v1.3.0
+git tag v1.4.0
+git push origin v1.4.0
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -51,7 +72,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~150 MB)
-- `dist\ClaudeIndicator-Setup-1.3.0.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-1.4.0.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -124,9 +145,11 @@ Por isso o intervalo escolhido nas configurações é um **mínimo**, e não uma
 
 ## Configurações disponíveis
 
-- **Como exibir**: bandeja, gadget flutuante ou os dois
-- **Barras dentro do ícone da bandeja**: verticais (colunas lado a lado) ou horizontais (linhas
-  empilhadas) — a horizontal costuma ser mais legível com duas ou três barras
+- **Onde exibir**: bandeja, painel na barra de tarefas e gadget — cada um liga e desliga sozinho
+- **Ícone da bandeja**: barras verticais (colunas lado a lado) ou horizontais (linhas empilhadas) —
+  a horizontal costuma ser mais legível com duas ou três barras
+- **Painel na barra de tarefas**: posição (à esquerda ou junto ao relógio), distância da borda,
+  tamanho e opacidade do fundo
 - **Quais barras** mostrar e o rótulo de cada uma
 - **Gadget**: disposição das barras (vertical, uma por linha; ou horizontal, lado a lado com
   separador), opacidade, tamanho, sempre por cima, travar posição, mostrar horário de renovação,
@@ -197,27 +220,40 @@ isso a deduplicação por `uuid`), e um mesmo `requestId` emite vários registro
 
 ## Estrutura do código
 
+O painel na barra de tarefas merece uma nota: o Windows 11 **removeu o suporte a deskbands**, as
+antigas barras de ferramentas que podiam ser embutidas na barra de tarefas. Não existe API para
+colocar um componente lá dentro. O que o app faz é posicionar uma janela sem borda sobre o espaço
+livre da barra (à esquerda do botão Iniciar, ou entre os ícones e o relógio), acompanhando mudanças
+de tamanho, posição e DPI, e se escondendo quando um aplicativo em tela cheia está na frente.
+
 ```
 src/ClaudeIndicator/
-  App.xaml(.cs)          tema escuro + instância única
+  App.xaml(.cs)          tema escuro, estilos do painel + instância única
   Core/
-    AppHost.cs           orquestra timer, bandeja, gadget e configurações
+    AppHost.cs           orquestra timer, bandeja, painel da barra, gadget e janela
     AppSettings.cs       preferências (JSON em %APPDATA%)
     CredentialStore.cs   leitura do login do Claude Code + refresh OAuth
     UsageService.cs      HTTP + parser tolerante do JSON de consumo
     UsageHistory.cs      grava/lê o histórico de consumo (history.jsonl)
     TranscriptIndex.cs   índice incremental das transcrições do Claude Code
     TrayIconRenderer.cs  desenha o ícone da bandeja em tempo real
+    TaskbarInfo.cs       geometria da barra de tarefas e espaço livre nela
     StartupManager.cs    inicialização automática (HKCU\...\Run)
+    AppInfo.cs           versão exibida na interface
   Views/
+    MainWindow.xaml      painel: navegação lateral + página escolhida
     GadgetWindow.xaml    gadget transparente, arrastável, sempre por cima
-    SettingsWindow.xaml  tela de configuração
-    HistoryWindow.xaml   gráficos do histórico (nível e consumo por hora/dia)
-    ProjectsWindow.xaml  consumo por projeto e prompts de cada um
+    TaskbarBarWindow.xaml  faixa ancorada no espaço livre da barra de tarefas
     BarRenderer.cs       desenho das barras (gadget e prévia)
+    Pages/
+      OverviewPage.xaml  visão geral: restante, ritmo, projeção e top projetos
+      HistoryPage.xaml   gráficos do histórico (nível e consumo por hora/dia)
+      ProjectsPage.xaml  consumo por projeto e prompts de cada um
+      SettingsPage.xaml  configurações por categoria, com salvar sob demanda
 ```
 
 ## Aviso
 
 Projeto pessoal, não oficial e sem vínculo com a Anthropic. Ele apenas lê o consumo da sua própria
 conta com o seu próprio token.
+

@@ -6,8 +6,9 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using ClaudeIndicator.Core;
+using ClaudeIndicator.Views;
 
-namespace ClaudeIndicator.Views;
+namespace ClaudeIndicator.Views.Pages;
 
 /// <summary>
 /// Reparte o consumo entre os projetos do Claude Code e mostra os prompts de cada um.
@@ -17,7 +18,7 @@ namespace ClaudeIndicator.Views;
 /// o quanto já foi consumido na janela) e é distribuído entre os projetos na proporção do
 /// custo estimado de cada um.
 /// </summary>
-public partial class ProjectsWindow : Window
+public partial class ProjectsPage : UserControl
 {
     private readonly AppHost _host;
     private readonly TranscriptIndex _index = new();
@@ -28,7 +29,7 @@ public partial class ProjectsWindow : Window
     private bool _ready;
     private bool _scanning;
 
-    public ProjectsWindow(AppHost host)
+    public ProjectsPage(AppHost host)
     {
         _host = host;
         InitializeComponent();
@@ -40,6 +41,11 @@ public partial class ProjectsWindow : Window
 
         _index.Progress += OnIndexProgress;
         Loaded += (_, _) => _ = ScanAsync();
+        Unloaded += (_, _) =>
+        {
+            _index.Progress -= OnIndexProgress;
+            _cts?.Cancel();
+        };
     }
 
     // ------------------------------------------------------------------
@@ -98,12 +104,6 @@ public partial class ProjectsWindow : Window
     private void OnSortChanged(object sender, RoutedEventArgs e)
     {
         if (_ready && !_scanning) DrawPrompts();
-    }
-
-    private void OnClosed(object sender, EventArgs e)
-    {
-        _index.Progress -= OnIndexProgress;
-        _cts?.Cancel();
     }
 
     // ------------------------------------------------------------------
@@ -459,3 +459,4 @@ public partial class ProjectsWindow : Window
         Foreground = BarRenderer.Swatch("MutedBrush")
     };
 }
+

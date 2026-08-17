@@ -20,6 +20,7 @@
             <MenuItem x:Name="VersionItem" IsEnabled="False"/>
             <Separator/>
             <MenuItem Header="Atualizar agora" Click="OnRefreshClick"/>
+            <MenuItem Header="Abrir painel…" Click="OnDashboardClick"/>
             <MenuItem Header="Histórico de consumo…" Click="OnHistoryClick"/>
             <MenuItem Header="Consumo por projeto…" Click="OnProjectsClick"/>
             <MenuItem Header="Configurações…" Click="OnSettingsClick"/>

@@ -27,9 +27,8 @@ public sealed class AppHost
     private WinForms.NotifyIcon? _tray;
     private Drawing.Icon? _trayIcon;
     private GadgetWindow? _gadget;
-    private SettingsWindow? _settingsWindow;
-    private HistoryWindow? _historyWindow;
-    private ProjectsWindow? _projectsWindow;
+    private TaskbarBarWindow? _taskbarBar;
+    private MainWindow? _main;
     private bool _busy;
 
     // Resiliência: última consulta que veio com barras, e pausa imposta por HTTP 429.
@@ -83,7 +82,7 @@ public sealed class AppHost
             string.Equals(a, "/minimized", StringComparison.OrdinalIgnoreCase));
 
         if (firstRun || (!minimized && !Settings.StartHidden))
-            ShowSettings();
+            ShowDashboard();
     }
 
     // ------------------------------------------------------------------
@@ -103,8 +102,10 @@ public sealed class AppHost
         menu.Items.Add(header);
         menu.Items.Add(new WinForms.ToolStripSeparator());
         menu.Items.Add("Atualizar agora", null, (_, _) => _ = RefreshAsync(true));
-        menu.Items.Add("Histórico de consumo…", null, (_, _) => ShowHistory());
-        menu.Items.Add("Consumo por projeto…", null, (_, _) => ShowProjects());
+        menu.Items.Add(new WinForms.ToolStripSeparator());
+        menu.Items.Add("Painel…", null, (_, _) => ShowDashboard());
+        menu.Items.Add("Histórico de consumo…", null, (_, _) => ShowMain(MainSection.History));
+        menu.Items.Add("Consumo por projeto…", null, (_, _) => ShowMain(MainSection.Projects));
         menu.Items.Add("Configurações…", null, (_, _) => ShowSettings());
         menu.Items.Add(new WinForms.ToolStripSeparator());
         menu.Items.Add("Mostrar/ocultar gadget", null, (_, _) => ToggleGadget());
@@ -112,7 +113,7 @@ public sealed class AppHost
         menu.Items.Add("Sair", null, (_, _) => Exit());
 
         _tray.ContextMenuStrip = menu;
-        _tray.DoubleClick += (_, _) => ShowSettings();
+        _tray.DoubleClick += (_, _) => ShowDashboard();
 
         UpdateTray();
     }
@@ -121,7 +122,7 @@ public sealed class AppHost
     {
         if (_tray == null) return;
 
-        var wanted = Settings.DisplayMode is DisplayMode.Tray or DisplayMode.Both;
+        var wanted = Settings.TrayEnabled;
         if (!wanted)
         {
             _tray.Visible = false;
@@ -144,8 +145,7 @@ public sealed class AppHost
     {
         UpdateTray();
 
-        var wantGadget = Settings.DisplayMode is DisplayMode.Gadget or DisplayMode.Both;
-        if (wantGadget)
+        if (Settings.GadgetEnabled)
         {
             EnsureGadget();
             _gadget!.ApplySettings(Settings);
@@ -156,6 +156,36 @@ public sealed class AppHost
         {
             _gadget?.Hide();
         }
+
+        if (Settings.ShowTaskbarBar)
+        {
+            EnsureTaskbarBar();
+            _taskbarBar!.ApplySettings(Settings);
+            _taskbarBar.Render(Last, Settings);
+            _taskbarBar.ShowInTaskbarArea();
+        }
+        else
+        {
+            _taskbarBar?.Hide();
+        }
+    }
+
+    private void EnsureTaskbarBar()
+    {
+        if (_taskbarBar != null) return;
+        _taskbarBar = new TaskbarBarWindow();
+        _taskbarBar.ApplySettings(Settings);
+        _taskbarBar.Closed += (_, _) => _taskbarBar = null;
+    }
+
+    /// <summary>Ocultar pelo menu do próprio painel: desliga a opção para não voltar sozinho.</summary>
+    public void HideTaskbarBar()
+    {
+        _taskbarBar?.HideByUser();
+        Settings.ShowTaskbarBar = false;
+        Settings.Sanitize();
+        Settings.Save();
+        ApplyDisplayMode();
     }
 
     private void EnsureGadget()
@@ -191,53 +221,31 @@ public sealed class AppHost
     // Configurações
     // ------------------------------------------------------------------
 
-    public void ShowSettings()
+    /// <summary>Abre o painel na seção pedida; se já estiver aberto, só navega até ela.</summary>
+    public void ShowMain(MainSection section)
     {
-        if (_settingsWindow != null)
+        if (_main != null)
         {
-            if (_settingsWindow.WindowState == System.Windows.WindowState.Minimized)
-                _settingsWindow.WindowState = System.Windows.WindowState.Normal;
-            _settingsWindow.Activate();
+            if (_main.WindowState == System.Windows.WindowState.Minimized)
+                _main.WindowState = System.Windows.WindowState.Normal;
+            _main.Navigate(section);
+            _main.Activate();
             return;
         }
 
-        _settingsWindow = new SettingsWindow(this);
-        _settingsWindow.Closed += (_, _) => _settingsWindow = null;
-        _settingsWindow.Show();
-        _settingsWindow.Activate();
+        _main = new MainWindow(this, section);
+        _main.Closed += (_, _) => _main = null;
+        _main.Show();
+        _main.Activate();
     }
 
-    public void ShowHistory()
-    {
-        if (_historyWindow != null)
-        {
-            if (_historyWindow.WindowState == System.Windows.WindowState.Minimized)
-                _historyWindow.WindowState = System.Windows.WindowState.Normal;
-            _historyWindow.Activate();
-            return;
-        }
+    public void ShowDashboard() => ShowMain(MainSection.Overview);
 
-        _historyWindow = new HistoryWindow(this);
-        _historyWindow.Closed += (_, _) => _historyWindow = null;
-        _historyWindow.Show();
-        _historyWindow.Activate();
-    }
+    public void ShowSettings() => ShowMain(MainSection.Settings);
 
-    public void ShowProjects()
-    {
-        if (_projectsWindow != null)
-        {
-            if (_projectsWindow.WindowState == System.Windows.WindowState.Minimized)
-                _projectsWindow.WindowState = System.Windows.WindowState.Normal;
-            _projectsWindow.Activate();
-            return;
-        }
+    public void ShowHistory() => ShowMain(MainSection.History);
 
-        _projectsWindow = new ProjectsWindow(this);
-        _projectsWindow.Closed += (_, _) => _projectsWindow = null;
-        _projectsWindow.Show();
-        _projectsWindow.Activate();
-    }
+    public void ShowProjects() => ShowMain(MainSection.Projects);
 
     public void ApplySettings(AppSettings updated)
     {
@@ -366,6 +374,7 @@ public sealed class AppHost
         ScheduleNext();
         UpdateTray();
         _gadget?.Render(snap, Settings);
+        _taskbarBar?.Render(snap, Settings);
         Updated?.Invoke(snap);
         CheckThresholds(snap);
     }
@@ -404,6 +413,8 @@ public sealed class AppHost
         }
         _trayIcon?.Dispose();
         _gadget?.Close();
+        _taskbarBar?.Close();
+        _main?.Close();
         System.Windows.Application.Current?.Shutdown();
     }
 

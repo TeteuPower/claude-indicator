@@ -29,8 +29,27 @@ public enum BarOrientation
 public class AppSettings
 {
     // ---- Exibição ----
+    /// <summary>Mantido para ler configurações antigas; as três opções abaixo é que valem.</summary>
     public DisplayMode DisplayMode { get; set; } = DisplayMode.Tray;
+
+    // nulos até o Sanitize resolver: assim uma configuração antiga (que só tinha DisplayMode)
+    // é migrada sem perder a escolha do usuário
+    public bool? ShowTrayIcon { get; set; }
+    public bool? ShowGadget { get; set; }
+
+    /// <summary>Painel desenhado no espaço livre da barra de tarefas.</summary>
+    public bool ShowTaskbarBar { get; set; }
+
     public BarOrientation TrayOrientation { get; set; } = BarOrientation.Vertical;
+
+    // ---- Painel da barra de tarefas ----
+    public TaskbarAnchor TaskbarBarAnchor { get; set; } = TaskbarAnchor.Left;
+    public double TaskbarBarOpacity { get; set; } = 0.0;
+    public double TaskbarBarScale { get; set; } = 1.0;
+    public double TaskbarBarOffset { get; set; } = 8;
+
+    [JsonIgnore] public bool TrayEnabled => ShowTrayIcon ?? true;
+    [JsonIgnore] public bool GadgetEnabled => ShowGadget ?? false;
 
     // ---- Barras ----
     public bool ShowSession { get; set; } = true;
@@ -149,6 +168,9 @@ public class AppSettings
         }
     }
 
+    /// <summary>JSON das preferências: usado para comparar rascunho com o que está salvo.</summary>
+    public string Serialize() => JsonSerializer.Serialize(this, Opts);
+
     public AppSettings Clone()
     {
         var json = JsonSerializer.Serialize(this, Opts);
@@ -157,6 +179,18 @@ public class AppSettings
 
     public void Sanitize()
     {
+        // migração do DisplayMode antigo para as três opções independentes
+        ShowTrayIcon ??= DisplayMode is DisplayMode.Tray or DisplayMode.Both;
+        ShowGadget ??= DisplayMode is DisplayMode.Gadget or DisplayMode.Both;
+        if (!ShowTrayIcon.Value && !ShowGadget.Value && !ShowTaskbarBar) ShowTrayIcon = true;
+
+        if (TaskbarBarOpacity < 0) TaskbarBarOpacity = 0;
+        if (TaskbarBarOpacity > 1) TaskbarBarOpacity = 1;
+        if (TaskbarBarScale < 0.8) TaskbarBarScale = 0.8;
+        if (TaskbarBarScale > 1.6) TaskbarBarScale = 1.6;
+        if (TaskbarBarOffset < 0) TaskbarBarOffset = 0;
+        if (TaskbarBarOffset > 600) TaskbarBarOffset = 600;
+
         // piso de 60s: o limite de consultas é da conta e cada sessão do Claude Code
         // aberta consulta o mesmo endpoint — abaixo disso o HTTP 429 é questão de tempo
         if (RefreshSeconds < 60) RefreshSeconds = 60;

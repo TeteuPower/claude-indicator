@@ -6,15 +6,16 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using ClaudeIndicator.Core;
+using ClaudeIndicator.Views;
 
-namespace ClaudeIndicator.Views;
+namespace ClaudeIndicator.Views.Pages;
 
 /// <summary>
 /// Gráficos do consumo registrado em <see cref="UsageHistory"/>: o nível da barra ao longo
 /// do tempo (linha) e quanto foi consumido por hora ou por dia (colunas), sempre de uma
 /// barra por vez — a identidade vem do seletor, não de cores.
 /// </summary>
-public partial class HistoryWindow : Window
+public partial class HistoryPage : UserControl
 {
     private readonly AppHost _host;
     private List<HistoryPoint> _all = new();
@@ -28,7 +29,7 @@ public partial class HistoryWindow : Window
     /// quebra e a diferença de consumo não é somada em nenhum balde.</summary>
     private static readonly TimeSpan MaxGap = TimeSpan.FromMinutes(90);
 
-    public HistoryWindow(AppHost host)
+    public HistoryPage(AppHost host)
     {
         _host = host;
         InitializeComponent();
@@ -40,8 +41,14 @@ public partial class HistoryWindow : Window
         Rng24h.IsChecked = true;
 
         _ready = true;
-        ReloadData();
-        _host.Updated += OnUsageUpdated;
+
+        Loaded += (_, _) =>
+        {
+            _host.Updated -= OnUsageUpdated;
+            _host.Updated += OnUsageUpdated;
+            ReloadData();
+        };
+        Unloaded += (_, _) => _host.Updated -= OnUsageUpdated;
     }
 
     // ------------------------------------------------------------------
@@ -96,8 +103,6 @@ public partial class HistoryWindow : Window
         }
         ReloadData();
     }
-
-    private void OnClosed(object sender, EventArgs e) => _host.Updated -= OnUsageUpdated;
 
     private void ReloadData()
     {
@@ -470,3 +475,4 @@ public partial class HistoryWindow : Window
         c.Children.Add(tb);
     }
 }
+

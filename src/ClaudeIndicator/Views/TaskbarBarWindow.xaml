@@ -1,0 +1,36 @@
+<Window x:Class="ClaudeIndicator.Views.TaskbarBarWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Claude Indicator"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Foreground="{StaticResource TextBrush}"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        SizeToContent="Width"
+        Topmost="True"
+        WindowStartupLocation="Manual"
+        Focusable="False"
+        ShowActivated="False"
+        FontFamily="Segoe UI">
+
+    <Window.ContextMenu>
+        <ContextMenu>
+            <MenuItem x:Name="VersionItem" IsEnabled="False"/>
+            <Separator/>
+            <MenuItem Header="Atualizar agora" Click="OnRefreshClick"/>
+            <MenuItem Header="Abrir painel…" Click="OnDashboardClick"/>
+            <MenuItem Header="Configurações…" Click="OnSettingsClick"/>
+            <Separator/>
+            <MenuItem Header="Ocultar da barra de tarefas" Click="OnHideClick"/>
+            <MenuItem Header="Sair" Click="OnExitClick"/>
+        </ContextMenu>
+    </Window.ContextMenu>
+
+    <!-- fundo levemente destacado para separar da barra sem brigar com ela -->
+    <Border x:Name="Root" Background="#00000000" Padding="10,0" MouseLeftButtonUp="OnClick"
+            Cursor="Hand">
+        <StackPanel x:Name="CellsPanel" Orientation="Horizontal" VerticalAlignment="Center"/>
+    </Border>
+</Window>
