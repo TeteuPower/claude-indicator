@@ -20,7 +20,14 @@ public class UsageService
     private static readonly HttpClient Http = CreateClient();
     private readonly CredentialStore _store;
 
+    // Endpoints que responderam 404 nesta execução: pulados nas próximas consultas
+    // para não somar requisições inúteis (o limite de consultas é da conta toda).
+    private readonly HashSet<string> _notFound = new();
+
     public UsageService(CredentialStore store) => _store = store;
+
+    /// <summary>Volta a tentar todos os endpoints (usado quando o usuário altera a lista).</summary>
+    public void ForgetEndpointFailures() => _notFound.Clear();
 
     private static HttpClient CreateClient()
     {
@@ -59,7 +66,18 @@ public class UsageService
         snap.Account = cred.Describe();
         var errors = new List<string>();
 
-        foreach (var url in settings.EndpointList())
+        var urls = new List<string>();
+        foreach (var u in settings.EndpointList())
+        {
+            if (!_notFound.Contains(u)) urls.Add(u);
+        }
+        if (urls.Count == 0)
+        {
+            _notFound.Clear();
+            urls.AddRange(settings.EndpointList());
+        }
+
+        foreach (var url in urls)
         {
             for (var attempt = 0; attempt < 2; attempt++)
             {
@@ -84,8 +102,18 @@ public class UsageService
                         }
                     }
 
+                    if ((int)res.StatusCode == 429)
+                    {
+                        // Limite de consultas da conta: insistir em outros endpoints só piora.
+                        snap.RateLimited = true;
+                        snap.RetryAfterSeconds = ParseRetryAfter(res);
+                        snap.Error = "Limite de consultas da API atingido (HTTP 429). O app aguarda e tenta de novo sozinho.";
+                        return snap;
+                    }
+
                     if (!res.IsSuccessStatusCode)
                     {
+                        if (res.StatusCode == HttpStatusCode.NotFound) _notFound.Add(url);
                         errors.Add($"{Short(url)} → HTTP {(int)res.StatusCode}");
                         break;
                     }
@@ -96,6 +124,10 @@ public class UsageService
                     if (snap.Bars.Count == 0)
                     {
                         snap.Error = "A resposta chegou, mas nenhuma barra foi reconhecida. Veja Configurações › Diagnóstico.";
+                    }
+                    else
+                    {
+                        snap.DataAt = snap.FetchedAt;
                     }
                     return snap;
                 }
@@ -115,6 +147,19 @@ public class UsageService
             ? "Não foi possível obter o consumo: " + string.Join(" | ", errors)
             : "Não foi possível obter o consumo.";
         return snap;
+    }
+
+    private static int? ParseRetryAfter(HttpResponseMessage res)
+    {
+        var ra = res.Headers.RetryAfter;
+        if (ra == null) return null;
+        if (ra.Delta is TimeSpan d && d.TotalSeconds > 0) return (int)Math.Ceiling(d.TotalSeconds);
+        if (ra.Date is DateTimeOffset when)
+        {
+            var secs = (when - DateTimeOffset.UtcNow).TotalSeconds;
+            if (secs > 0) return (int)Math.Ceiling(secs);
+        }
+        return null;
     }
 
     // ------------------------------------------------------------------

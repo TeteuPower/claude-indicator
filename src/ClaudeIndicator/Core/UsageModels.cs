@@ -53,6 +53,18 @@ public class UsageSnapshot
     public string? EndpointUsed { get; set; }
     public string? Account { get; set; }
 
+    /// <summary>Quando as barras foram de fato obtidas da API (difere de FetchedAt quando são reaproveitadas).</summary>
+    public DateTimeOffset? DataAt { get; set; }
+
+    /// <summary>As barras vieram de uma consulta anterior porque a atual falhou.</summary>
+    public bool Stale { get; set; }
+
+    /// <summary>A API devolveu HTTP 429 (limite de consultas).</summary>
+    public bool RateLimited { get; set; }
+
+    /// <summary>Segundos sugeridos pelo cabeçalho Retry-After, quando presente.</summary>
+    public int? RetryAfterSeconds { get; set; }
+
     public bool Ok => string.IsNullOrEmpty(Error);
 
     public UsageBar? Get(BarKind kind)
