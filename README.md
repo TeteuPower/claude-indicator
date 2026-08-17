@@ -75,6 +75,10 @@ tolerante e tudo é ajustável sem recompilar, em **Configurações › Diagnós
 - **Palavras-chave**: como cada barra é localizada dentro do JSON (ex.: `five_hour` → Sessão).
 - **Resposta bruta**: o JSON exato que a API devolveu, com o caminho de onde cada barra saiu.
 
+A busca casa a palavra-chave contra o caminho do campo no JSON somado aos rótulos que estiverem em
+volta dele, inclusive em objetos aninhados. É assim que o limite semanal por modelo é encontrado: ele
+vem em `limits[]` com o nome do modelo em `scope.model.display_name`, e não numa chave própria.
+
 Ou seja: se o formato mudar, basta olhar a resposta bruta e ajustar as palavras-chave.
 
 ## Configurações disponíveis

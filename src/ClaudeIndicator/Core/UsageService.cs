@@ -253,7 +253,13 @@ public class UsageService
                     pct = Math.Clamp(used.Value / limit.Value * 100.0, 0, 100);
 
                 if (pct != null)
-                    list.Add(new Candidate { Path = path + labelSuffix, Percent = pct.Value, ResetsAt = reset });
+                {
+                    // O que identifica a barra pode estar num objeto aninhado (ex.: o limite semanal
+                    // por modelo vem como scope.model.display_name = "Fable"), então o rótulo do
+                    // candidato também recolhe os nomes que estão logo abaixo dele.
+                    var label = labelSuffix + NestedLabels(el, 3);
+                    list.Add(new Candidate { Path = path + label, Percent = pct.Value, ResetsAt = reset });
+                }
 
                 foreach (var p in el.EnumerateObject())
                     Collect(p.Value, path + "." + p.Name + labelSuffix, list);
@@ -272,8 +278,34 @@ public class UsageService
         }
     }
 
+    /// <summary>
+    /// Rótulos de objetos aninhados (até <paramref name="depth"/> níveis), usados para identificar
+    /// a barra quando o nome do modelo não está no mesmo objeto da porcentagem.
+    /// Só desce por objetos: arrays ficam de fora para não misturar itens irmãos.
+    /// </summary>
+    private static string NestedLabels(JsonElement el, int depth)
+    {
+        if (depth <= 0) return "";
+        var sb = new StringBuilder();
+        foreach (var p in el.EnumerateObject())
+        {
+            if (p.Value.ValueKind != JsonValueKind.Object) continue;
+
+            foreach (var q in p.Value.EnumerateObject())
+            {
+                if (q.Value.ValueKind != JsonValueKind.String || !IsLabelKey(Norm(q.Name))) continue;
+                var v = q.Value.GetString();
+                if (!string.IsNullOrWhiteSpace(v)) sb.Append('.').Append(v);
+            }
+
+            sb.Append(NestedLabels(p.Value, depth - 1));
+        }
+        return sb.ToString();
+    }
+
     private static bool IsLabelKey(string n) =>
-        n is "type" or "name" or "id" or "key" or "window" or "period" or "limittype" or "limit" or "scope" or "kind" or "model";
+        n is "type" or "name" or "id" or "key" or "window" or "period" or "limittype" or "limit" or "scope" or "kind" or "model"
+            or "displayname" or "modelname" or "modelid" or "label";
 
     private static bool IsPercentKey(string n) =>
         n is "utilization" or "utilizationpercent" or "utilizationpct" or "percent" or "percentage"
