@@ -217,6 +217,8 @@ public sealed class UpdateChecker
             PageUrl = Str(rel, "html_url") ?? $"https://github.com/{repo}/releases"
         };
 
+        // Uma release pode ter mais de um instalador anexado (builds anteriores que ficaram para
+        // trás). Vale o de maior versão, nunca o primeiro da lista — a ordem não significa nada.
         string? assetVersion = null;
         if (rel.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
         {
@@ -225,17 +227,24 @@ public sealed class UpdateChecker
                 var name = Str(a, "name") ?? "";
                 if (!name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) continue;
 
+                var v = VersionFromName(name);
+                var better = assetVersion == null
+                             || (v != null && IsNewer(v, assetVersion))
+                             || (v != null && info.DownloadUrl.Length == 0);
+                if (!better) continue;
+
+                assetVersion = v ?? assetVersion;
                 info.DownloadUrl = Str(a, "browser_download_url") ?? "";
                 info.SizeBytes = a.TryGetProperty("size", out var s) && s.TryGetInt64(out var n) ? n : 0;
-                assetVersion = VersionFromName(name);
-                break;
             }
         }
 
+        // prioridade: tag numérica > nome da release ("Build 1.6.1 (main)") > nome do instalador
         var fromTag = NormalizeVersion(tag);
+        var fromName = VersionFromName(Str(rel, "name") ?? "");
         info.Version = Version.TryParse(Pad(fromTag), out _)
             ? fromTag
-            : assetVersion ?? VersionFromName(Str(rel, "name") ?? "") ?? "";
+            : fromName ?? assetVersion ?? "";
 
         return string.IsNullOrEmpty(info.Version) ? null : info;
     }

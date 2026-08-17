@@ -97,7 +97,20 @@ jobs:
             if (-not (Invoke-Gh @('release', 'edit', 'latest', '--title', $title, '--notes', $notes, '--prerelease'))) { throw "falha ao editar a release" }
           }
 
-          Write-Host "release latest atualizada para $version"
+          # O nome do instalador carrega a versao, entao --clobber nunca substitui o anterior:
+          # sem limpar, a release acumula um .exe por build e quem consome nao sabe qual e o atual.
+          $current = Split-Path $setup -Leaf
+          $names = & gh release view latest --json assets --jq '.assets[].name'
+          if ($LASTEXITCODE -eq 0) {
+            foreach ($name in $names) {
+              if ($name -and $name -ne $current -and $name -like 'ClaudeIndicator-Setup-*.exe') {
+                Write-Host "removendo instalador antigo: $name"
+                Invoke-Gh @('release', 'delete-asset', 'latest', $name, '--yes') -Tries 2 | Out-Null
+              }
+            }
+          }
+
+          Write-Host "release latest atualizada para $version (asset unico: $current)"
 
       # Só em tags v*: cria a release numerada com o instalador anexado (link estável).
       - name: Criar a release
