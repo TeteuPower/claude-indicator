@@ -1,0 +1,121 @@
+# Claude Indicator
+
+Indicador de consumo da assinatura Claude para Windows: ícone na barra de tarefas **ou** gadget
+flutuante arrastável que fica sempre por cima de qualquer aplicativo.
+
+![ícone](docs/icon-preview.png)
+
+## O que ele mostra
+
+Até três barras, escolhidas na tela de configuração:
+
+| Barra | O que é |
+|---|---|
+| **Sessão** | janela de 5 horas do seu plano |
+| **Semanal** | consumo semanal somando todos os modelos |
+| **Fable 5** | consumo semanal do modelo mais avançado (Fable/Opus) |
+
+Cores: verde até o limite de atenção, amarelo a partir dele, vermelho a partir do limite de alerta
+(ambos configuráveis, padrão 75% / 90%).
+
+## Como compilar
+
+Pré-requisitos: **Windows 10/11 x64** e **.NET SDK 8**.
+
+```powershell
+winget install Microsoft.DotNet.SDK.8
+# opcional, para gerar o instalador:
+winget install JRSoftware.InnoSetup
+
+cd C:\Trabalho\claude-indicator
+powershell -ExecutionPolicy Bypass -File .\build.ps1
+```
+
+Resultado:
+
+- `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~150 MB)
+- `dist\ClaudeIndicator-Setup-1.0.0.exe` — instalador (só se o Inno Setup estiver instalado)
+
+Variações:
+
+```powershell
+.\build.ps1 -Run                  # compila e abre
+.\build.ps1 -NoInstaller          # só o exe
+.\build.ps1 -FrameworkDependent   # exe de ~2 MB, exige o .NET 8 Desktop Runtime instalado
+```
+
+O instalador não pede administrador (instala para o usuário atual) e tem a opção
+"iniciar junto com o Windows".
+
+## Login / de onde vêm os dados
+
+Não existe API pública de consumo de assinatura. O app reutiliza o **login que o Claude Code já fez
+neste computador**, o mesmo que alimenta o comando `/usage`:
+
+1. Lê `%USERPROFILE%\.claude\.credentials.json` (arquivo do Claude Code — **nunca é alterado**).
+2. Se o token estiver expirado, renova via OAuth e guarda a renovação em
+   `%APPDATA%\ClaudeIndicator\token-cache.json`.
+3. Consulta o endpoint de uso da conta e desenha as barras.
+
+Se você não usa o Claude Code, gere um token e cole em **Configurações › Conta › Informar um token
+manualmente**:
+
+```powershell
+claude setup-token
+```
+
+O app também aceita a variável de ambiente `CLAUDE_CODE_OAUTH_TOKEN`.
+
+### Se as barras não aparecerem
+
+O endpoint de uso é interno da Anthropic e pode mudar de nome ou de formato. Por isso o parser é
+tolerante e tudo é ajustável sem recompilar, em **Configurações › Diagnóstico (avançado)**:
+
+- **Endpoints**: uma URL por linha, tentadas em ordem até uma responder 200.
+- **Palavras-chave**: como cada barra é localizada dentro do JSON (ex.: `five_hour` → Sessão).
+- **Resposta bruta**: o JSON exato que a API devolveu, com o caminho de onde cada barra saiu.
+
+Ou seja: se o formato mudar, basta olhar a resposta bruta e ajustar as palavras-chave.
+
+## Configurações disponíveis
+
+- **Como exibir**: bandeja, gadget flutuante ou os dois
+- **Quais barras** mostrar e o rótulo de cada uma
+- **Gadget**: opacidade, tamanho, sempre por cima, travar posição, mostrar horário de renovação,
+  reposicionar no canto inferior direito
+- **Conta**: login do Claude Code ou token manual, com botão "Testar conexão"
+- **Sistema**: iniciar com o Windows, iniciar sem abrir a janela, intervalo de atualização
+  (15 s a 15 min), limites de atenção/alerta e notificação ao atingir o alerta
+
+As preferências ficam em `%APPDATA%\ClaudeIndicator\settings.json`.
+
+## Uso no dia a dia
+
+- **Ícone da bandeja**: as barras são desenhadas no próprio ícone (uma coluna por barra; com uma
+  única barra ativa ele mostra a porcentagem). Duplo clique abre as configurações; botão direito
+  tem atualizar, configurações, mostrar/ocultar gadget e sair.
+- **Gadget**: arraste com o botão esquerdo; passe o mouse para ver os botões de atualizar,
+  configurar e ocultar; botão direito abre o menu.
+
+## Estrutura do código
+
+```
+src/ClaudeIndicator/
+  App.xaml(.cs)          tema escuro + instância única
+  Core/
+    AppHost.cs           orquestra timer, bandeja, gadget e configurações
+    AppSettings.cs       preferências (JSON em %APPDATA%)
+    CredentialStore.cs   leitura do login do Claude Code + refresh OAuth
+    UsageService.cs      HTTP + parser tolerante do JSON de consumo
+    TrayIconRenderer.cs  desenha o ícone da bandeja em tempo real
+    StartupManager.cs    inicialização automática (HKCU\...\Run)
+  Views/
+    GadgetWindow.xaml    gadget transparente, arrastável, sempre por cima
+    SettingsWindow.xaml  tela de configuração
+    BarRenderer.cs       desenho das barras (gadget e prévia)
+```
+
+## Aviso
+
+Projeto pessoal, não oficial e sem vínculo com a Anthropic. Ele apenas lê o consumo da sua própria
+conta com o seu próprio token.
