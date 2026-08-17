@@ -411,7 +411,14 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="Bd" Background="Transparent" CornerRadius="7">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <!-- TextBlock explícito, e não ContentPresenter: o estilo global de
+                                 TextBlock fixa Segoe UI e venceria a fonte herdada do botão,
+                                 transformando o glifo em quadrado vazio -->
+                            <TextBlock Text="{TemplateBinding Content}"
+                                       FontFamily="Segoe MDL2 Assets"
+                                       FontSize="{TemplateBinding FontSize}"
+                                       Foreground="{TemplateBinding Foreground}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">

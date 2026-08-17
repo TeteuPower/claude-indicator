@@ -76,11 +76,14 @@
                         <TextBlock x:Name="PageTitleText" Text="Visão geral" Style="{StaticResource PageTitle}"/>
                         <TextBlock x:Name="PageSubtitle" Style="{StaticResource Hint}" Margin="0,3,0,0"/>
                     </StackPanel>
+                    <!-- com rótulo, e não só ícone: dois ícones lado a lado não dizem o que fazem -->
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-                        <Button x:Name="BtnRefresh" Style="{StaticResource GlyphButton}" Content="&#xE72C;"
-                                ToolTip="Atualizar agora" Click="OnRefreshClick"/>
-                        <Button Style="{StaticResource GlyphButton}" Content="&#xE7E8;"
-                                ToolTip="Mostrar/ocultar gadget" Click="OnToggleGadgetClick"/>
+                        <Button x:Name="BtnRefresh" Content="Atualizar" Click="OnRefreshClick"
+                                Padding="12,6" FontSize="12"
+                                ToolTip="Consultar o consumo na API agora"/>
+                        <Button x:Name="BtnGadget" Content="Mostrar gadget" Click="OnToggleGadgetClick"
+                                Padding="12,6" FontSize="12" Margin="8,0,0,0"
+                                ToolTip="Liga e desliga a janelinha flutuante"/>
                     </StackPanel>
                 </Grid>
             </Border>

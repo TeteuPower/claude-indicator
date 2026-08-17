@@ -55,8 +55,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.6.0
-git push origin v1.6.0
+git tag v1.6.1
+git push origin v1.6.1
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -77,7 +77,7 @@ Dois detalhes do GitHub que o app precisa contornar:
   pré-release. Por isso o app lista as releases e escolhe a maior versão, com uma opção para
   considerar ou não as pré-releases.
 - A pré-release usa a tag fixa `latest`, que não é uma versão. A versão sai então do nome do
-  instalador anexado (`ClaudeIndicator-Setup-1.6.0.exe`).
+  instalador anexado (`ClaudeIndicator-Setup-1.6.1.exe`).
 
 ## Como compilar
 
@@ -94,8 +94,8 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 
 Resultado:
 
-- `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~150 MB)
-- `dist\ClaudeIndicator-Setup-1.6.0.exe` — instalador (só se o Inno Setup estiver instalado)
+- `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~63 MB)
+- `dist\ClaudeIndicator-Setup-1.6.1.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -135,7 +135,7 @@ O app também aceita a variável de ambiente `CLAUDE_CODE_OAUTH_TOKEN`.
 ### Se as barras não aparecerem
 
 O endpoint de uso é interno da Anthropic e pode mudar de nome ou de formato. Por isso o parser é
-tolerante e tudo é ajustável sem recompilar, em **Configurações › Diagnóstico (avançado)**:
+tolerante e tudo é ajustável sem recompilar, em **Configurações › Avançado**:
 
 - **Endpoints**: uma URL por linha, tentadas em ordem até uma responder 200.
 - **Palavras-chave**: como cada barra é localizada dentro do JSON (ex.: `five_hour` → Sessão).
@@ -182,9 +182,13 @@ Por isso o intervalo escolhido nas configurações é um **mínimo**, e não uma
 - **Atualizações**: procurar versão nova no GitHub automaticamente, repositório consultado, e
   botão para baixar e instalar sem sair do app
 - **Conta**: login do Claude Code ou token manual, com botão "Testar conexão"
-- **Sistema**: iniciar com o Windows, iniciar sem abrir a janela, intervalo de atualização
-  (60 s a 15 min, usado como **mínimo** — veja abaixo), limites de atenção/alerta e notificação ao
-  atingir o alerta
+- **Sistema**: iniciar com o Windows, iniciar sem abrir a janela e intervalo mínimo entre consultas
+  (60 s a 15 min — veja a seção sobre HTTP 429)
+- **Barras**: limites de atenção/alerta, notificação ao atingir o alerta e prévia ao vivo
+
+As categorias ficam em abas: **Onde exibir · Barras · Ritmo · Conta · Sistema · Dados · Avançado**.
+A barra de salvar só aparece quando existe alteração pendente, e "Descartar" volta tudo ao que está
+gravado.
 
 As preferências ficam em `%APPDATA%\ClaudeIndicator\settings.json`.
 
@@ -192,22 +196,17 @@ As preferências ficam em `%APPDATA%\ClaudeIndicator\settings.json`.
 
 - **Ícone da bandeja**: as barras são desenhadas no próprio ícone (uma coluna ou uma linha por
   barra, conforme a orientação escolhida; com uma única barra ativa ele mostra a porcentagem).
-  Duplo clique abre as configurações; botão direito tem atualizar, configurações, mostrar/ocultar
-  gadget e sair.
+  Passar o mouse mostra as porcentagens e o ritmo de consumo. Duplo clique abre o painel; botão
+  direito tem atualizar, as seções do painel, mostrar/ocultar gadget e sair.
+- **Painel na barra de tarefas**: clique abre o painel; botão direito tem o mesmo menu, incluindo
+  ocultá-lo. Passar o mouse sobre cada indicador mostra quanto resta e quando renova.
 - **Gadget**: arraste com o botão esquerdo; passe o mouse para ver os botões de atualizar,
   configurar e ocultar; botão direito abre o menu.
-- **Histórico**: menu da bandeja ou do gadget › "Histórico de consumo…". Mostra o nível de cada
-  barra ao longo do tempo, o consumo por hora (últimas 24 h) ou por dia (7 dias, 30 dias ou tudo) e
-  os totais da última hora e das últimas 24 h, em pontos percentuais do limite. O histórico é
-  gravado em `%APPDATA%\ClaudeIndicator\history.jsonl` enquanto o app está aberto e, por padrão,
-  **nada é apagado** — dá para ligar uma retenção em Configurações › Histórico de consumo.
 
-  Não há como importar consumo anterior: a API devolve só o estado atual dos limites, sem série
-  histórica. O gráfico começa vazio e enche a partir do primeiro uso.
-
-- **Consumo por projeto**: menu da bandeja ou do gadget › "Consumo por projeto…". Reparte o
-  consumo entre os projetos do Claude Code e lista os prompts de cada um, com o custo do turno que
-  cada prompt disparou. Detalhes e ressalvas na seção abaixo.
+O **histórico** é gravado em `%APPDATA%\ClaudeIndicator\history.jsonl` enquanto o app está aberto e,
+por padrão, **nada é apagado** — dá para ligar uma retenção em *Configurações › Dados*. Não há como
+importar consumo anterior: a API devolve só o estado atual dos limites, sem série histórica, então o
+gráfico começa vazio e enche a partir do primeiro uso.
 
 ## Consumo por projeto
 

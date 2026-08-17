@@ -205,6 +205,9 @@ public sealed class AppHost
         _gadget.Closed += (_, _) => _gadget = null;
     }
 
+    /// <summary>O gadget está aparecendo agora? Usado pelo rótulo do botão que o liga e desliga.</summary>
+    public bool GadgetVisible => _gadget is { IsVisible: true };
+
     public void ToggleGadget()
     {
         if (_gadget != null && _gadget.IsVisible)

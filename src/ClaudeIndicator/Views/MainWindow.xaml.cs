@@ -44,6 +44,7 @@ public partial class MainWindow : Window
 
         _host.Updated += OnUsageUpdated;
         UpdateStatus(_host.Last);
+        UpdateGadgetButton();
     }
 
     // ------------------------------------------------------------------
@@ -158,6 +159,7 @@ public partial class MainWindow : Window
     private async void OnRefreshClick(object sender, RoutedEventArgs e)
     {
         BtnRefresh.IsEnabled = false;
+        BtnRefresh.Content = "Atualizando…";
         StatusLabel.Text = "consultando…";
         try
         {
@@ -165,11 +167,22 @@ public partial class MainWindow : Window
         }
         finally
         {
+            BtnRefresh.Content = "Atualizar";
             BtnRefresh.IsEnabled = true;
         }
     }
 
-    private void OnToggleGadgetClick(object sender, RoutedEventArgs e) => _host.ToggleGadget();
+    private void OnToggleGadgetClick(object sender, RoutedEventArgs e)
+    {
+        _host.ToggleGadget();
+        UpdateGadgetButton();
+    }
+
+    /// <summary>O rótulo diz o que o clique vai fazer, não o estado atual.</summary>
+    private void UpdateGadgetButton()
+    {
+        BtnGadget.Content = _host.GadgetVisible ? "Ocultar gadget" : "Mostrar gadget";
+    }
 
     private void OnClosed(object sender, EventArgs e) => _host.Updated -= OnUsageUpdated;
 }
