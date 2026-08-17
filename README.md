@@ -62,8 +62,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.7.2
-git push origin v1.7.2
+git tag v1.7.3
+git push origin v1.7.3
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -84,7 +84,7 @@ Dois detalhes do GitHub que o app precisa contornar:
   pré-release. Por isso o app lista as releases e escolhe a maior versão, com uma opção para
   considerar ou não as pré-releases.
 - A pré-release usa a tag fixa `latest`, que não é uma versão. A versão sai então do **nome do
-  instalador anexado** (`ClaudeIndicator-Setup-1.7.2.exe`) — de propósito antes do título da
+  instalador anexado** (`ClaudeIndicator-Setup-1.7.3.exe`) — de propósito antes do título da
   release, porque o instalador é o arquivo que será realmente instalado e o título é texto que
   pode ficar defasado se a chamada que o atualiza falhar.
 
@@ -109,7 +109,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~63 MB)
-- `dist\ClaudeIndicator-Setup-1.7.2.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-1.7.3.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -256,6 +256,18 @@ Três coisas que o número **não** é:
    transcrições e acaba diluído entre os projetos.
 3. **Turnos de subagentes** entram no projeto onde rodaram. Um projeto pode aparecer com consumo e
    nenhum prompt digitado quando o prompt de origem está em outro.
+
+O caminho mostrado é o `cwd` de quando o consumo aconteceu, então projeto movido ou renomeado
+aparece com o caminho antigo. Nesse caso o app procura para onde ele foi: candidatos são pastas
+cujo caminho **termina igual** ao antigo, e o desempate usa as subpastas que o projeto
+comprovadamente tinha (os subprojetos registrados no próprio índice). Havendo vencedor isolado, o
+cartão mostra "hoje em: …"; havendo empate, ele diz só que a pasta não existe mais — casar pastas
+no chute atribuiria consumo ao projeto errado, o que é pior que um caminho antigo declarado como
+antigo.
+
+Clicar num cartão filtra os prompts daquele projeto; clicar nele de novo, ou no espaço vazio ao
+lado dos cartões, volta para os prompts recentes de **todos** os projetos. Cada prompt abre em uma
+janela com o texto completo, a fatia do consumo e os tokens do turno que ele disparou.
 
 Duas armadilhas do formato que o parser trata, e que sem tratamento dobrariam os números: sessões
 retomadas **copiam o histórico** para o arquivo novo (48% de turnos repetidos no acervo testado, por

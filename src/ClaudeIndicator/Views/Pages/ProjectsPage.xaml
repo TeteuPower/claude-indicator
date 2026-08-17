@@ -53,9 +53,16 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
-                <TextBlock x:Name="ProjectsTitle" Text="Projetos" Style="{StaticResource Title}" Margin="0,0,0,8"/>
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                    <WrapPanel x:Name="ProjectsPanel" Orientation="Horizontal"/>
+                <Grid>
+                    <TextBlock x:Name="ProjectsTitle" Text="Projetos" Style="{StaticResource Title}" Margin="0,0,0,8"/>
+                    <TextBlock x:Name="ClearHint" Style="{StaticResource Hint}" HorizontalAlignment="Right"
+                               VerticalAlignment="Top" Margin="0" Visibility="Collapsed"
+                               Text="clique no espaço vazio para ver todos"/>
+                </Grid>
+                <!-- fundo clicável: clicar fora dos cartões volta para a lista de todos os projetos -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Background="Transparent"
+                              MouseLeftButtonUp="OnEmptyAreaClick">
+                    <WrapPanel x:Name="ProjectsPanel" Orientation="Horizontal" Background="Transparent"/>
                 </ScrollViewer>
             </Grid>
         </Border>

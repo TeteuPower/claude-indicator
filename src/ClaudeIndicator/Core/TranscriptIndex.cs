@@ -43,6 +43,9 @@ public sealed class ProjectUsage
     /// </summary>
     public bool FolderExists { get; set; } = true;
 
+    /// <summary>Onde a pasta está hoje, quando dá para afirmar com evidência. Null se não dá.</summary>
+    public string? MovedTo { get; set; }
+
     public TokenTotals All { get; } = new();
     public TokenTotals Fable { get; } = new();
     public int Prompts { get; set; }
@@ -699,6 +702,10 @@ public sealed class TranscriptIndex
                 {
                     pu.FolderExists = true; // caminho inválido para o SO: não vale acusar
                 }
+
+                // sumiu: tenta descobrir para onde foi, usando os subprojetos como evidência
+                if (!pu.FolderExists)
+                    pu.MovedTo = ProjectPathResolver.Resolve(pu.Path, ChildFolderNames(pu.Path));
             }
 
             Disambiguate(result);
@@ -765,6 +772,45 @@ public sealed class TranscriptIndex
                     File = _data.Files[p.File].Path,
                     Offset = p.Offset,
                     Project = projectPath
+                };
+                e.Cost.Input = p.Input; e.Cost.Output = p.Output;
+                e.Cost.CacheRead = p.CacheRead; e.Cost.CacheWrite = p.CacheWrite; e.Cost.Turns = p.Turns;
+                e.Share = total > 0 ? e.Cost.Weighted(settings) / total : 0;
+                list.Add(e);
+            }
+
+            list.Sort((a, b) => b.At.CompareTo(a.At));
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// Prompts de todos os projetos no período, do mais recente para o mais antigo. É o que a tela
+    /// mostra quando nenhum projeto está selecionado.
+    /// </summary>
+    public List<PromptEntry> AllPrompts(DateTimeOffset from, DateTimeOffset to, AppSettings settings,
+        double? periodTotal = null)
+    {
+        var list = new List<PromptEntry>();
+        var total = periodTotal ?? TotalWeight(from, to, settings, fableOnly: false);
+
+        lock (_lock)
+        {
+            var fromUnix = from.ToUnixTimeSeconds();
+            var toUnix = to.ToUnixTimeSeconds();
+
+            foreach (var p in _data.Prompts)
+            {
+                if (p.Unix < fromUnix || p.Unix > toUnix) continue;
+                if (p.File < 0 || p.File >= _data.Files.Count) continue;
+                if (p.Project < 0 || p.Project >= _data.Projects.Count) continue;
+
+                var e = new PromptEntry
+                {
+                    At = DateTimeOffset.FromUnixTimeSeconds(p.Unix),
+                    File = _data.Files[p.File].Path,
+                    Offset = p.Offset,
+                    Project = _data.Projects[p.Project]
                 };
                 e.Cost.Input = p.Input; e.Cost.Output = p.Output;
                 e.Cost.CacheRead = p.CacheRead; e.Cost.CacheWrite = p.CacheWrite; e.Cost.Turns = p.Turns;
@@ -844,6 +890,31 @@ public sealed class TranscriptIndex
 
         var take = Math.Min(segments, parts.Length);
         return string.Join("\\", parts, parts.Length - take, take);
+    }
+
+    /// <summary>
+    /// Nomes de subpastas que o projeto comprovadamente tinha: são os outros projetos do índice
+    /// que ficam logo abaixo dele. É a evidência que desempata entre candidatos de mesmo nome.
+    /// </summary>
+    private List<string> ChildFolderNames(string parentPath)
+    {
+        var names = new List<string>();
+        var prefix = parentPath.TrimEnd('\\', '/') + "\\";
+
+        foreach (var p in _data.Projects)
+        {
+            if (!p.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+            var rest = p.Substring(prefix.Length).Split('\\', '/');
+            if (rest.Length == 0 || rest[0].Length == 0) continue;
+
+            var already = false;
+            foreach (var n in names)
+            {
+                if (string.Equals(n, rest[0], StringComparison.OrdinalIgnoreCase)) { already = true; break; }
+            }
+            if (!already) names.Add(rest[0]);
+        }
+        return names;
     }
 
     /// <summary>Nome curto do projeto: a última pasta do caminho.</summary>

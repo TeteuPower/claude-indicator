@@ -204,8 +204,8 @@ public partial class ProjectsPage : UserControl
         ProjectsTitle.Text = FableScope ? "Projetos — só Fable 5" : "Projetos — todos os modelos";
         DrawProjects();
 
+        // sem projeto escolhido a lista mostra os prompts recentes de todos eles
         if (_selected != null && !_projects.Exists(p => p.Path == _selected)) _selected = null;
-        if (_selected == null && _projects.Count > 0) _selected = _projects[0].Path;
         DrawPrompts();
     }
 
@@ -233,6 +233,8 @@ public partial class ProjectsPage : UserControl
             if (totals.Turns == 0) continue;
             ProjectsPanel.Children.Add(BuildProjectCard(p, share, totals, top));
         }
+
+        ClearHint.Visibility = _selected == null ? Visibility.Collapsed : Visibility.Visible;
     }
 
     /// <summary>Cartão de um projeto: fatia do consumo em destaque, com o volume como apoio.</summary>
@@ -252,12 +254,18 @@ public partial class ProjectsPage : UserControl
             Cursor = Cursors.Hand,
             ToolTip = p.FolderExists
                 ? p.Path
-                : p.Path + "\n\nEsta pasta não existe mais. O caminho é o que estava gravado na "
-                         + "transcrição quando o consumo aconteceu — o projeto foi movido, renomeado ou apagado desde então."
+                : p.MovedTo != null
+                    ? $"Caminho na época: {p.Path}\nHoje em: {p.MovedTo}\n\n"
+                      + "A pasta foi movida ou renomeada. O caminho antigo é o que estava gravado na "
+                      + "transcrição; o novo foi identificado pelas subpastas que o projeto tinha."
+                    : p.Path + "\n\nEsta pasta não existe mais. O caminho é o que estava gravado na "
+                             + "transcrição quando o consumo aconteceu — o projeto foi movido, renomeado ou apagado desde então."
         };
-        card.MouseLeftButtonUp += (_, _) =>
+        card.MouseLeftButtonUp += (_, e) =>
         {
-            _selected = p.Path;
+            e.Handled = true;
+            // clicar no já selecionado desmarca, e a lista volta a ser de todos os projetos
+            _selected = _selected == p.Path ? null : p.Path;
             DrawProjects();
             DrawPrompts();
         };
@@ -315,16 +323,29 @@ public partial class ProjectsPage : UserControl
         track.Child = grid;
         stack.Children.Add(track);
 
-        var meta = $"{totals.Turns:n0} turnos · {p.Prompts:n0} prompts";
-        if (!p.FolderExists) meta += "  ·  pasta não existe mais";
         stack.Children.Add(new TextBlock
         {
-            Text = meta,
+            Text = $"{totals.Turns:n0} turnos · {p.Prompts:n0} prompts",
             FontSize = 10.5,
-            Foreground = BarRenderer.Swatch(p.FolderExists ? "MutedBrush" : "WarnBrush"),
+            Foreground = BarRenderer.Swatch("MutedBrush"),
             Margin = new Thickness(0, 9, 0, 0),
             TextTrimming = TextTrimming.CharacterEllipsis
         });
+
+        if (!p.FolderExists)
+        {
+            stack.Children.Add(new TextBlock
+            {
+                Text = p.MovedTo != null
+                    ? "hoje em: " + TranscriptIndex.FriendlyName(p.MovedTo)
+                    : "pasta não existe mais",
+                FontSize = 10.5,
+                Foreground = BarRenderer.Swatch(p.MovedTo != null ? "MutedBrush" : "WarnBrush"),
+                Margin = new Thickness(0, 3, 0, 0),
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                ToolTip = p.MovedTo
+            });
+        }
 
         if (!FableScope && p.Fable.Turns > 0)
         {
@@ -346,24 +367,24 @@ public partial class ProjectsPage : UserControl
     {
         PromptsPanel.Children.Clear();
 
-        if (_selected == null)
-        {
-            PromptsTitle.Text = "Prompts";
-            PromptsPanel.Children.Add(Hint("Escolha um projeto acima."));
-            return;
-        }
-
         var (from, to, _) = Period();
         var settings = _host.Settings;
-        var prompts = _index.PromptsFor(_selected, from, to, settings, _periodTotal);
+        var todos = _selected == null;
 
-        PromptsTitle.Text = "Prompts — " + TranscriptIndex.FriendlyName(_selected);
+        var prompts = todos
+            ? _index.AllPrompts(from, to, settings, _periodTotal)
+            : _index.PromptsFor(_selected!, from, to, settings, _periodTotal);
+
+        PromptsTitle.Text = todos
+            ? "Prompts recentes — todos os projetos"
+            : "Prompts — " + TranscriptIndex.FriendlyName(_selected!);
 
         if (prompts.Count == 0)
         {
-            PromptsPanel.Children.Add(Hint(
-                "Nenhum prompt digitado neste projeto no período. O consumo veio de subagentes ou de "
-                + "sessões cuja pasta de trabalho é esta, com o prompt registrado no projeto de origem."));
+            PromptsPanel.Children.Add(Hint(todos
+                ? "Nenhum prompt digitado no período."
+                : "Nenhum prompt digitado neste projeto no período. O consumo veio de subagentes ou de "
+                  + "sessões cuja pasta de trabalho é esta, com o prompt registrado no projeto de origem."));
             return;
         }
 
@@ -381,14 +402,18 @@ public partial class ProjectsPage : UserControl
         foreach (var e in prompts)
         {
             if (shown++ >= max) break;
-            PromptsPanel.Children.Add(BuildPromptRow(e, maxShare));
+            PromptsPanel.Children.Add(BuildPromptRow(e, maxShare, todos));
         }
 
         if (prompts.Count > max)
-            PromptsPanel.Children.Add(Hint($"Mostrando {max} de {prompts.Count} prompts do período."));
+        {
+            PromptsPanel.Children.Add(Hint(SortCost.IsChecked == true
+                ? $"Mostrando os {max} mais caros de {prompts.Count} prompts do período."
+                : $"Mostrando os {max} mais recentes de {prompts.Count} prompts do período."));
+        }
     }
 
-    private UIElement BuildPromptRow(PromptEntry e, double maxShare)
+    private UIElement BuildPromptRow(PromptEntry e, double maxShare, bool showProject = false)
     {
         var text = TranscriptIndex.ReadPromptText(e.File, e.Offset, 600);
         if (string.IsNullOrWhiteSpace(text)) text = "(sem texto)";
@@ -401,13 +426,31 @@ public partial class ProjectsPage : UserControl
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(56) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(74) });
 
-        var when = new TextBlock
+        var whenText = e.At.ToLocalTime().ToString("dd/MM HH:mm");
+        var when = new StackPanel { VerticalAlignment = VerticalAlignment.Top };
+        when.Children.Add(new TextBlock
         {
-            Text = e.At.ToLocalTime().ToString("dd/MM HH:mm"),
+            Text = whenText,
             FontSize = 11,
-            Foreground = BarRenderer.Swatch("MutedBrush"),
-            VerticalAlignment = VerticalAlignment.Top
-        };
+            Foreground = BarRenderer.Swatch("MutedBrush")
+        });
+
+        // com a lista de todos os projetos, cada linha precisa dizer de onde veio
+        if (showProject)
+        {
+            var project = _projects.Find(p => p.Path == e.Project);
+            when.Children.Add(new TextBlock
+            {
+                Text = project?.Name ?? TranscriptIndex.FriendlyName(e.Project),
+                FontSize = 9.5,
+                Foreground = BarRenderer.Swatch("AccentBrush"),
+                Opacity = 0.8,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Margin = new Thickness(0, 1, 6, 0),
+                ToolTip = e.Project
+            });
+        }
+
         Grid.SetColumn(when, 0);
         grid.Children.Add(when);
 
@@ -478,6 +521,15 @@ public partial class ProjectsPage : UserControl
         row.MouseLeftButtonUp += (_, _) => ShowPromptDetail(e);
 
         return row;
+    }
+
+    /// <summary>Clique fora dos cartões: desmarca e volta para os prompts de todos os projetos.</summary>
+    private void OnEmptyAreaClick(object sender, MouseButtonEventArgs e)
+    {
+        if (_selected == null) return;
+        _selected = null;
+        DrawProjects();
+        DrawPrompts();
     }
 
     private void ShowPromptDetail(PromptEntry entry)
