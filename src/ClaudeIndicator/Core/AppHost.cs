@@ -30,6 +30,11 @@ public sealed class AppHost
     private SettingsWindow? _settingsWindow;
     private bool _busy;
 
+    // Resiliência: última consulta que veio com barras, e pausa imposta por HTTP 429.
+    private UsageSnapshot? _lastGood;
+    private DateTimeOffset _pausedUntil = DateTimeOffset.MinValue;
+    private int _rateLimitStreak;
+
     public AppHost()
     {
         _service = new UsageService(_store);
@@ -194,6 +199,9 @@ public sealed class AppHost
 
         StartupManager.Apply(Settings.StartWithWindows);
         _store.Invalidate();
+        _service.ForgetEndpointFailures();
+        _pausedUntil = DateTimeOffset.MinValue;
+        _rateLimitStreak = 0;
 
         _timer.Stop();
         _timer.Interval = TimeSpan.FromSeconds(Settings.RefreshSeconds);
@@ -210,31 +218,56 @@ public sealed class AppHost
     public async Task<UsageSnapshot?> RefreshAsync(bool force = false)
     {
         if (_busy && !force) return Last;
+        if (!force && DateTimeOffset.Now < _pausedUntil) return Last; // aguardando o 429 passar
         _busy = true;
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(40));
             var snap = await _service.FetchAsync(Settings, cts.Token).ConfigureAwait(true);
-            Last = snap;
-
-            UpdateTray();
-            _gadget?.Render(snap, Settings);
-            Updated?.Invoke(snap);
-            CheckThresholds(snap);
+            Publish(snap);
             return snap;
         }
         catch (Exception ex)
         {
-            Last = new UsageSnapshot { FetchedAt = DateTimeOffset.Now, Error = ex.Message };
-            UpdateTray();
-            _gadget?.Render(Last, Settings);
-            Updated?.Invoke(Last);
+            Publish(new UsageSnapshot { FetchedAt = DateTimeOffset.Now, Error = ex.Message });
             return Last;
         }
         finally
         {
             _busy = false;
         }
+    }
+
+    private void Publish(UsageSnapshot snap)
+    {
+        if (snap.Ok && snap.Bars.Count > 0)
+        {
+            _lastGood = snap;
+            _rateLimitStreak = 0;
+        }
+        else if (snap.Bars.Count == 0 && _lastGood != null)
+        {
+            // A consulta falhou, mas o consumo de minutos atrás continua sendo a melhor
+            // informação disponível: mantém as barras na tela em vez de trocá-las pelo erro.
+            snap.Bars = _lastGood.Bars;
+            snap.DataAt = _lastGood.DataAt ?? _lastGood.FetchedAt;
+            snap.Stale = true;
+        }
+
+        if (snap.RateLimited)
+        {
+            // Respeita o Retry-After quando vier; sem ele, backoff exponencial 120s → 240s → 480s (teto 15 min).
+            _rateLimitStreak++;
+            var baseDelay = snap.RetryAfterSeconds ?? 120 * (int)Math.Pow(2, Math.Min(2, _rateLimitStreak - 1));
+            var delay = Math.Clamp(baseDelay, 30, 900);
+            _pausedUntil = DateTimeOffset.Now.AddSeconds(delay);
+        }
+
+        Last = snap;
+        UpdateTray();
+        _gadget?.Render(snap, Settings);
+        Updated?.Invoke(snap);
+        CheckThresholds(snap);
     }
 
     private void CheckThresholds(UsageSnapshot snap)
