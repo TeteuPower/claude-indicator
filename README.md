@@ -20,18 +20,20 @@ Cores: verde até o limite de atenção, amarelo a partir dele, vermelho a parti
 
 ## Baixar pronto
 
-Todo push na `main` compila no GitHub Actions e anexa o resultado ao run. Para pegar a versão mais
-recente sem compilar nada: **Actions › o run mais recente › Artifacts**, com dois pacotes —
-`ClaudeIndicator-instalador` e `ClaudeIndicator-portatil`. Baixar artefato exige estar logado no
-GitHub e eles expiram em 90 dias.
+Todo push na `main` compila no GitHub Actions e atualiza a pré-release **latest**, que aparece na
+caixa **Releases** da página inicial do repositório — é só clicar nela e baixar o
+`ClaudeIndicator-Setup-*.exe` dos assets. Sem login, link sempre no mesmo lugar.
 
-Para um link de download público e permanente, marque a versão com uma tag `v*`: o workflow cria a
-release e anexa o instalador nela.
+Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerada com o instalador
+anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.1.0
-git push origin v1.1.0
+git tag v1.2.0
+git push origin v1.2.0
 ```
+
+Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
+úteis para builds de pull request — exigem login e expiram em 90 dias.
 
 ## Como compilar
 
@@ -49,7 +51,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~150 MB)
-- `dist\ClaudeIndicator-Setup-1.1.0.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-1.2.0.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -101,13 +103,18 @@ vem em `limits[]` com o nome do modelo em `scope.model.display_name`, e não num
 
 Ou seja: se o formato mudar, basta olhar a resposta bruta e ajustar as palavras-chave.
 
+Quando uma consulta falha (rede, HTTP 429 de limite de consultas etc.), o app **mantém na tela os
+últimos valores obtidos** e indica no rodapé do gadget que são dados antigos. No caso do 429 ele
+respeita o intervalo pedido pela API (ou espera com backoff) antes de tentar de novo.
+
 ## Configurações disponíveis
 
 - **Como exibir**: bandeja, gadget flutuante ou os dois
 - **Barras dentro do ícone da bandeja**: verticais (colunas lado a lado) ou horizontais (linhas
   empilhadas) — a horizontal costuma ser mais legível com duas ou três barras
 - **Quais barras** mostrar e o rótulo de cada uma
-- **Gadget**: opacidade, tamanho, sempre por cima, travar posição, mostrar horário de renovação,
+- **Gadget**: disposição das barras (vertical, uma por linha; ou horizontal, lado a lado com
+  separador), opacidade, tamanho, sempre por cima, travar posição, mostrar horário de renovação,
   reposicionar no canto inferior direito
 - **Conta**: login do Claude Code ou token manual, com botão "Testar conexão"
 - **Sistema**: iniciar com o Windows, iniciar sem abrir a janela, intervalo de atualização
@@ -123,6 +130,10 @@ As preferências ficam em `%APPDATA%\ClaudeIndicator\settings.json`.
   gadget e sair.
 - **Gadget**: arraste com o botão esquerdo; passe o mouse para ver os botões de atualizar,
   configurar e ocultar; botão direito abre o menu.
+- **Histórico**: menu da bandeja ou do gadget › "Histórico de consumo…". Mostra o nível de cada
+  barra ao longo do tempo, o consumo por hora (últimas 24 h) ou por dia (7/30 dias) e os totais da
+  última hora e das últimas 24 h, em pontos percentuais do limite. O histórico é gravado em
+  `%APPDATA%\ClaudeIndicator\history.jsonl` enquanto o app está aberto.
 
 ## Estrutura do código
 
@@ -134,11 +145,13 @@ src/ClaudeIndicator/
     AppSettings.cs       preferências (JSON em %APPDATA%)
     CredentialStore.cs   leitura do login do Claude Code + refresh OAuth
     UsageService.cs      HTTP + parser tolerante do JSON de consumo
+    UsageHistory.cs      grava/lê o histórico de consumo (history.jsonl)
     TrayIconRenderer.cs  desenha o ícone da bandeja em tempo real
     StartupManager.cs    inicialização automática (HKCU\...\Run)
   Views/
     GadgetWindow.xaml    gadget transparente, arrastável, sempre por cima
     SettingsWindow.xaml  tela de configuração
+    HistoryWindow.xaml   gráficos do histórico (nível e consumo por hora/dia)
     BarRenderer.cs       desenho das barras (gadget e prévia)
 ```
 
