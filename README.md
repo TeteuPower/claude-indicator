@@ -18,6 +18,21 @@ Até três barras, escolhidas na tela de configuração:
 Cores: verde até o limite de atenção, amarelo a partir dele, vermelho a partir do limite de alerta
 (ambos configuráveis, padrão 75% / 90%).
 
+## Baixar pronto
+
+Todo push na `main` compila no GitHub Actions e anexa o resultado ao run. Para pegar a versão mais
+recente sem compilar nada: **Actions › o run mais recente › Artifacts**, com dois pacotes —
+`ClaudeIndicator-instalador` e `ClaudeIndicator-portatil`. Baixar artefato exige estar logado no
+GitHub e eles expiram em 90 dias.
+
+Para um link de download público e permanente, marque a versão com uma tag `v*`: o workflow cria a
+release e anexa o instalador nela.
+
+```powershell
+git tag v1.1.0
+git push origin v1.1.0
+```
+
 ## Como compilar
 
 Pré-requisitos: **Windows 10/11 x64** e **.NET SDK 8**.

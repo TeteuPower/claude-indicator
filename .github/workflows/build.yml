@@ -1,0 +1,61 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Compilar o executável
+        shell: pwsh
+        run: .\build.ps1 -NoInstaller
+
+      - name: Instalar o Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress --yes
+
+      - name: Gerar o instalador
+        shell: pwsh
+        run: '& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" installer.iss'
+
+      - name: Publicar o instalador como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClaudeIndicator-instalador
+          path: dist/*.exe
+          if-no-files-found: error
+
+      - name: Publicar o executável portátil como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClaudeIndicator-portatil
+          path: publish/ClaudeIndicator.exe
+          if-no-files-found: error
+
+      # Só em tags v*: cria a release com o instalador anexado, com link público de download.
+      - name: Criar a release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $setup = (Get-ChildItem dist\*.exe | Select-Object -First 1).FullName
+          gh release create $env:GITHUB_REF_NAME $setup `
+            --title "Claude Indicator $env:GITHUB_REF_NAME" `
+            --generate-notes
