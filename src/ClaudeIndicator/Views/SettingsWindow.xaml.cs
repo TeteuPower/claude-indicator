@@ -19,6 +19,8 @@ public partial class SettingsWindow : Window
         _host = host;
         InitializeComponent();
 
+        HeaderVersion.Text = "versão " + AppInfo.Version;
+        Title = $"{AppInfo.NameWithVersion} — Configurações";
         LoadUi(host.Settings);
         _ready = true;
 

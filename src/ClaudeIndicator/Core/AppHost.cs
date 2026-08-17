@@ -36,6 +36,16 @@ public sealed class AppHost
     private UsageSnapshot? _lastGood;
     private DateTimeOffset _pausedUntil = DateTimeOffset.MinValue;
     private int _rateLimitStreak;
+    private int _okStreak;
+
+    /// <summary>Consultas seguidas em que nada mudou: espaça as próximas.</summary>
+    private int _idleStreak;
+
+    /// <summary>Teto do espaçamento automático quando o consumo está parado.</summary>
+    private const int MaxIdleSeconds = 600;
+
+    /// <summary>Piso enquanto o limite de consultas estiver sendo respeitado.</summary>
+    private const int CooldownSeconds = 300;
 
     public AppHost()
     {
@@ -64,6 +74,7 @@ public sealed class AppHost
         _timer.Interval = TimeSpan.FromSeconds(Settings.RefreshSeconds);
         _timer.Tick += (_, _) => _ = RefreshAsync();
         _timer.Start();
+        ScheduleNext();
 
         _ = RefreshAsync();
 
@@ -88,6 +99,9 @@ public sealed class AppHost
         };
 
         var menu = new WinForms.ContextMenuStrip();
+        var header = new WinForms.ToolStripMenuItem(AppInfo.NameWithVersion) { Enabled = false };
+        menu.Items.Add(header);
+        menu.Items.Add(new WinForms.ToolStripSeparator());
         menu.Items.Add("Atualizar agora", null, (_, _) => _ = RefreshAsync(true));
         menu.Items.Add("Histórico de consumo…", null, (_, _) => ShowHistory());
         menu.Items.Add("Consumo por projeto…", null, (_, _) => ShowProjects());
@@ -239,11 +253,10 @@ public sealed class AppHost
         _service.ForgetEndpointFailures();
         _pausedUntil = DateTimeOffset.MinValue;
         _rateLimitStreak = 0;
+        _okStreak = 0;
+        _idleStreak = 0;
 
-        _timer.Stop();
-        _timer.Interval = TimeSpan.FromSeconds(Settings.RefreshSeconds);
-        _timer.Start();
-
+        ScheduleNext();
         ApplyDisplayMode();
         _ = RefreshAsync(true);
     }
@@ -275,12 +288,55 @@ public sealed class AppHost
         }
     }
 
+    /// <summary>
+    /// Reprograma o timer. O consumo só muda quando você usa o Claude, e o limite de consultas
+    /// é da conta inteira — cada sessão do Claude Code aberta consulta o mesmo endpoint. Então:
+    /// quando nada muda, espaça; depois de um 429, segura por um bom tempo.
+    /// </summary>
+    private void ScheduleNext()
+    {
+        var seconds = (double)Settings.RefreshSeconds;
+
+        if (_idleStreak > 0)
+            seconds = Math.Min(seconds * (1 + _idleStreak), MaxIdleSeconds);
+
+        if (_rateLimitStreak > 0)
+            seconds = Math.Max(seconds, CooldownSeconds);
+
+        var untilPause = (_pausedUntil - DateTimeOffset.Now).TotalSeconds;
+        if (untilPause > seconds) seconds = untilPause;
+
+        _timer.Stop();
+        _timer.Interval = TimeSpan.FromSeconds(Math.Clamp(seconds, 15, 3600));
+        _timer.Start();
+    }
+
+    private static bool SameReading(UsageSnapshot? a, UsageSnapshot? b)
+    {
+        if (a == null || b == null || a.Bars.Count != b.Bars.Count) return false;
+        foreach (var bar in a.Bars)
+        {
+            var other = b.Get(bar.Kind);
+            if (other == null || Math.Abs(other.Percent - bar.Percent) > 0.001) return false;
+        }
+        return true;
+    }
+
     private void Publish(UsageSnapshot snap)
     {
         if (snap.Ok && snap.Bars.Count > 0)
         {
+            _idleStreak = SameReading(snap, _lastGood) ? _idleStreak + 1 : 0;
+
+            // o alívio do 429 só vem depois de algumas consultas boas seguidas: voltar ao
+            // intervalo curto na primeira que funciona é o caminho de bater no limite de novo
+            if (_rateLimitStreak > 0 && ++_okStreak >= 3)
+            {
+                _rateLimitStreak = 0;
+                _okStreak = 0;
+            }
+
             _lastGood = snap;
-            _rateLimitStreak = 0;
             UsageHistory.Append(snap, Settings);
         }
         else if (snap.Bars.Count == 0 && _lastGood != null)
@@ -294,14 +350,20 @@ public sealed class AppHost
 
         if (snap.RateLimited)
         {
-            // Respeita o Retry-After quando vier; sem ele, backoff exponencial 120s → 240s → 480s (teto 15 min).
+            // Respeita o Retry-After quando vier; sem ele (é o caso deste endpoint, que não
+            // publica limites), backoff 5 min → 10 → 15, com teto de 15 minutos.
             _rateLimitStreak++;
-            var baseDelay = snap.RetryAfterSeconds ?? 120 * (int)Math.Pow(2, Math.Min(2, _rateLimitStreak - 1));
-            var delay = Math.Clamp(baseDelay, 30, 900);
+            _okStreak = 0;
+            _idleStreak = 0;
+            var baseDelay = snap.RetryAfterSeconds ?? CooldownSeconds * Math.Min(3, _rateLimitStreak);
+            var delay = Math.Clamp(baseDelay, 60, 900);
             _pausedUntil = DateTimeOffset.Now.AddSeconds(delay);
+            snap.Error = $"Limite de consultas da API atingido. Nova tentativa às " +
+                         $"{_pausedUntil.ToLocalTime():HH:mm} — as barras seguem com os últimos valores.";
         }
 
         Last = snap;
+        ScheduleNext();
         UpdateTray();
         _gadget?.Render(snap, Settings);
         Updated?.Invoke(snap);

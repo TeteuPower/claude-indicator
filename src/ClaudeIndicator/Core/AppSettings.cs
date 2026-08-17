@@ -157,7 +157,9 @@ public class AppSettings
 
     public void Sanitize()
     {
-        if (RefreshSeconds < 15) RefreshSeconds = 15;
+        // piso de 60s: o limite de consultas é da conta e cada sessão do Claude Code
+        // aberta consulta o mesmo endpoint — abaixo disso o HTTP 429 é questão de tempo
+        if (RefreshSeconds < 60) RefreshSeconds = 60;
         if (RefreshSeconds > 3600) RefreshSeconds = 3600;
         if (GadgetOpacity < 0.25) GadgetOpacity = 0.25;
         if (GadgetOpacity > 1.0) GadgetOpacity = 1.0;

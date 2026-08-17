@@ -28,8 +28,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.2.0
-git push origin v1.2.0
+git tag v1.3.0
+git push origin v1.3.0
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -51,7 +51,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~150 MB)
-- `dist\ClaudeIndicator-Setup-1.2.0.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-1.3.0.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -104,8 +104,23 @@ vem em `limits[]` com o nome do modelo em `scope.model.display_name`, e não num
 Ou seja: se o formato mudar, basta olhar a resposta bruta e ajustar as palavras-chave.
 
 Quando uma consulta falha (rede, HTTP 429 de limite de consultas etc.), o app **mantém na tela os
-últimos valores obtidos** e indica no rodapé do gadget que são dados antigos. No caso do 429 ele
-respeita o intervalo pedido pela API (ou espera com backoff) antes de tentar de novo.
+últimos valores obtidos** e indica no rodapé do gadget que são dados antigos.
+
+### Sobre o HTTP 429
+
+O limite de consultas é **da conta**, não do app: cada sessão do Claude Code aberta consulta o mesmo
+endpoint de uso. Com várias sessões abertas, um intervalo curto no indicador estoura o limite mesmo
+que o app sozinho pareça comportado. O endpoint não devolve cabeçalhos de rate-limit, então não há
+como saber o teto — a única saída é consultar menos.
+
+Por isso o intervalo escolhido nas configurações é um **mínimo**, e não uma cadência fixa:
+
+- Enquanto o consumo não muda, o app espaça sozinho as consultas (`intervalo × (1 + rodadas
+  paradas)`, até 10 minutos) e volta ao intervalo escolhido assim que algo muda. Ocioso, isso leva
+  60 consultas/hora para 11.
+- Depois de um 429 ele espera 5, 10 ou 15 minutos e só volta ao ritmo normal após três consultas
+  bem-sucedidas seguidas — voltar na primeira é o caminho de bater no limite de novo.
+- O mínimo aceito é 60 s.
 
 ## Configurações disponíveis
 
@@ -119,7 +134,8 @@ respeita o intervalo pedido pela API (ou espera com backoff) antes de tentar de 
 - **Histórico de consumo**: guardar tudo (padrão) ou apagar registros com mais de N dias
 - **Conta**: login do Claude Code ou token manual, com botão "Testar conexão"
 - **Sistema**: iniciar com o Windows, iniciar sem abrir a janela, intervalo de atualização
-  (15 s a 15 min), limites de atenção/alerta e notificação ao atingir o alerta
+  (60 s a 15 min, usado como **mínimo** — veja abaixo), limites de atenção/alerta e notificação ao
+  atingir o alerta
 
 As preferências ficam em `%APPDATA%\ClaudeIndicator\settings.json`.
 

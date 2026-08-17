@@ -23,7 +23,11 @@
                 BorderThickness="0,0,0,1" Padding="20,16">
             <Grid>
                 <StackPanel>
-                    <TextBlock Text="Claude Indicator" FontSize="17" FontWeight="SemiBold"/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Claude Indicator" FontSize="17" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="HeaderVersion" FontSize="12" VerticalAlignment="Bottom"
+                                   Margin="8,0,0,2" Foreground="{StaticResource MutedBrush}"/>
+                    </StackPanel>
                     <TextBlock x:Name="HeaderStatus" Style="{StaticResource Hint}" Text="Carregando consumo…"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
@@ -223,12 +227,14 @@
                                 <ColumnDefinition Width="80"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Atualizar a cada" VerticalAlignment="Center"/>
-                            <Slider x:Name="SldRefresh" Grid.Column="1" Minimum="15" Maximum="900"
+                            <Slider x:Name="SldRefresh" Grid.Column="1" Minimum="60" Maximum="900"
                                     TickFrequency="15" IsSnapToTickEnabled="True" Value="120"
                                     VerticalAlignment="Center" Margin="8,0" ValueChanged="OnRefreshIntervalChanged"/>
                             <TextBlock x:Name="LblRefresh" Grid.Column="2" Text="120 s" VerticalAlignment="Center"
                                        HorizontalAlignment="Right" Foreground="{StaticResource MutedBrush}"/>
                         </Grid>
+                        <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0"
+                                   Text="Este é o intervalo mínimo. Quando o consumo não muda, o app espaça sozinho as consultas (até 10 min) e volta ao intervalo escolhido assim que algo muda. O limite de consultas é da conta inteira e cada sessão do Claude Code aberta consulta o mesmo endpoint — por isso intervalos curtos com várias sessões abertas causam HTTP 429."/>
 
                         <Grid Margin="0,10,0,0">
                             <Grid.ColumnDefinitions>

@@ -16,6 +16,7 @@ public partial class GadgetWindow : Window
     public GadgetWindow()
     {
         InitializeComponent();
+        VersionItem.Header = AppInfo.NameWithVersion;
     }
 
     // ------------------------------------------------------------------
