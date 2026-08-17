@@ -90,7 +90,8 @@ public sealed class AppHost
         if (firstRun || (!minimized && !Settings.StartHidden))
             ShowDashboard();
 
-        _ = CheckUpdatesAsync();
+        // sempre ao abrir: é quando o usuário está de fato disponível para atualizar
+        _ = CheckUpdatesAsync(atStartup: true);
     }
 
     // ------------------------------------------------------------------
@@ -390,6 +391,10 @@ public sealed class AppHost
         Last = snap;
         UpdateRate(snap);
         ScheduleNext();
+
+        // enquanto o app fica aberto por dias, o próprio ciclo de atualização carrega a
+        // verificação de versão nova — o UpdateChecker limita a uma consulta a cada 6 h
+        _ = CheckUpdatesAsync();
         UpdateTray();
         _gadget?.Render(snap, Settings);
         _taskbarBar?.Render(snap, Settings);
@@ -444,11 +449,15 @@ public sealed class AppHost
     /// Procura versão nova. Avisa uma vez por versão: quem mandou ignorar não é incomodado de
     /// novo até sair uma posterior.
     /// </summary>
-    public async Task<UpdateInfo?> CheckUpdatesAsync(bool force = false)
+    /// <param name="force">Pedido explícito do usuário: ignora o intervalo e a versão dispensada.</param>
+    /// <param name="atStartup">Abertura do app: consulta mesmo dentro do intervalo, mas respeita o "ignorar".</param>
+    public async Task<UpdateInfo?> CheckUpdatesAsync(bool force = false, bool atStartup = false)
     {
         try
         {
-            var info = await _updates.CheckAsync(Settings, force).ConfigureAwait(true);
+            if (atStartup && !Settings.CheckUpdates) return null;
+
+            var info = await _updates.CheckAsync(Settings, force || atStartup).ConfigureAwait(true);
             if (info == null) return null;
 
             if (!force && string.Equals(info.Version, Settings.SkippedVersion, StringComparison.OrdinalIgnoreCase))

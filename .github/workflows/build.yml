@@ -48,21 +48,56 @@ jobs:
           path: publish/ClaudeIndicator.exe
           if-no-files-found: error
 
-      # Todo push na main recria a pré-release "latest": o instalador do último commit
+      # Todo push na main atualiza a pré-release "latest": o instalador do último commit
       # fica sempre disponível na caixa Releases da página inicial do repositório.
+      # Atualizar no lugar (em vez de apagar e recriar) mantém o link estável e não depende
+      # da remoção da tag ter propagado.
       - name: Atualizar a release "latest"
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          $ErrorActionPreference = 'Continue'
           $setup = (Get-ChildItem dist\*.exe | Select-Object -First 1).FullName
-          gh release delete latest --yes --cleanup-tag || Write-Host 'sem release latest anterior'
-          gh release create latest $setup `
-            --target $env:GITHUB_SHA `
-            --prerelease `
-            --title 'Build mais recente (main)' `
-            --notes 'Instalador gerado automaticamente a partir do último commit na main. Para versões estáveis, use as releases numeradas.'
+          $xml = [xml](Get-Content src/ClaudeIndicator/ClaudeIndicator.csproj)
+          $version = @($xml.Project.PropertyGroup.Version | Where-Object { $_ })[0]
+          $title = "Build $version (main)"
+          $notes = "Instalador gerado automaticamente a partir do ultimo commit na main (versao $version). Para versoes estaveis, use as releases numeradas."
+
+          # A API do GitHub devolve 503 de vez em quando (foi o que derrubou o run #5).
+          # Cada chamada tem nova tentativa, e nenhuma delas apaga nada: subir o arquivo com
+          # --clobber e editar a release são idempotentes, então repetir é sempre seguro.
+          function Invoke-Gh {
+            param([string[]]$GhArgs, [int]$Tries = 3)
+            for ($i = 1; $i -le $Tries; $i++) {
+              $out = & gh @GhArgs 2>&1
+              if ($LASTEXITCODE -eq 0) { return $true }
+              Write-Host "tentativa $i de $Tries falhou: $out"
+              if ($i -lt $Tries) { Start-Sleep -Seconds (5 * $i) }
+            }
+            return $false
+          }
+
+          $exists = Invoke-Gh @('release', 'view', 'latest', '--json', 'tagName') -Tries 2
+
+          if (-not $exists) {
+            Write-Host "criando a release latest"
+            if (-not (Invoke-Gh @('release', 'create', 'latest', $setup, '--prerelease', '--title', $title, '--notes', $notes))) {
+              # pode ter sido criada entre a consulta e agora, ou a consulta falhou por 503:
+              # nesse caso o caminho certo é atualizar, não desistir
+              Write-Host "create nao passou; tentando atualizar no lugar"
+              $exists = $true
+            }
+          }
+
+          if ($exists) {
+            Write-Host "atualizando a release latest"
+            if (-not (Invoke-Gh @('release', 'upload', 'latest', $setup, '--clobber'))) { throw "falha ao enviar o instalador" }
+            if (-not (Invoke-Gh @('release', 'edit', 'latest', '--title', $title, '--notes', $notes, '--prerelease'))) { throw "falha ao editar a release" }
+          }
+
+          Write-Host "release latest atualizada para $version"
 
       # Só em tags v*: cria a release numerada com o instalador anexado (link estável).
       - name: Criar a release

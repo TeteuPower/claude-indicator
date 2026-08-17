@@ -59,43 +59,38 @@ public sealed class UpdateChecker
 
         try
         {
-            var url = $"https://api.github.com/repos/{repo}/releases/latest";
+            // /releases/latest ignora pré-releases, e é justamente como sai a "latest" gerada a
+            // cada push. Por isso listamos e escolhemos a maior versão nós mesmos.
+            var url = $"https://api.github.com/repos/{repo}/releases?per_page=15";
             using var res = await Http.GetAsync(url, ct).ConfigureAwait(false);
             LastCheck = DateTimeOffset.Now;
             if (!res.IsSuccessStatusCode) return null;
 
             var body = await res.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             using var doc = JsonDocument.Parse(body);
-            var root = doc.RootElement;
+            if (doc.RootElement.ValueKind != JsonValueKind.Array) return null;
 
-            var tag = Str(root, "tag_name");
-            if (string.IsNullOrWhiteSpace(tag)) return null;
-
-            var version = NormalizeVersion(tag);
-            if (!IsNewer(version, AppInfo.Version)) { Available = null; return null; }
-
-            var info = new UpdateInfo
+            UpdateInfo? best = null;
+            foreach (var rel in doc.RootElement.EnumerateArray())
             {
-                Tag = tag,
-                Version = version,
-                Notes = Str(root, "body") ?? "",
-                PageUrl = Str(root, "html_url") ?? $"https://github.com/{repo}/releases"
-            };
+                if (rel.TryGetProperty("draft", out var d) && d.ValueKind == JsonValueKind.True) continue;
 
-            if (root.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var a in assets.EnumerateArray())
-                {
-                    var name = Str(a, "name") ?? "";
-                    if (!name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) continue;
-                    info.DownloadUrl = Str(a, "browser_download_url") ?? "";
-                    info.SizeBytes = a.TryGetProperty("size", out var s) && s.TryGetInt64(out var n) ? n : 0;
-                    break;
-                }
+                var pre = rel.TryGetProperty("prerelease", out var p) && p.ValueKind == JsonValueKind.True;
+                if (pre && !settings.IncludePrereleases) continue;
+
+                var info = Parse(rel, repo);
+                if (info == null) continue;
+                if (best == null || IsNewer(info.Version, best.Version)) best = info;
             }
 
-            Available = info;
-            return info;
+            if (best == null || !IsNewer(best.Version, AppInfo.Version))
+            {
+                Available = null;
+                return null;
+            }
+
+            Available = best;
+            return best;
         }
         catch (OperationCanceledException)
         {
@@ -164,12 +159,33 @@ public sealed class UpdateChecker
                 Arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
                 UseShellExecute = true
             };
+
+            // Instalado em Program Files exige admin para trocar o executável, e em modo
+            // silencioso o instalador não tem como pedir elevação sozinho: quem pede é o app.
+            if (NeedsElevation()) psi.Verb = "runas";
+
             Process.Start(psi);
             return true;
         }
         catch
         {
+            return false; // inclui o usuário recusar o pedido de elevação
+        }
+    }
+
+    /// <summary>A pasta do app é gravável pelo usuário atual? Se não for, a troca precisa de admin.</summary>
+    private static bool NeedsElevation()
+    {
+        try
+        {
+            var dir = AppContext.BaseDirectory;
+            var probe = Path.Combine(dir, ".update-probe.tmp");
+            using (File.Create(probe, 1, FileOptions.DeleteOnClose)) { }
             return false;
+        }
+        catch
+        {
+            return true;
         }
     }
 
@@ -186,6 +202,50 @@ public sealed class UpdateChecker
     }
 
     // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Lê uma release. A versão vem da tag quando ela é numérica ("v1.5.0"); quando é um canal
+    /// fixo ("latest"), vem do nome do instalador anexado, que é ClaudeIndicator-Setup-X.Y.Z.exe.
+    /// </summary>
+    private static UpdateInfo? Parse(JsonElement rel, string repo)
+    {
+        var tag = Str(rel, "tag_name") ?? "";
+        var info = new UpdateInfo
+        {
+            Tag = tag,
+            Notes = Str(rel, "body") ?? "",
+            PageUrl = Str(rel, "html_url") ?? $"https://github.com/{repo}/releases"
+        };
+
+        string? assetVersion = null;
+        if (rel.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var a in assets.EnumerateArray())
+            {
+                var name = Str(a, "name") ?? "";
+                if (!name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) continue;
+
+                info.DownloadUrl = Str(a, "browser_download_url") ?? "";
+                info.SizeBytes = a.TryGetProperty("size", out var s) && s.TryGetInt64(out var n) ? n : 0;
+                assetVersion = VersionFromName(name);
+                break;
+            }
+        }
+
+        var fromTag = NormalizeVersion(tag);
+        info.Version = Version.TryParse(Pad(fromTag), out _)
+            ? fromTag
+            : assetVersion ?? VersionFromName(Str(rel, "name") ?? "") ?? "";
+
+        return string.IsNullOrEmpty(info.Version) ? null : info;
+    }
+
+    /// <summary>Extrai "1.5.0" de textos como "ClaudeIndicator-Setup-1.5.0.exe" ou "Build 1.5.0 (main)".</summary>
+    private static string? VersionFromName(string text)
+    {
+        var m = System.Text.RegularExpressions.Regex.Match(text, @"(\d+\.\d+(\.\d+)?(\.\d+)?)");
+        return m.Success ? m.Groups[1].Value : null;
+    }
 
     private static string? Str(JsonElement el, string name) =>
         el.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
@@ -206,7 +266,7 @@ public sealed class UpdateChecker
         return a > b;
     }
 
-    private static string Pad(string v)
+    internal static string Pad(string v)
     {
         var core = v.Split('-', '+')[0];
         var parts = core.Split('.');

@@ -94,6 +94,12 @@ public class AppSettings
     /// <summary>Repositório consultado, no formato dono/nome.</summary>
     public string UpdateRepository { get; set; } = "TeteuPower/claude-indicator";
 
+    /// <summary>
+    /// Aceitar a pré-release "latest", que é a gerada a cada push na main. Desligado, só as
+    /// versões marcadas com tag contam como atualização.
+    /// </summary>
+    public bool IncludePrereleases { get; set; } = true;
+
     /// <summary>Versão que o usuário mandou ignorar; não avisa de novo até sair uma posterior.</summary>
     public string SkippedVersion { get; set; } = "";
 

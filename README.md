@@ -55,8 +55,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.5.0
-git push origin v1.5.0
+git tag v1.6.0
+git push origin v1.6.0
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -64,15 +64,20 @@ Cada run também guarda o instalador e o exe portátil como artefatos (**Actions
 
 ## Atualização pelo próprio app
 
-Em **Configurações › Avançado › Atualizações** o app consulta
-`https://api.github.com/repos/<dono>/<repo>/releases/latest` (no máximo uma vez a cada 6 horas) e,
-havendo versão mais nova, avisa no painel e na bandeja. O botão **Baixar e instalar** pega o
-instalador anexado à release e roda em modo silencioso — o instalador fecha o app, troca o
-executável e o inicia de volta, mantendo suas preferências. Instalar em `Program Files` exige
-elevação, então o Windows pede confirmação uma vez.
+O app consulta as releases do repositório **ao abrir** e, enquanto fica aberto, a cada 6 horas.
+Havendo versão mais nova, avisa no painel e com um balão na bandeja; o botão **Baixar e instalar**
+(em **Configurações › Avançado › Atualizações**) pega o instalador anexado à release e roda em modo
+silencioso — o instalador fecha o app, troca o executável e o inicia de volta, mantendo suas
+preferências. Se a instalação estiver em `Program Files`, o app pede elevação ao Windows, porque em
+modo silencioso o instalador não tem como pedir sozinho.
 
-Isso depende de existir uma release com o `.exe` anexado, que é o que o workflow faz em pushes na
-`main` (pré-release `latest`) e em tags `v*`.
+Dois detalhes do GitHub que o app precisa contornar:
+
+- O endpoint `/releases/latest` **ignora pré-releases**, e a build de cada push é exatamente uma
+  pré-release. Por isso o app lista as releases e escolhe a maior versão, com uma opção para
+  considerar ou não as pré-releases.
+- A pré-release usa a tag fixa `latest`, que não é uma versão. A versão sai então do nome do
+  instalador anexado (`ClaudeIndicator-Setup-1.6.0.exe`).
 
 ## Como compilar
 
@@ -90,7 +95,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~150 MB)
-- `dist\ClaudeIndicator-Setup-1.5.0.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-1.6.0.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
