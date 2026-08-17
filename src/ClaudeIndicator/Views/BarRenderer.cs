@@ -39,6 +39,41 @@ public static class BarRenderer
         return "+" + (v < 0.1 ? v.ToString("0.##") : v < 10 ? v.ToString("0.#") : v.ToString("0")) + "%";
     }
 
+    /// <summary>
+    /// Fio fino do tempo decorrido na janela do limite. Fica sob a barra de consumo: se o fio
+    /// está à frente, você gasta mais devagar que o relógio; atrás, mais rápido.
+    /// </summary>
+    public static UIElement BuildTimeLine(double fraction, double width, double height, Thickness margin)
+    {
+        var track = new Border
+        {
+            Height = height,
+            CornerRadius = new CornerRadius(height / 2),
+            Background = Swatch("TrackBrush"),
+            Margin = margin,
+            ClipToBounds = true
+        };
+        // largura NaN significa "ocupe o espaço disponível" (usado no gadget, que é elástico)
+        if (!double.IsNaN(width)) track.Width = width;
+
+        var grid = new Grid();
+        var f = Math.Clamp(fraction, 0, 1);
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(f, 0.0001), GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(1 - f, 0.0001), GridUnitType.Star) });
+
+        var fill = new Border
+        {
+            CornerRadius = new CornerRadius(height / 2),
+            Background = Swatch("MutedBrush"),
+            Opacity = 0.85,
+            MinWidth = f > 0 ? 2 : 0
+        };
+        Grid.SetColumn(fill, 0);
+        grid.Children.Add(fill);
+        track.Child = grid;
+        return track;
+    }
+
     public static Brush BrushFor(double percent, AppSettings s)
     {
         if (percent >= s.AlertThreshold) return Swatch("DangerBrush");
@@ -107,6 +142,11 @@ public static class BarRenderer
         track.Child = grid;
 
         container.Children.Add(track);
+
+        var timeFrac = s.ShowTimeProgress ? bar.TimeFraction() : null;
+        if (timeFrac != null)
+            container.Children.Add(BuildTimeLine(timeFrac.Value, double.NaN, 3, new Thickness(0, 3, 0, 0)));
+
         return container;
     }
 

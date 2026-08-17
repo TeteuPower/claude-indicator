@@ -19,6 +19,40 @@ public class UsageBar
 
     public double Fraction => Math.Clamp(Percent / 100.0, 0, 1);
 
+    /// <summary>
+    /// Duração da janela de cada limite. A sessão é de 5 horas e os semanais de 7 dias — é o que
+    /// permite dizer quanto da janela já passou, e não só quando ela renova.
+    /// </summary>
+    public static TimeSpan WindowFor(BarKind kind) =>
+        kind == BarKind.Session ? TimeSpan.FromHours(5) : TimeSpan.FromDays(7);
+
+    /// <summary>
+    /// Quanto da janela já passou (0..1), pelo horário de renovação. Null quando a API não
+    /// informou o reset.
+    /// </summary>
+    public double? TimeFraction()
+    {
+        if (ResetsAt == null) return null;
+        var window = WindowFor(Kind);
+        var left = ResetsAt.Value - DateTimeOffset.Now;
+        if (left <= TimeSpan.Zero) return 1;
+        if (left >= window) return 0;
+        return Math.Clamp(1 - left.TotalSeconds / window.TotalSeconds, 0, 1);
+    }
+
+    /// <summary>Texto curto do tempo decorrido, para tooltip.</summary>
+    public string TimeProgressText()
+    {
+        var f = TimeFraction();
+        if (f == null) return "";
+        var window = WindowFor(Kind);
+        var elapsed = TimeSpan.FromSeconds(window.TotalSeconds * f.Value);
+        var label = window >= TimeSpan.FromDays(1)
+            ? $"{elapsed.Days}d {elapsed.Hours}h de {window.Days}d"
+            : $"{(int)elapsed.TotalHours}h {elapsed.Minutes:00}m de {(int)window.TotalHours}h";
+        return $"{Math.Round(f.Value * 100)}% da janela decorrida ({label})";
+    }
+
     public string ResetText()
     {
         if (ResetsAt == null) return "";

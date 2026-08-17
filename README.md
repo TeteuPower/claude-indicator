@@ -11,8 +11,15 @@ acompanhar o consumo sem abrir nada — combináveis entre si:
 
 O painel da barra e o gadget mostram também um **velocímetro do ritmo de consumo** (`0,15% p/min`):
 o meio da escala é o ritmo que o limite aguenta até renovar, então ponteiro à esquerda significa
-que dá para seguir assim e à direita que vai acabar antes. No ícone da bandeja o ritmo aparece ao
-passar o mouse — em 16 px não há espaço para desenhá-lo.
+que dá para seguir assim e à direita que vai acabar antes. **Clicar nele troca o limite**
+acompanhado, e o rótulo ao lado mostra qual está ativo. A média é calculada sobre uma janela
+escolhida em Configurações — 5 min, 20 min, 1 h ou 24 h: curta reage rápido e oscila, longa é
+estável e demora a perceber mudança. No ícone da bandeja o ritmo aparece ao passar o mouse — em
+16 px não há espaço para desenhá-lo.
+
+Sob cada barra corre um **fio do tempo decorrido** até a renovação. Comparar os dois é a leitura
+que interessa: se o fio está à frente do consumo, você gasta mais devagar que o relógio e o limite
+chega inteiro até o fim da janela.
 
 ![ícone](docs/icon-preview.png)
 
@@ -55,8 +62,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.6.3
-git push origin v1.6.3
+git tag v1.7.0
+git push origin v1.7.0
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -77,7 +84,7 @@ Dois detalhes do GitHub que o app precisa contornar:
   pré-release. Por isso o app lista as releases e escolhe a maior versão, com uma opção para
   considerar ou não as pré-releases.
 - A pré-release usa a tag fixa `latest`, que não é uma versão. A versão sai então do nome do
-  instalador anexado (`ClaudeIndicator-Setup-1.6.3.exe`).
+  instalador anexado (`ClaudeIndicator-Setup-1.7.0.exe`).
 
 ## Como compilar
 
@@ -95,7 +102,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~63 MB)
-- `dist\ClaudeIndicator-Setup-1.6.3.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-1.7.0.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -177,7 +184,8 @@ Por isso o intervalo escolhido nas configurações é um **mínimo**, e não uma
 - **Gadget**: disposição das barras (vertical, uma por linha; ou horizontal, lado a lado com
   separador), opacidade, tamanho, sempre por cima, travar posição, mostrar horário de renovação,
   reposicionar no canto inferior direito
-- **Ritmo**: velocímetro no painel da barra e/ou no gadget, e de qual limite ele acompanha
+- **Ritmo**: velocímetro no painel da barra e/ou no gadget, de qual limite ele acompanha, a janela
+  da média (5 min a 24 h) e o fio do tempo decorrido sob as barras
 - **Histórico de consumo**: guardar tudo (padrão) ou apagar registros com mais de N dias
 - **Atualizações**: procurar versão nova no GitHub automaticamente, repositório consultado, e
   botão para baixar e instalar sem sair do app

@@ -128,7 +128,8 @@ public static class GaugeRenderer
     {
         if (!r.HasData) return "Ritmo: ainda sem medição suficiente.";
 
-        var text = $"{s.LabelFor(kind)}: {ConsumptionRate.Format(r)}";
+        var text = $"{s.LabelFor(kind)}: {ConsumptionRate.Format(r)}"
+                   + $"\nMédia dos últimos {ConsumptionRate.DescribeWindow(r.WindowMinutes)}";
         var left = ConsumptionRate.FormatTimeLeft(r);
         if (left.Length > 0) text += "\n" + left + " no ritmo atual";
 

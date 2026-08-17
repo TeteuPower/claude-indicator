@@ -93,6 +93,12 @@ public partial class SettingsPage : UserControl
         RateSession.IsChecked = s.RateKind == BarKind.Session;
         RateFable.IsChecked = s.RateKind == BarKind.Fable;
 
+        Win5.IsChecked = s.RateWindowMinutes == 5;
+        Win20.IsChecked = s.RateWindowMinutes == 20;
+        Win60.IsChecked = s.RateWindowMinutes == 60;
+        Win1440.IsChecked = s.RateWindowMinutes == 1440;
+        ChkTimeProgress.IsChecked = s.ShowTimeProgress;
+
         ChkStartup.IsChecked = s.StartWithWindows;
         ChkStartHidden.IsChecked = s.StartHidden;
         SldRefresh.Value = s.RefreshSeconds;
@@ -160,6 +166,10 @@ public partial class SettingsPage : UserControl
         s.ShowRateGadget = ChkRateGadget.IsChecked == true;
         s.RateKind = RateSession.IsChecked == true ? BarKind.Session
             : RateFable.IsChecked == true ? BarKind.Fable : BarKind.Weekly;
+        s.RateWindowMinutes = Win5.IsChecked == true ? 5
+            : Win60.IsChecked == true ? 60
+            : Win1440.IsChecked == true ? 1440 : 20;
+        s.ShowTimeProgress = ChkTimeProgress.IsChecked == true;
 
         s.StartWithWindows = ChkStartup.IsChecked == true;
         s.StartHidden = ChkStartHidden.IsChecked == true;
@@ -208,7 +218,8 @@ public partial class SettingsPage : UserControl
                      ChkSession, ChkWeekly, ChkFable, ChkNotify, ChkStartup, ChkStartHidden,
                      OrientVertical, OrientHorizontal, TbLeft, TbRight,
                      GadgetVertical, GadgetHorizontal, ChkCheckUpdates,
-                     ChkRateTaskbar, ChkRateGadget, RateWeekly, RateSession, RateFable
+                     ChkRateTaskbar, ChkRateGadget, RateWeekly, RateSession, RateFable,
+                     Win5, Win20, Win60, Win1440, ChkTimeProgress
                  })
         {
             Hook(c);
@@ -482,7 +493,8 @@ public partial class SettingsPage : UserControl
     {
         var s = CollectDraft();
         var kind = s.RateKind;
-        var rate = ConsumptionRate.Measure(UsageHistory.Load(TimeSpan.FromHours(2)), _host.Last?.Get(kind), kind);
+        var span = TimeSpan.FromMinutes(Math.Max(120, s.RateWindowMinutes * 2));
+        var rate = ConsumptionRate.Measure(UsageHistory.Load(span), _host.Last?.Get(kind), kind, s.RateWindowMinutes);
 
         RatePreviewHost.Content = GaugeRenderer.Build(rate, 64);
         RatePreviewValue.Text = ConsumptionRate.Format(rate);

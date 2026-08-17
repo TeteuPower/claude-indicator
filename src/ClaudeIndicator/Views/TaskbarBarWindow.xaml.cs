@@ -24,6 +24,8 @@ public partial class TaskbarBarWindow : Window
     private AppSettings _settings = new();
     private UsageSnapshot? _snapshot;
     private bool _userHidden;
+    private DateTime _lastTopmost = DateTime.MinValue;
+    private bool _pendingRender;
 
     public TaskbarBarWindow()
     {
@@ -37,6 +39,16 @@ public partial class TaskbarBarWindow : Window
             _follow.Start();
         };
         Closed += (_, _) => _follow.Stop();
+
+        // tooltip que fica aberto enquanto o mouse estiver ali, em vez dos 5 s padrão do WPF
+        ToolTipService.SetShowDuration(this, 120000);
+        ToolTipService.SetInitialShowDelay(this, 350);
+        ToolTipService.SetBetweenShowDelay(this, 0);
+
+        MouseLeave += (_, _) =>
+        {
+            if (_pendingRender) Render(_snapshot, _settings);
+        };
     }
 
     public void ApplySettings(AppSettings s)
@@ -61,6 +73,16 @@ public partial class TaskbarBarWindow : Window
     {
         _snapshot = snap;
         _settings = s;
+
+        // Redesenhar troca os elementos e, com isso, fecha o tooltip que estiver aberto. Com o
+        // mouse em cima, espera ele sair: o dado tem minutos de idade, a leitura é de segundos.
+        if (IsMouseOver)
+        {
+            _pendingRender = true;
+            return;
+        }
+        _pendingRender = false;
+
         CellsPanel.Children.Clear();
 
         var bars = snap?.Visible(s) ?? new List<UsageBar>();
@@ -187,14 +209,14 @@ public partial class TaskbarBarWindow : Window
             MinWidth = 32 * scale
         });
 
+        var bars = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(5, 0, 0, 0) };
+
         var track = new Border
         {
             Width = 52 * scale,
             Height = 5,
             CornerRadius = new CornerRadius(2.5),
             Background = BarRenderer.Swatch("TrackBrush"),
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(5, 0, 0, 0),
             ClipToBounds = true
         };
         var grid = new Grid();
@@ -210,8 +232,16 @@ public partial class TaskbarBarWindow : Window
         Grid.SetColumn(fill, 0);
         grid.Children.Add(fill);
         track.Child = grid;
-        row.Children.Add(track);
+        bars.Children.Add(track);
 
+        // fio do tempo decorrido, logo abaixo: comparar com o consumo mostra se está adiantado
+        var timeFrac = s.ShowTimeProgress ? bar.TimeFraction() : null;
+        if (timeFrac != null)
+        {
+            bars.Children.Add(BarRenderer.BuildTimeLine(timeFrac.Value, 52 * scale, 2, new Thickness(0, 2, 0, 0)));
+        }
+
+        row.Children.Add(bars);
         cell.Children.Add(row);
 
         var tip = $"{s.LabelFor(bar.Kind)}: {bar.Percent:0.#}% usado, restam {Math.Max(0, 100 - bar.Percent):0.#}%";
@@ -266,8 +296,8 @@ public partial class TaskbarBarWindow : Window
         }
 
         Visibility = Visibility.Visible;
-        Height = bar.Height * scaleY;
 
+        var height = bar.Height * scaleY;
         var width = ActualWidth > 0 ? ActualWidth : 260;
         var availableDip = (span.Value.To - span.Value.From) * scaleX;
         if (width > availableDip) width = availableDip;
@@ -275,11 +305,28 @@ public partial class TaskbarBarWindow : Window
         var left = _settings.TaskbarBarAnchor == TaskbarAnchor.Left
             ? span.Value.From * scaleX + _settings.TaskbarBarOffset
             : span.Value.To * scaleX - width - _settings.TaskbarBarOffset;
+        var top = bar.Top * scaleY;
 
-        Left = left;
-        Top = bar.Top * scaleY;
+        // Só escrever quando muda de verdade: reposicionar a cada tique fazia o tooltip fechar e
+        // reabrir sem parar, porque mexer em Left/Top/Topmost derruba o balão aberto.
+        if (Math.Abs(Height - height) > 0.5) Height = height;
+        if (Math.Abs(Left - left) > 0.5) Left = left;
+        if (Math.Abs(Top - top) > 0.5) Top = top;
 
-        // a barra de tarefas também é topmost: reafirmar mantém o painel visível sobre ela
+        ReassertTopmost();
+    }
+
+    /// <summary>
+    /// A barra de tarefas também é topmost, então de tempos em tempos é preciso reafirmar a nossa
+    /// posição na ordem-Z. Fazer isso a cada tique piscava o tooltip, e fazer com o mouse em cima
+    /// o fecharia: só acontece de 10 em 10 segundos e nunca sob o cursor.
+    /// </summary>
+    private void ReassertTopmost()
+    {
+        if (IsMouseOver) return;
+        if (DateTime.UtcNow - _lastTopmost < TimeSpan.FromSeconds(10)) return;
+
+        _lastTopmost = DateTime.UtcNow;
         Topmost = false;
         Topmost = true;
     }

@@ -87,6 +87,15 @@ public class AppSettings
     /// <summary>Qual limite o ritmo acompanha.</summary>
     public BarKind RateKind { get; set; } = BarKind.Weekly;
 
+    /// <summary>Janela de medição do ritmo, em minutos (5, 20, 60 ou 1440).</summary>
+    public int RateWindowMinutes { get; set; } = 20;
+
+    /// <summary>
+    /// Barra do tempo decorrido na janela do limite, junto da barra de consumo. Serve para
+    /// comparar os dois: gastar mais rápido que o relógio significa acabar antes de renovar.
+    /// </summary>
+    public bool ShowTimeProgress { get; set; } = true;
+
     // ---- Atualização ----
     /// <summary>Procurar versão nova no GitHub (uma vez a cada 6 h, no máximo).</summary>
     public bool CheckUpdates { get; set; } = true;
@@ -225,6 +234,7 @@ public class AppSettings
         if (GadgetOpacity > 1.0) GadgetOpacity = 1.0;
         if (GadgetScale < 0.7) GadgetScale = 0.7;
         if (GadgetScale > 2.0) GadgetScale = 2.0;
+        if (Array.IndexOf(ConsumptionRate.WindowChoices, RateWindowMinutes) < 0) RateWindowMinutes = 20;
         if (WeightOutput <= 0 || double.IsNaN(WeightOutput)) WeightOutput = 5.0;
         if (WeightCacheWrite < 0 || double.IsNaN(WeightCacheWrite)) WeightCacheWrite = 1.25;
         if (WeightCacheRead < 0 || double.IsNaN(WeightCacheRead)) WeightCacheRead = 0.1;

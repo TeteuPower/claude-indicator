@@ -21,6 +21,12 @@ public sealed class RateReading
     /// <summary>Havia medição suficiente para calcular.</summary>
     public bool HasData { get; init; }
 
+    /// <summary>Janela pedida, em minutos.</summary>
+    public int WindowMinutes { get; init; }
+
+    /// <summary>Minutos de histórico que a janela realmente cobriu (pode ser menos, com o app fechado).</summary>
+    public double MeasuredMinutes { get; init; }
+
     /// <summary>0 = parado, 1 = exatamente no ritmo sustentável, acima disso está gastando rápido demais.</summary>
     public double Ratio => Sustainable > 0 ? PerMinute / Sustainable : 0;
 
@@ -34,17 +40,35 @@ public sealed class RateReading
 /// </summary>
 public static class ConsumptionRate
 {
-    /// <summary>Janela usada para medir. Curta demais oscila, longa demais demora a reagir.</summary>
-    private static readonly TimeSpan Window = TimeSpan.FromMinutes(20);
+    /// <summary>
+    /// Janela de medição do ritmo. Curta reage rápido e oscila; longa é estável e demora a
+    /// perceber mudança. 20 min é o meio-termo padrão.
+    /// </summary>
+    public static readonly int[] WindowChoices = { 5, 20, 60, 1440 };
 
-    /// <summary>Buracos maiores que isso são app fechado: não entram na conta do tempo.</summary>
-    private static readonly TimeSpan MaxGap = TimeSpan.FromMinutes(30);
+    public static string DescribeWindow(int minutes) => minutes switch
+    {
+        < 60 => minutes + " min",
+        60 => "1 hora",
+        1440 => "24 horas",
+        _ => (minutes / 60) + " horas"
+    };
 
-    public static RateReading Measure(IReadOnlyList<HistoryPoint> history, UsageBar? bar, BarKind kind)
+    /// <summary>
+    /// Buracos maiores que isso são app fechado e não entram na conta do tempo. Em janelas longas
+    /// o limite é mais frouxo, senão qualquer pausa normal de uso zeraria a medição.
+    /// </summary>
+    private static TimeSpan MaxGapFor(TimeSpan window) =>
+        window <= TimeSpan.FromHours(1) ? TimeSpan.FromMinutes(30) : TimeSpan.FromMinutes(120);
+
+    public static RateReading Measure(IReadOnlyList<HistoryPoint> history, UsageBar? bar, BarKind kind,
+        int windowMinutes = 20)
     {
         if (bar == null) return RateReading.Empty;
 
-        var cutoff = DateTimeOffset.Now - Window;
+        var window = TimeSpan.FromMinutes(Math.Clamp(windowMinutes, 1, 1440));
+        var maxGap = MaxGapFor(window);
+        var cutoff = DateTimeOffset.Now - window;
         double consumed = 0;
         double minutes = 0;
         HistoryPoint? prev = null;
@@ -58,7 +82,7 @@ public static class ConsumptionRate
             {
                 var gap = p.At - prev.At;
                 var pv = prev.Get(kind);
-                if (pv != null && gap <= MaxGap && gap > TimeSpan.Zero)
+                if (pv != null && gap <= maxGap && gap > TimeSpan.Zero)
                 {
                     var d = v.Value - pv.Value;
                     if (d > 0) consumed += d;
@@ -86,7 +110,9 @@ public static class ConsumptionRate
             HasData = true,
             PerMinute = perMinute,
             Sustainable = sustainable,
-            MinutesToEmpty = perMinute > 0 ? remaining / perMinute : null
+            MinutesToEmpty = perMinute > 0 ? remaining / perMinute : null,
+            WindowMinutes = (int)window.TotalMinutes,
+            MeasuredMinutes = minutes
         };
     }
 

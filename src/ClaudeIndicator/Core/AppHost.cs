@@ -348,7 +348,8 @@ public sealed class AppHost
     private void UpdateRate(UsageSnapshot snap)
     {
         var kind = Settings.RateKind;
-        Rate = ConsumptionRate.Measure(UsageHistory.Load(TimeSpan.FromHours(2)), snap.Get(kind), kind);
+        var span = TimeSpan.FromMinutes(Math.Max(120, Settings.RateWindowMinutes * 2));
+        Rate = ConsumptionRate.Measure(UsageHistory.Load(span), snap.Get(kind), kind, Settings.RateWindowMinutes);
     }
 
     /// <summary>

@@ -192,6 +192,23 @@
                                 </StackPanel>
                             </Border>
 
+                            <TextBlock Text="Calcular a média sobre" Style="{StaticResource FieldLabel}" Margin="0,14,0,5"/>
+                            <Border Style="{StaticResource SegmentGroup}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton x:Name="Win5" GroupName="RateWin" Style="{StaticResource Segment}" Content="5 min"/>
+                                    <RadioButton x:Name="Win20" GroupName="RateWin" Style="{StaticResource Segment}" Content="20 min"/>
+                                    <RadioButton x:Name="Win60" GroupName="RateWin" Style="{StaticResource Segment}" Content="1 hora"/>
+                                    <RadioButton x:Name="Win1440" GroupName="RateWin" Style="{StaticResource Segment}" Content="24 horas"/>
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0"
+                                       Text="Janela curta reage rápido e oscila; janela longa é estável e demora a perceber mudança de ritmo. Só entra tempo com o app aberto — períodos fechados não contam como consumo zero."/>
+
+                            <CheckBox x:Name="ChkTimeProgress" Style="{StaticResource Switch}"
+                                      Content="Mostrar o tempo decorrido da janela junto das barras"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
+                                       Text="Um fio fino sob cada barra marca quanto já passou até a renovação: se ele está à frente do consumo, você gasta mais devagar que o relógio."/>
+
                             <Border Background="{StaticResource BgBrush}" CornerRadius="9" Padding="16,13" Margin="0,16,0,0">
                                 <StackPanel Orientation="Horizontal">
                                     <ContentControl x:Name="RatePreviewHost" VerticalAlignment="Center" Margin="0,0,14,0"/>
