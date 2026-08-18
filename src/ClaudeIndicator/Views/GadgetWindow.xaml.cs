@@ -14,11 +14,22 @@ public partial class GadgetWindow : Window
 {
     private bool _locked;
     private bool _canHide = true;
+    private bool _timelinePending;
 
     public GadgetWindow()
     {
         InitializeComponent();
         VersionItem.Header = AppInfo.NameWithVersion;
+
+        // tooltip que dura enquanto o mouse estiver ali, em vez dos 5 s padrão do WPF
+        ToolTipService.SetShowDuration(this, 120000);
+        ToolTipService.SetInitialShowDelay(this, 300);
+
+        // redesenhar a faixa fecharia o tooltip aberto: espera o mouse sair dela
+        CallsPanel.MouseLeave += (_, _) =>
+        {
+            if (_timelinePending) DrawCallTimeline();
+        };
     }
 
     // ------------------------------------------------------------------
@@ -33,7 +44,7 @@ public partial class GadgetWindow : Window
         RootScale.ScaleX = s.GadgetScale;
         RootScale.ScaleY = s.GadgetScale;
         _locked = s.GadgetLocked;
-        Root.Cursor = _locked ? Cursors.Arrow : Cursors.SizeAll;
+        DragHandle.Cursor = _locked ? Cursors.Arrow : Cursors.SizeAll;
 
         // sendo o único indicador visível, esconder deixaria o app sem porta de entrada
         _canHide = s.TrayEnabled || s.ShowTaskbarBar;
@@ -294,6 +305,14 @@ public partial class GadgetWindow : Window
     /// </summary>
     private void DrawCallTimeline()
     {
+        // com o mouse sobre a faixa, trocar as bolinhas fecharia o tooltip que está sendo lido
+        if (CallsPanel.IsMouseOver)
+        {
+            _timelinePending = true;
+            return;
+        }
+        _timelinePending = false;
+
         CallsPanel.Children.Clear();
 
         var calls = AppHost.Current?.Calls.Recent() ?? new System.Collections.Generic.List<ApiCall>();
@@ -305,9 +324,13 @@ public partial class GadgetWindow : Window
         foreach (var call in calls)
             CallsPanel.Children.Add(Dot(call));
 
-        CallsPanel.ToolTip = BuildTimelineTip(calls);
     }
 
+    /// <summary>
+    /// Uma bolinha da linha do tempo, com o horário e o resultado daquela consulta no tooltip.
+    /// A bolinha tem 6 px, pequena demais para acertar com o mouse, então quem recebe o ponteiro
+    /// é uma área transparente maior em volta dela.
+    /// </summary>
     private UIElement Dot(ApiCall? call)
     {
         var cor = call?.Outcome switch
@@ -318,28 +341,27 @@ public partial class GadgetWindow : Window
             _ => Swatch("TrackBrush")
         };
 
-        return new System.Windows.Shapes.Ellipse
+        var bolinha = new System.Windows.Shapes.Ellipse
         {
             Width = 6,
             Height = 6,
             Fill = cor,
             Opacity = call == null ? 0.45 : 1,
-            Margin = new Thickness(2, 0, 0, 0),
-            VerticalAlignment = VerticalAlignment.Center
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+
+        return new Border
+        {
+            Child = bolinha,
+            Background = Brushes.Transparent,
+            Width = 11,
+            Height = 14,
+            VerticalAlignment = VerticalAlignment.Center,
+            ToolTip = call?.Describe() ?? "consulta ainda não realizada"
         };
     }
 
-    private static string BuildTimelineTip(System.Collections.Generic.List<ApiCall> calls)
-    {
-        if (calls.Count == 0)
-            return "Ultimas consultas a API — nenhuma registrada ainda.";
-
-        var sb = new System.Text.StringBuilder();
-        sb.Append("Ultimas ").Append(calls.Count).Append(" consultas a API (a mais recente por ultimo):");
-        for (var i = calls.Count - 1; i >= 0; i--)
-            sb.Append('\n').Append(calls[i].Describe());
-        return sb.ToString();
-    }
 
     private static Brush Swatch(string key) => BarRenderer.Swatch(key);
 

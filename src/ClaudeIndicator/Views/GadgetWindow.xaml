@@ -12,8 +12,7 @@
         Topmost="True"
         WindowStartupLocation="Manual"
         Left="80" Top="80"
-        Loaded="OnLoaded"
-        MouseLeftButtonDown="OnMouseLeftButtonDown">
+        Loaded="OnLoaded">
 
     <Window.ContextMenu>
         <ContextMenu>
@@ -48,7 +47,9 @@
             </Border.Effect>
 
             <StackPanel>
-                <Grid Margin="0,0,0,10">
+                <!-- so o cabecalho arrasta: no rodape o arraste atrapalhava a leitura da faixa -->
+                <Grid x:Name="DragHandle" Margin="0,0,0,10" Background="Transparent"
+                      MouseLeftButtonDown="OnMouseLeftButtonDown">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Ellipse Width="7" Height="7" Fill="{StaticResource AccentBrush}" VerticalAlignment="Center"/>
                         <TextBlock Text="Claude" FontSize="11.5" FontWeight="SemiBold" Margin="7,0,0,0"
