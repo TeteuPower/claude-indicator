@@ -63,7 +63,13 @@
 
                 <StackPanel x:Name="BarsPanel"/>
 
-                <TextBlock x:Name="FooterText" Style="{StaticResource Hint}" FontSize="10.5" Margin="0,4,0,0"/>
+                <!-- rodape: texto a esquerda, linha do tempo das ultimas consultas a direita -->
+                <Grid Margin="0,5,0,0">
+                    <TextBlock x:Name="FooterText" Style="{StaticResource Hint}" FontSize="10.5"
+                               VerticalAlignment="Center" Margin="0"/>
+                    <StackPanel x:Name="CallsPanel" Orientation="Horizontal"
+                                HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                </Grid>
             </StackPanel>
         </Border>
     </Grid>

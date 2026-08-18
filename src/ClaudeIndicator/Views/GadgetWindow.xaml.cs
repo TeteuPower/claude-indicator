@@ -136,6 +136,7 @@ public partial class GadgetWindow : Window
         else
             footer = $"atualizado {when:HH:mm}" + (!snap.Ok && bars.Count > 0 ? " · falha ao atualizar" : "");
         FooterText.Text = footer;
+        DrawCallTimeline();
     }
 
     private UIElement BuildRow(UsageBar bar, AppSettings s)
@@ -284,6 +285,60 @@ public partial class GadgetWindow : Window
 
         border.Child = row;
         return border;
+    }
+
+    /// <summary>
+    /// Linha do tempo das ultimas consultas a API: a mais antiga a esquerda, a mais nova a direita.
+    /// Cada consulta nova empurra a mais antiga para fora. Verde respondeu, ambar recusou por
+    /// limite de consultas, vermelho falhou. Os vazios sao consultas que ainda nao aconteceram.
+    /// </summary>
+    private void DrawCallTimeline()
+    {
+        CallsPanel.Children.Clear();
+
+        var calls = AppHost.Current?.Calls.Recent() ?? new System.Collections.Generic.List<ApiCall>();
+        var vazios = ApiCallLog.Capacity - calls.Count;
+
+        for (var i = 0; i < vazios; i++)
+            CallsPanel.Children.Add(Dot(null));
+
+        foreach (var call in calls)
+            CallsPanel.Children.Add(Dot(call));
+
+        CallsPanel.ToolTip = BuildTimelineTip(calls);
+    }
+
+    private UIElement Dot(ApiCall? call)
+    {
+        var cor = call?.Outcome switch
+        {
+            ApiOutcome.Ok => Swatch("OkBrush"),
+            ApiOutcome.RateLimited => Swatch("WarnBrush"),
+            ApiOutcome.Failed => Swatch("DangerBrush"),
+            _ => Swatch("TrackBrush")
+        };
+
+        return new System.Windows.Shapes.Ellipse
+        {
+            Width = 6,
+            Height = 6,
+            Fill = cor,
+            Opacity = call == null ? 0.45 : 1,
+            Margin = new Thickness(2, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+    }
+
+    private static string BuildTimelineTip(System.Collections.Generic.List<ApiCall> calls)
+    {
+        if (calls.Count == 0)
+            return "Ultimas consultas a API — nenhuma registrada ainda.";
+
+        var sb = new System.Text.StringBuilder();
+        sb.Append("Ultimas ").Append(calls.Count).Append(" consultas a API (a mais recente por ultimo):");
+        for (var i = calls.Count - 1; i >= 0; i--)
+            sb.Append('\n').Append(calls[i].Describe());
+        return sb.ToString();
     }
 
     private static Brush Swatch(string key) => BarRenderer.Swatch(key);

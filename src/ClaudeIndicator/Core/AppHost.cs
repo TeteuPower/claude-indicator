@@ -19,6 +19,9 @@ public sealed class AppHost
 
     public event Action<UsageSnapshot?>? Updated;
 
+    /// <summary>As últimas consultas à API, para a linha do tempo do gadget.</summary>
+    public ApiCallLog Calls => _calls;
+
     /// <summary>Disparado quando o GitHub tem uma versão mais nova que a instalada.</summary>
     public event Action<UpdateInfo>? UpdateFound;
 
@@ -27,6 +30,7 @@ public sealed class AppHost
     private readonly CredentialStore _store = new();
     private readonly UsageService _service;
     private readonly UpdateChecker _updates = new();
+    private readonly ApiCallLog _calls = new();
     private readonly DispatcherTimer _timer = new();
     private readonly Dictionary<BarKind, bool> _alerted = new();
 
@@ -331,6 +335,33 @@ public sealed class AppHost
         _timer.Start();
     }
 
+    /// <summary>
+    /// Anota como terminou esta consulta. Tem que ser antes de o Publish reaproveitar as barras
+    /// antigas e reescrever a mensagem: depois disso a falha ficaria com cara de sucesso.
+    /// </summary>
+    private void RecordCall(UsageSnapshot snap)
+    {
+        if (snap.RateLimited)
+        {
+            _calls.Record(ApiOutcome.RateLimited, "HTTP 429");
+        }
+        else if (snap.Ok && snap.Bars.Count > 0)
+        {
+            _calls.Record(ApiOutcome.Ok);
+        }
+        else
+        {
+            _calls.Record(ApiOutcome.Failed, Shorten(snap.Error));
+        }
+    }
+
+    private static string Shorten(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return "";
+        var t = text.Trim();
+        return t.Length <= 90 ? t : t.Substring(0, 89) + "…";
+    }
+
     private static bool SameReading(UsageSnapshot? a, UsageSnapshot? b)
     {
         if (a == null || b == null || a.Bars.Count != b.Bars.Count) return false;
@@ -411,6 +442,8 @@ public sealed class AppHost
 
     private void Publish(UsageSnapshot snap)
     {
+        RecordCall(snap);
+
         if (snap.Ok && snap.Bars.Count > 0)
         {
             _idleStreak = SameReading(snap, _lastGood) ? _idleStreak + 1 : 0;
