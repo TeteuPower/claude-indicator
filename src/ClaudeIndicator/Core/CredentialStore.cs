@@ -133,7 +133,31 @@ public class CredentialStore
 
     // ------------------------------------------------------------------
 
+    /// <summary>Última leitura bem-sucedida, usada quando o arquivo está sendo reescrito.</summary>
+    private static ClaudeCredentials? _lastFileRead;
+
+    /// <summary>
+    /// Lê o arquivo do Claude Code. Ele é reescrito quando o Claude Code renova o token, e ler
+    /// exatamente nesse instante devolve JSON incompleto — o que aparecia como "credenciais não
+    /// encontradas" por minutos. Por isso tenta de novo antes de desistir e, na pior hipótese,
+    /// devolve a última leitura boa: o token dela normalmente ainda vale.
+    /// </summary>
     public static ClaudeCredentials? ReadClaudeCodeFile()
+    {
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            var cred = ReadClaudeCodeFileOnce();
+            if (cred != null)
+            {
+                _lastFileRead = cred;
+                return cred;
+            }
+            if (attempt < 2) Thread.Sleep(150);
+        }
+        return _lastFileRead;
+    }
+
+    private static ClaudeCredentials? ReadClaudeCodeFileOnce()
     {
         try
         {

@@ -23,7 +23,7 @@ public partial class TaskbarBarWindow : Window
     private readonly DispatcherTimer _follow = new() { Interval = TimeSpan.FromMilliseconds(900) };
     private AppSettings _settings = new();
     private UsageSnapshot? _snapshot;
-    private bool _userHidden;
+    private bool _hidden;
     private DateTime _lastTopmost = DateTime.MinValue;
     private bool _pendingRender;
 
@@ -271,7 +271,7 @@ public partial class TaskbarBarWindow : Window
 
     private void Reposition()
     {
-        if (_userHidden) return;
+        if (_hidden) return;
 
         var span = TaskbarInfo.FreeSpan(_settings.TaskbarBarAnchor);
         var bounds = TaskbarInfo.Bounds();
@@ -340,15 +340,20 @@ public partial class TaskbarBarWindow : Window
         Reposition();
     }
 
-    public void HideByUser()
+    /// <summary>
+    /// Esconde e marca como escondido. O flag e essencial: o timer que acompanha a barra de
+    /// tarefas chama Reposition() a cada tique e voltaria a marcar a janela como visivel, ou seja,
+    /// um Hide() puro seria desfeito em menos de um segundo.
+    /// </summary>
+    public void HidePanel()
     {
-        _userHidden = true;
+        _hidden = true;
         Hide();
     }
 
     public void ShowInTaskbarArea()
     {
-        _userHidden = false;
+        _hidden = false;
         Show();
         Reposition();
     }

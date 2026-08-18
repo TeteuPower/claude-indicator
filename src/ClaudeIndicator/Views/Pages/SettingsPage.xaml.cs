@@ -144,8 +144,8 @@ public partial class SettingsPage : UserControl
         s.GadgetShowReset = ChkShowReset.IsChecked == true;
         if (_resetPosition)
         {
-            s.GadgetLeft = -1;
-            s.GadgetTop = -1;
+            s.GadgetLeft = null;
+            s.GadgetTop = null;
         }
 
         s.ShowSession = ChkSession.IsChecked == true;

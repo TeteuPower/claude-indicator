@@ -27,6 +27,16 @@ public sealed class RateReading
     /// <summary>Minutos de histórico que a janela realmente cobriu (pode ser menos, com o app fechado).</summary>
     public double MeasuredMinutes { get; init; }
 
+    /// <summary>Minutos até a renovação do limite. Null quando a API não informou o reset.</summary>
+    public double? MinutesToReset { get; init; }
+
+    /// <summary>Quanto do limite deve sobrar na renovação, mantido o ritmo atual.</summary>
+    public double? LeftoverAtReset { get; init; }
+
+    /// <summary>O limite acaba antes de renovar?</summary>
+    public bool RunsOutBeforeReset =>
+        MinutesToEmpty != null && MinutesToReset != null && MinutesToEmpty < MinutesToReset;
+
     /// <summary>0 = parado, 1 = exatamente no ritmo sustentável, acima disso está gastando rápido demais.</summary>
     public double Ratio => Sustainable > 0 ? PerMinute / Sustainable : 0;
 
@@ -99,10 +109,17 @@ public static class ConsumptionRate
         var remaining = Math.Max(0, 100 - bar.Percent);
 
         double sustainable = 0;
+        double? minutesToReset = null;
+        double? leftover = null;
         if (bar.ResetsAt != null)
         {
             var minutesLeft = (bar.ResetsAt.Value - DateTimeOffset.Now).TotalMinutes;
-            if (minutesLeft > 0) sustainable = remaining / minutesLeft;
+            if (minutesLeft > 0)
+            {
+                minutesToReset = minutesLeft;
+                sustainable = remaining / minutesLeft;
+                leftover = Math.Max(0, remaining - perMinute * minutesLeft);
+            }
         }
 
         return new RateReading
@@ -111,6 +128,8 @@ public static class ConsumptionRate
             PerMinute = perMinute,
             Sustainable = sustainable,
             MinutesToEmpty = perMinute > 0 ? remaining / perMinute : null,
+            MinutesToReset = minutesToReset,
+            LeftoverAtReset = leftover,
             WindowMinutes = (int)window.TotalMinutes,
             MeasuredMinutes = minutes
         };
@@ -127,14 +146,30 @@ public static class ConsumptionRate
         return v.ToString("0.#") + "% p/min";
     }
 
-    /// <summary>Tempo até acabar, em linguagem curta.</summary>
+    /// <summary>
+    /// O que esperar mantido este ritmo. "Acaba em X" só faz sentido quando o limite acaba ANTES
+    /// de renovar — senão o esgotamento nunca acontece, e o que interessa é quanto vai sobrar.
+    /// </summary>
     public static string FormatTimeLeft(RateReading r)
     {
-        if (!r.HasData || r.MinutesToEmpty == null) return "";
-        var m = r.MinutesToEmpty.Value;
-        if (double.IsInfinity(m) || m > 60 * 24 * 30) return "";
-        if (m < 60) return $"acaba em {Math.Max(1, (int)m)} min";
-        if (m < 60 * 24) return $"acaba em {(int)(m / 60)}h {((int)m % 60):00}m";
-        return $"acaba em {(int)(m / 1440)}d";
+        if (!r.HasData) return "";
+
+        if (r.RunsOutBeforeReset)
+        {
+            var m = r.MinutesToEmpty!.Value;
+            if (m < 60) return $"acaba em {Math.Max(1, (int)m)} min";
+            if (m < 60 * 24) return $"acaba em {(int)(m / 60)}h {((int)m % 60):00}m";
+            return $"acaba em {(int)(m / 1440)}d";
+        }
+
+        if (r.LeftoverAtReset != null)
+        {
+            var sobra = r.LeftoverAtReset.Value;
+            return sobra >= 1
+                ? $"sobra ~{sobra:0}% na renovação"
+                : "no limite da renovação";
+        }
+
+        return "";
     }
 }

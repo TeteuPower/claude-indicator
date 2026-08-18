@@ -21,6 +21,11 @@ Sob cada barra corre um **fio do tempo decorrido** até a renovação. Comparar 
 que interessa: se o fio está à frente do consumo, você gasta mais devagar que o relógio e o limite
 chega inteiro até o fim da janela.
 
+A legenda do velocímetro leva a renovação em conta. Só diz "acaba em X" quando o limite realmente
+se esgota **antes** de renovar; caso contrário mostra quanto deve sobrar na renovação, que é a
+informação que existe. No gadget horizontal aparece um velocímetro por limite, lado a lado, e
+clicar em um deles passa a acompanhá-lo nos outros indicadores.
+
 ![ícone](docs/icon-preview.png)
 
 ## O painel
@@ -62,8 +67,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.7.3
-git push origin v1.7.3
+git tag v1.7.5
+git push origin v1.7.5
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -84,7 +89,7 @@ Dois detalhes do GitHub que o app precisa contornar:
   pré-release. Por isso o app lista as releases e escolhe a maior versão, com uma opção para
   considerar ou não as pré-releases.
 - A pré-release usa a tag fixa `latest`, que não é uma versão. A versão sai então do **nome do
-  instalador anexado** (`ClaudeIndicator-Setup-1.7.3.exe`) — de propósito antes do título da
+  instalador anexado** (`ClaudeIndicator-Setup-1.7.5.exe`) — de propósito antes do título da
   release, porque o instalador é o arquivo que será realmente instalado e o título é texto que
   pode ficar defasado se a chamada que o atualiza falhar.
 
@@ -109,7 +114,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~63 MB)
-- `dist\ClaudeIndicator-Setup-1.7.3.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-1.7.5.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -163,6 +168,12 @@ Ou seja: se o formato mudar, basta olhar a resposta bruta e ajustar as palavras-
 
 Quando uma consulta falha (rede, HTTP 429 de limite de consultas etc.), o app **mantém na tela os
 últimos valores obtidos** e indica no rodapé do gadget que são dados antigos.
+
+O arquivo de credenciais é reescrito pelo Claude Code quando ele renova o token, e ler exatamente
+nesse instante devolve JSON incompleto — o que aparecia como "credenciais não encontradas" até a
+consulta seguinte. A leitura agora tenta de novo antes de desistir e, no pior caso, reaproveita a
+última leitura boa. Uma falha também devolve o intervalo de consulta ao valor base, senão ela
+poderia ficar visível pelos dez minutos do espaçamento máximo.
 
 ### Sobre o HTTP 429
 

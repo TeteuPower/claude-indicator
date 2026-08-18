@@ -39,10 +39,10 @@ public partial class GadgetWindow : Window
         _canHide = s.TrayEnabled || s.ShowTaskbarBar;
         CloseBtn.Visibility = _canHide ? Visibility.Visible : Visibility.Collapsed;
 
-        if (s.GadgetLeft >= 0 && s.GadgetTop >= 0)
+        if (s.GadgetLeft.HasValue && s.GadgetTop.HasValue)
         {
-            Left = s.GadgetLeft;
-            Top = s.GadgetTop;
+            Left = s.GadgetLeft.Value;
+            Top = s.GadgetTop.Value;
             ClampToScreen();
         }
         else
@@ -119,7 +119,11 @@ public partial class GadgetWindow : Window
         }
 
         if (bars.Count > 0 && s.ShowRateGadget)
-            BarsPanel.Children.Add(BuildRateRow(s));
+        {
+            BarsPanel.Children.Add(s.GadgetOrientation == BarOrientation.Horizontal
+                ? BuildRateStrip(bars, s)
+                : BuildRateRow(s));
+        }
 
         // o conteúdo muda de tamanho (linha do ritmo, orientação, rótulos): reencaixa na tela
         // depois do layout, senão a largura ainda é a antiga e o gadget fica cortado na borda
@@ -136,6 +140,84 @@ public partial class GadgetWindow : Window
 
     private UIElement BuildRow(UsageBar bar, AppSettings s)
         => BarRenderer.BuildRow(bar, s, s.GadgetShowReset);
+
+    /// <summary>
+    /// Um velocímetro por limite, alinhado com as células acima. No gadget horizontal sobra
+    /// espaço à direita, e mostrar só um deixava a informação dos outros escondida atrás de um
+    /// clique. Clicar em um deles passa a ser o limite acompanhado nos outros indicadores.
+    /// </summary>
+    private UIElement BuildRateStrip(System.Collections.Generic.List<UsageBar> bars, AppSettings s)
+    {
+        var host = AppHost.Current;
+
+        var strip = new Border
+        {
+            BorderBrush = Swatch("LineBrush"),
+            BorderThickness = new Thickness(0, 1, 0, 0),
+            Padding = new Thickness(0, 9, 0, 0),
+            Margin = new Thickness(0, 2, 0, 0)
+        };
+
+        var row = new StackPanel { Orientation = Orientation.Horizontal };
+        for (var i = 0; i < bars.Count; i++)
+        {
+            var bar = bars[i];
+            var rate = host?.RateFor(bar.Kind) ?? RateReading.Empty;
+            var selected = bar.Kind == s.RateKind;
+
+            if (i > 0) row.Children.Add(BarRenderer.BuildCellSeparator());
+
+            var cell = new StackPanel();
+
+            var head = new StackPanel { Orientation = Orientation.Horizontal };
+            head.Children.Add(new Border
+            {
+                Child = GaugeRenderer.Build(rate, 34),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 7, 0)
+            });
+            head.Children.Add(new TextBlock
+            {
+                Text = ConsumptionRate.Format(rate),
+                FontSize = 12.5,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(GaugeRenderer.ColorFor(rate)),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            cell.Children.Add(head);
+
+            var caption = ConsumptionRate.FormatTimeLeft(rate);
+            cell.Children.Add(new TextBlock
+            {
+                Text = caption.Length > 0 ? caption : s.LabelFor(bar.Kind),
+                FontSize = 10,
+                Foreground = Swatch("MutedBrush"),
+                Margin = new Thickness(0, 3, 0, 0),
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
+
+            var hit = new Border
+            {
+                Child = cell,
+                Background = selected ? Swatch("PanelBrush2") : Brushes.Transparent,
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(6, 4, 8, 4),
+                Cursor = Cursors.Hand,
+                ToolTip = GaugeRenderer.Describe(rate, s, bar.Kind)
+                          + "\n\nClique para acompanhar este limite nos outros indicadores."
+            };
+            var kind = bar.Kind;
+            hit.MouseLeftButtonUp += (_, e) =>
+            {
+                e.Handled = true;
+                AppHost.Current?.SetRateKind(kind);
+            };
+            row.Children.Add(hit);
+        }
+
+        strip.Child = row;
+        return strip;
+    }
 
     /// <summary>Linha do velocímetro: arco à esquerda, ritmo e tempo restante à direita.</summary>
     private UIElement BuildRateRow(AppSettings s)
@@ -213,15 +295,48 @@ public partial class GadgetWindow : Window
         var host = AppHost.Current;
         if (host == null) return;
 
-        if (host.Settings.GadgetLeft < 0 || host.Settings.GadgetTop < 0)
+        if (!host.Settings.GadgetLeft.HasValue || !host.Settings.GadgetTop.HasValue)
             PlaceBottomRight();
         else
             ClampToScreen();
     }
 
+    /// <summary>
+    /// Área útil do monitor onde o gadget está — e não do primário.
+    /// SystemParameters.WorkArea devolve sempre o monitor principal, o que arrastava o gadget de
+    /// volta para ele a cada atualização em quem usa mais de uma tela.
+    /// </summary>
+    private Rect CurrentScreenWorkArea()
+    {
+        try
+        {
+            var source = PresentationSource.FromVisual(this);
+            var toDevice = source?.CompositionTarget?.TransformToDevice ?? Matrix.Identity;
+            var fromDevice = source?.CompositionTarget?.TransformFromDevice ?? Matrix.Identity;
+
+            var w = ActualWidth > 0 ? ActualWidth : 214;
+            var h = ActualHeight > 0 ? ActualHeight : 120;
+            var cx = (double.IsNaN(Left) ? 0 : Left) + w / 2;
+            var cy = (double.IsNaN(Top) ? 0 : Top) + h / 2;
+
+            var center = toDevice.Transform(new Point(cx, cy));
+            var screen = System.Windows.Forms.Screen.FromPoint(
+                new System.Drawing.Point((int)center.X, (int)center.Y));
+            var wa = screen.WorkingArea;
+
+            var topLeft = fromDevice.Transform(new Point(wa.Left, wa.Top));
+            var bottomRight = fromDevice.Transform(new Point(wa.Right, wa.Bottom));
+            return new Rect(topLeft, bottomRight);
+        }
+        catch
+        {
+            return SystemParameters.WorkArea; // sem informação de monitor: melhor o primário que nada
+        }
+    }
+
     private void ClampToScreen()
     {
-        var area = SystemParameters.WorkArea;
+        var area = CurrentScreenWorkArea();
         var w = ActualWidth > 0 ? ActualWidth : 214;
         var h = ActualHeight > 0 ? ActualHeight : 120;
 

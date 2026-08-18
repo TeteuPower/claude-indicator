@@ -175,7 +175,7 @@ public sealed class AppHost
         }
         else
         {
-            _taskbarBar?.Hide();
+            _taskbarBar?.HidePanel();
         }
     }
 
@@ -190,7 +190,7 @@ public sealed class AppHost
     /// <summary>Ocultar pelo menu do próprio painel: desliga a opção para não voltar sozinho.</summary>
     public void HideTaskbarBar()
     {
-        _taskbarBar?.HideByUser();
+        _taskbarBar?.HidePanel();
         Settings.ShowTaskbarBar = false;
         Settings.Sanitize();
         Settings.Save();
@@ -342,20 +342,46 @@ public sealed class AppHost
         return true;
     }
 
-    /// <summary>Ritmo de consumo atual, recalculado a cada publicação.</summary>
-    public RateReading Rate { get; private set; } = RateReading.Empty;
+    private Dictionary<BarKind, RateReading> _rates = new();
+
+    /// <summary>Ritmo do limite escolhido para o velocímetro.</summary>
+    public RateReading Rate => RateFor(Settings.RateKind);
+
+    /// <summary>Ritmo de qualquer limite — o gadget mostra um velocímetro por barra.</summary>
+    public RateReading RateFor(BarKind kind) =>
+        _rates.TryGetValue(kind, out var r) ? r : RateReading.Empty;
 
     private void UpdateRate(UsageSnapshot snap)
     {
-        var kind = Settings.RateKind;
+        // uma leitura do histórico serve para os três: ler o arquivo três vezes seria desperdício
         var span = TimeSpan.FromMinutes(Math.Max(120, Settings.RateWindowMinutes * 2));
-        Rate = ConsumptionRate.Measure(UsageHistory.Load(span), snap.Get(kind), kind, Settings.RateWindowMinutes);
+        var history = UsageHistory.Load(span);
+
+        var map = new Dictionary<BarKind, RateReading>();
+        foreach (var kind in new[] { BarKind.Session, BarKind.Weekly, BarKind.Fable })
+            map[kind] = ConsumptionRate.Measure(history, snap.Get(kind), kind, Settings.RateWindowMinutes);
+        _rates = map;
     }
 
     /// <summary>
     /// Passa o ritmo para o próximo limite — é o clique no velocímetro. Só entram os limites
     /// ligados e que a API devolveu, senão o clique levaria a um velocímetro vazio.
     /// </summary>
+    /// <summary>Escolhe diretamente o limite acompanhado — é o clique num velocímetro do gadget.</summary>
+    public void SetRateKind(BarKind kind)
+    {
+        if (Settings.RateKind == kind) return;
+
+        Settings.RateKind = kind;
+        Settings.Save();
+
+        if (Last != null) UpdateRate(Last);
+        UpdateTray();
+        _gadget?.Render(Last, Settings);
+        _taskbarBar?.Render(Last, Settings);
+        Updated?.Invoke(Last);
+    }
+
     public void CycleRateKind()
     {
         var available = new List<BarKind>();
@@ -400,13 +426,21 @@ public sealed class AppHost
             _lastGood = snap;
             UsageHistory.Append(snap, Settings);
         }
-        else if (snap.Bars.Count == 0 && _lastGood != null)
+        else
         {
-            // A consulta falhou, mas o consumo de minutos atrás continua sendo a melhor
-            // informação disponível: mantém as barras na tela em vez de trocá-las pelo erro.
-            snap.Bars = _lastGood.Bars;
-            snap.DataAt = _lastGood.DataAt ?? _lastGood.FetchedAt;
-            snap.Stale = true;
+            // Falhou: volta ao intervalo base. Sem isto uma falha transitória — o arquivo de
+            // credenciais sendo reescrito, por exemplo — podia ficar visível por dez minutos,
+            // que é o espaçamento máximo de quando nada muda.
+            _idleStreak = 0;
+
+            if (snap.Bars.Count == 0 && _lastGood != null)
+            {
+                // A consulta falhou, mas o consumo de minutos atrás continua sendo a melhor
+                // informação disponível: mantém as barras na tela em vez de trocá-las pelo erro.
+                snap.Bars = _lastGood.Bars;
+                snap.DataAt = _lastGood.DataAt ?? _lastGood.FetchedAt;
+                snap.Stale = true;
+            }
         }
 
         if (snap.RateLimited)

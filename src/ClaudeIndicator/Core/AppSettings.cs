@@ -64,8 +64,13 @@ public class AppSettings
     public int RefreshSeconds { get; set; } = 120;
 
     // ---- Gadget ----
-    public double GadgetLeft { get; set; } = -1;
-    public double GadgetTop { get; set; } = -1;
+    /// <summary>
+    /// Posição do gadget. Nulo = nunca posicionado. Antes o "nunca posicionado" era -1, o que
+    /// confundia com coordenada negativa de verdade — quem tem monitor à esquerda do principal
+    /// perdia a posição a cada atualização.
+    /// </summary>
+    public double? GadgetLeft { get; set; }
+    public double? GadgetTop { get; set; }
     public double GadgetOpacity { get; set; } = 0.95;
     public double GadgetScale { get; set; } = 1.0;
     public bool GadgetTopmost { get; set; } = true;
@@ -214,6 +219,9 @@ public class AppSettings
 
     public void Sanitize()
     {
+        // migração do sentinela antigo
+        if (GadgetLeft == -1 && GadgetTop == -1) { GadgetLeft = null; GadgetTop = null; }
+
         // migração do DisplayMode antigo para as três opções independentes
         ShowTrayIcon ??= DisplayMode is DisplayMode.Tray or DisplayMode.Both;
         ShowGadget ??= DisplayMode is DisplayMode.Gadget or DisplayMode.Both;
