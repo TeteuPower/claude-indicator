@@ -54,6 +54,15 @@ public partial class SettingsPage : UserControl
         ChkTaskbar.IsChecked = s.ShowTaskbarBar;
         ChkGadget.IsChecked = s.GadgetEnabled;
 
+        ChkPcPanel.IsChecked = s.ShowPcPanel;
+        PcLeft.IsChecked = s.PcPanelAnchor == TaskbarAnchor.Left;
+        PcRight.IsChecked = s.PcPanelAnchor == TaskbarAnchor.Right;
+        ChkPcCpu.IsChecked = s.PcShowCpu;
+        ChkPcCpuSensors.IsChecked = s.PcCpuSensors;
+        ChkPcGpu.IsChecked = s.PcShowGpu;
+        ChkPcRam.IsChecked = s.PcShowRam;
+        SldPcInterval.Value = s.PcIntervalSeconds;
+
         OrientVertical.IsChecked = s.TrayOrientation == BarOrientation.Vertical;
         OrientHorizontal.IsChecked = s.TrayOrientation == BarOrientation.Horizontal;
 
@@ -129,6 +138,14 @@ public partial class SettingsPage : UserControl
         s.ShowTrayIcon = ChkTray.IsChecked == true;
         s.ShowTaskbarBar = ChkTaskbar.IsChecked == true;
         s.ShowGadget = ChkGadget.IsChecked == true;
+
+        s.ShowPcPanel = ChkPcPanel.IsChecked == true;
+        s.PcPanelAnchor = PcLeft.IsChecked == true ? TaskbarAnchor.Left : TaskbarAnchor.Right;
+        s.PcShowCpu = ChkPcCpu.IsChecked == true;
+        s.PcCpuSensors = ChkPcCpuSensors.IsChecked == true;
+        s.PcShowGpu = ChkPcGpu.IsChecked == true;
+        s.PcShowRam = ChkPcRam.IsChecked == true;
+        s.PcIntervalSeconds = (int)Math.Round(SldPcInterval.Value);
 
         s.TrayOrientation = OrientHorizontal.IsChecked == true ? BarOrientation.Horizontal : BarOrientation.Vertical;
 
@@ -220,6 +237,7 @@ public partial class SettingsPage : UserControl
                      ChkSession, ChkWeekly, ChkFable, ChkNotify, ChkStartup, ChkStartHidden,
                      OrientVertical, OrientHorizontal, TbLeft, TbRight,
                      GadgetVertical, GadgetHorizontal, ChkCheckUpdates,
+                     ChkPcPanel, PcLeft, PcRight, ChkPcCpu, ChkPcCpuSensors, ChkPcGpu, ChkPcRam,
                      ChkRateTaskbar, ChkRateGadget, RateWeekly, RateSession, RateFable,
                      Win5, Win20, Win60, Win1440, ChkTimeProgress, ChkCallTimeline
                  })
@@ -282,6 +300,8 @@ public partial class SettingsPage : UserControl
         LblTbOffset.Text = Math.Round(SldTbOffset.Value) + " px";
         LblTbScale.Text = Math.Round(SldTbScale.Value * 100) + "%";
         LblTbOpacity.Text = Math.Round(SldTbOpacity.Value * 100) + "%";
+        LblPcInterval.Text = Math.Round(SldPcInterval.Value) + " s";
+        UpdateElevationUi();
     }
 
     private static string FormatInterval(int seconds) =>
@@ -455,6 +475,41 @@ public partial class SettingsPage : UserControl
         }
         DiagInfo.Text = info.ToString();
         AccountStatus.Text = DescribeAccount();
+    }
+
+    /// <summary>
+    /// Explica o que está disponível conforme a elevação. Sem administrador a GPU responde
+    /// inteira, mas da CPU sai só o uso: temperatura e watts vêm de registradores do processador,
+    /// alcançáveis apenas por um driver de kernel.
+    /// </summary>
+    private void UpdateElevationUi()
+    {
+        var motivo = SystemGuard.CpuSensorsBlockedReason;
+
+        // o botão de elevar só ajuda quando a elevação é de fato o que está faltando; com a
+        // Integridade de Memória ligada, reabrir como administrador não muda nada
+        BtnElevate.Visibility = motivo != null && !SystemGuard.MemoryIntegrityEnabled
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        ElevationText.Text = motivo ?? "Temperatura e watts da CPU disponíveis: o app está elevado "
+                                       + "e a Integridade de Memória não está bloqueando o driver.";
+    }
+
+    private void OnElevateClick(object sender, RoutedEventArgs e)
+    {
+        var r = MessageBox.Show(Window.GetWindow(this),
+            "O app vai fechar e abrir de novo pedindo elevação ao Windows.\n\n"
+            + "Isso é necessário para ler temperatura e watts da CPU. Continuar?",
+            AppInfo.Name, MessageBoxButton.YesNo, MessageBoxImage.Question);
+
+        if (r == MessageBoxResult.Yes && !_host.RestartElevated())
+        {
+            MessageBox.Show(Window.GetWindow(this),
+                "Não foi possível reabrir como administrador. Se o pedido de elevação foi recusado, "
+                + "tente de novo e confirme na janela do Windows.",
+                AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private void UpdateRetentionUi()

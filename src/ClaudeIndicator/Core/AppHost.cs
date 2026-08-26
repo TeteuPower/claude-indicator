@@ -48,6 +48,8 @@ public sealed class AppHost
     private Drawing.Icon? _trayIcon;
     private GadgetWindow? _gadget;
     private TaskbarBarWindow? _taskbarBar;
+    private TaskbarBarWindow? _pcPanel;
+    private readonly HardwareMonitor _hardware = new();
     private MainWindow? _main;
     private bool _busy;
 
@@ -194,6 +196,83 @@ public sealed class AppHost
         {
             _taskbarBar?.HidePanel();
         }
+
+        ApplyPcPanel();
+    }
+
+    /// <summary>
+    /// Liga ou desliga o painel do PC junto com a leitura dos sensores. Ler hardware custa CPU e
+    /// mantém um driver aberto, então nada disso roda com o painel desligado.
+    /// </summary>
+    private void ApplyPcPanel()
+    {
+        if (Settings.ShowPcPanel)
+        {
+            if (_pcPanel == null)
+            {
+                _pcPanel = new TaskbarBarWindow(PanelKind.Pc);
+                _pcPanel.ApplySettings(Settings);
+                _pcPanel.Closed += (_, _) => _pcPanel = null;
+                _hardware.Updated += OnHardwareUpdated;
+            }
+
+            _pcPanel.ApplySettings(Settings);
+            _pcPanel.RenderHardware(_hardware.Current, Settings);
+            _pcPanel.ShowInTaskbarArea();
+
+            _hardware.SetInterval(Settings.PcIntervalSeconds);
+            _hardware.Start(Settings.PcIntervalSeconds, Settings.PcCpuSensors && SystemGuard.CanReadCpuSensors);
+        }
+        else
+        {
+            _pcPanel?.HidePanel();
+            _hardware.Updated -= OnHardwareUpdated;
+            _hardware.Stop();
+        }
+    }
+
+    /// <summary>Chega da thread de leitura: volta para a interface antes de desenhar.</summary>
+    private void OnHardwareUpdated(HardwareSnapshot snap)
+    {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher == null) return;
+
+        dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (Settings.ShowPcPanel) _pcPanel?.RenderHardware(snap, Settings);
+        }));
+    }
+
+    /// <summary>Retrato mais recente dos sensores, para a tela de configurações.</summary>
+    public HardwareSnapshot Hardware => _hardware.Current;
+
+    /// <summary>
+    /// Reabre o app pedindo elevação. É o caminho para temperatura e watts da CPU: eles vêm de
+    /// registradores do processador, que só um driver de kernel alcança.
+    /// </summary>
+    public bool RestartElevated()
+    {
+        try
+        {
+            var exe = Environment.ProcessPath;
+            if (string.IsNullOrEmpty(exe)) return false;
+
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = exe,
+                UseShellExecute = true,
+                Verb = "runas"
+            };
+            System.Diagnostics.Process.Start(psi);
+        }
+        catch
+        {
+            return false; // inclui o usuário recusar o pedido de elevação
+        }
+
+        // a instância nova assume; esta sai para não haver duas
+        Exit();
+        return true;
     }
 
     private void EnsureTaskbarBar()
@@ -574,6 +653,7 @@ public sealed class AppHost
     {
         _timer.Stop();
         _heartbeat.Stop();
+        _hardware.Stop();
         if (_tray != null)
         {
             _tray.Visible = false;
@@ -583,6 +663,7 @@ public sealed class AppHost
         _trayIcon?.Dispose();
         _gadget?.Close();
         _taskbarBar?.Close();
+        _pcPanel?.Close();
         _main?.Close();
         System.Windows.Application.Current?.Shutdown();
     }

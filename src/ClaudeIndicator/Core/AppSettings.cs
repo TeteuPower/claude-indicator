@@ -48,6 +48,30 @@ public class AppSettings
     public double TaskbarBarScale { get; set; } = 1.0;
     public double TaskbarBarOffset { get; set; } = 8;
 
+    // ---- Painel do PC (CPU, GPU, memória) ----
+    /// <summary>Segundo painel na barra de tarefas, com os sensores do computador.</summary>
+    public bool ShowPcPanel { get; set; }
+
+    /// <summary>
+    /// Lado do painel do PC. O padrão é o oposto do painel da IA: a ideia é justamente ter um
+    /// bloco de cada lado, para nunca haver dúvida sobre qual indicador é qual.
+    /// </summary>
+    public TaskbarAnchor PcPanelAnchor { get; set; } = TaskbarAnchor.Right;
+
+    public bool PcShowCpu { get; set; } = true;
+    public bool PcShowGpu { get; set; } = true;
+    public bool PcShowRam { get; set; } = true;
+
+    /// <summary>
+    /// Ler temperatura e watts da CPU. Desligado por padrão de propósito: isso carrega um driver
+    /// de kernel, exige elevação, dispara alerta de antivírus e é barrado quando a Integridade de
+    /// Memória está ligada. O uso da CPU é lido sem nada disso.
+    /// </summary>
+    public bool PcCpuSensors { get; set; }
+
+    /// <summary>Intervalo de leitura dos sensores, em segundos.</summary>
+    public int PcIntervalSeconds { get; set; } = 2;
+
     [JsonIgnore] public bool TrayEnabled => ShowTrayIcon ?? true;
     [JsonIgnore] public bool GadgetEnabled => ShowGadget ?? false;
 
@@ -249,6 +273,9 @@ public class AppSettings
         if (GadgetScale < 0.7) GadgetScale = 0.7;
         if (GadgetScale > 2.0) GadgetScale = 2.0;
         if (Array.IndexOf(ConsumptionRate.WindowChoices, RateWindowMinutes) < 0) RateWindowMinutes = 20;
+        if (PcIntervalSeconds < 1) PcIntervalSeconds = 1;
+        if (PcIntervalSeconds > 30) PcIntervalSeconds = 30;
+        if (!PcShowCpu && !PcShowGpu && !PcShowRam) PcShowCpu = true;
         if (WeightOutput <= 0 || double.IsNaN(WeightOutput)) WeightOutput = 5.0;
         if (WeightCacheWrite < 0 || double.IsNaN(WeightCacheWrite)) WeightCacheWrite = 1.25;
         if (WeightCacheRead < 0 || double.IsNaN(WeightCacheRead)) WeightCacheRead = 0.1;

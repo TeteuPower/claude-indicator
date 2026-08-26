@@ -18,9 +18,24 @@ namespace ClaudeIndicator.Views;
 /// de lado, ocultar automaticamente) e esconde o painel quando um aplicativo em tela cheia está
 /// na frente.
 /// </summary>
+/// <summary>O que este painel mostra.</summary>
+public enum PanelKind
+{
+    /// <summary>Limites da assinatura Claude.</summary>
+    Ai,
+
+    /// <summary>Sensores do computador: CPU, GPU e memória.</summary>
+    Pc
+}
+
 public partial class TaskbarBarWindow : Window
 {
     private readonly DispatcherTimer _follow = new() { Interval = TimeSpan.FromMilliseconds(900) };
+
+    /// <summary>Tipo de painel — decide o conteúdo e de que lado da barra ele fica.</summary>
+    public PanelKind Kind { get; }
+
+    private HardwareSnapshot _hardware = HardwareSnapshot.Empty;
     private AppSettings _settings = new();
     private UsageSnapshot? _snapshot;
     private bool _hidden;
@@ -28,8 +43,9 @@ public partial class TaskbarBarWindow : Window
     private bool _pendingRender;
     private bool _timelinePending;
 
-    public TaskbarBarWindow()
+    public TaskbarBarWindow(PanelKind kind = PanelKind.Ai)
     {
+        Kind = kind;
         InitializeComponent();
         VersionItem.Header = AppInfo.NameWithVersion;
 
@@ -70,6 +86,54 @@ public partial class TaskbarBarWindow : Window
     // ------------------------------------------------------------------
     // Conteúdo
     // ------------------------------------------------------------------
+
+    /// <summary>Conteúdo do painel do PC. O da IA usa Render(UsageSnapshot, ...).</summary>
+    public void RenderHardware(HardwareSnapshot hw, AppSettings s)
+    {
+        _hardware = hw;
+        _settings = s;
+
+        if (IsMouseOver)
+        {
+            _pendingRender = true;
+            return;
+        }
+        _pendingRender = false;
+
+        CellsPanel.Children.Clear();
+        var cells = 0;
+
+        if (s.PcShowCpu)
+        {
+            if (cells++ > 0) CellsPanel.Children.Add(Divider());
+            CellsPanel.Children.Add(BuildHardwareCell("CPU", hw.Cpu, s, hw));
+        }
+        if (s.PcShowGpu)
+        {
+            if (cells++ > 0) CellsPanel.Children.Add(Divider());
+            CellsPanel.Children.Add(BuildHardwareCell("GPU", hw.Gpu, s, hw));
+        }
+        if (s.PcShowRam)
+        {
+            if (cells++ > 0) CellsPanel.Children.Add(Divider());
+            CellsPanel.Children.Add(BuildHardwareCell("RAM", hw.Ram, s, hw));
+        }
+
+        if (cells == 0 || (!hw.Ok && !hw.Cpu.HasAnything && !hw.Gpu.HasAnything))
+        {
+            CellsPanel.Children.Clear();
+            CellsPanel.Children.Add(new TextBlock
+            {
+                Text = hw.Error != null ? "PC · sem leitura" : "PC · lendo…",
+                FontSize = 11.5,
+                Foreground = BarRenderer.Swatch("MutedBrush"),
+                VerticalAlignment = VerticalAlignment.Center,
+                ToolTip = hw.Error
+            });
+        }
+
+        Reposition();
+    }
 
     public void Render(UsageSnapshot? snap, AppSettings s)
     {
@@ -175,6 +239,138 @@ public partial class TaskbarBarWindow : Window
             VerticalAlignment = VerticalAlignment.Center,
             ToolTip = call?.Describe() ?? "ciclo ainda não registrado"
         };
+    }
+
+    /// <summary>
+    /// Célula de um componente: rótulo, uso em destaque e as medidas de apoio (temperatura e
+    /// watts) numa linha abaixo. A cor segue a métrica que mais preocupa, que é a temperatura
+    /// quando existe — uso alto é trabalho, temperatura alta é problema.
+    /// </summary>
+    private UIElement BuildHardwareCell(string rotulo, ComponentReading c, AppSettings s, HardwareSnapshot hw)
+    {
+        var scale = Math.Clamp(s.TaskbarBarScale, 0.8, 1.6);
+        var cell = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+
+        var head = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 2) };
+        head.Children.Add(new TextBlock
+        {
+            Text = rotulo,
+            FontSize = 9.5 * scale,
+            Foreground = BarRenderer.Swatch("MutedBrush")
+        });
+
+        var apoio = Support(c, rotulo);
+        if (apoio.Length > 0)
+        {
+            head.Children.Add(new TextBlock
+            {
+                Text = "  " + apoio,
+                FontSize = 9.5 * scale,
+                Foreground = new SolidColorBrush(HardwareColor(c)),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+        }
+        cell.Children.Add(head);
+
+        var row = new StackPanel { Orientation = Orientation.Horizontal };
+        row.Children.Add(new TextBlock
+        {
+            Text = c.Load.Format("%"),
+            FontSize = 12.5 * scale,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(LoadColor(c.Load)),
+            VerticalAlignment = VerticalAlignment.Center,
+            MinWidth = 34 * scale
+        });
+
+        var track = new Border
+        {
+            Width = 44 * scale,
+            Height = 5,
+            CornerRadius = new CornerRadius(2.5),
+            Background = BarRenderer.Swatch("TrackBrush"),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(5, 0, 0, 0),
+            ClipToBounds = true
+        };
+        var grid = new Grid();
+        var frac = Math.Clamp((c.Load.Value ?? 0) / 100.0, 0, 1);
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(frac, 0.0001), GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(1 - frac, 0.0001), GridUnitType.Star) });
+        var fill = new Border
+        {
+            CornerRadius = new CornerRadius(2.5),
+            Background = new SolidColorBrush(LoadColor(c.Load)),
+            MinWidth = frac > 0 ? 3 : 0
+        };
+        Grid.SetColumn(fill, 0);
+        grid.Children.Add(fill);
+        track.Child = grid;
+        row.Children.Add(track);
+
+        cell.Children.Add(row);
+
+        return new Border
+        {
+            Child = cell,
+            Background = System.Windows.Media.Brushes.Transparent,
+            Padding = new Thickness(2, 0, 2, 0),
+            ToolTip = DescribeHardware(rotulo, c, hw)
+        };
+    }
+
+    /// <summary>Medidas de apoio da célula: temperatura, watts ou memória, conforme o componente.</summary>
+    private static string Support(ComponentReading c, string rotulo)
+    {
+        var partes = new List<string>();
+        if (c.Temperature.HasValue) partes.Add(c.Temperature.Format("°"));
+        if (c.Power.HasValue) partes.Add(c.Power.Format(" W"));
+        if (rotulo == "RAM" && c.MemoryUsed.HasValue) partes.Add(c.MemoryUsed.Format(" GB", 1));
+        return string.Join(" · ", partes);
+    }
+
+    private static Color LoadColor(Reading load)
+    {
+        if (!load.HasValue) return Color.FromArgb(255, 156, 151, 145);
+        var v = load.Value!.Value;
+        if (v >= 90) return Color.FromArgb(255, 240, 92, 92);
+        if (v >= 70) return Color.FromArgb(255, 232, 176, 75);
+        return Color.FromArgb(255, 76, 195, 138);
+    }
+
+    /// <summary>Temperatura manda na cor de apoio; sem ela, os watts não têm faixa universal.</summary>
+    private static Color HardwareColor(ComponentReading c)
+    {
+        if (!c.Temperature.HasValue) return Color.FromArgb(255, 156, 151, 145);
+        var t = c.Temperature.Value!.Value;
+        if (t >= 90) return Color.FromArgb(255, 240, 92, 92);
+        if (t >= 80) return Color.FromArgb(255, 232, 176, 75);
+        return Color.FromArgb(255, 156, 151, 145);
+    }
+
+    private static string DescribeHardware(string rotulo, ComponentReading c, HardwareSnapshot hw)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.Append(rotulo);
+        if (c.Name.Length > 0) sb.Append(" — ").Append(c.Name);
+
+        if (c.Load.HasValue) sb.Append("\nUso: ").Append(c.Load.Format("%"));
+        if (c.Temperature.HasValue) sb.Append("\nTemperatura: ").Append(c.Temperature.Format(" °C"));
+        if (c.Power.HasValue) sb.Append("\nConsumo: ").Append(c.Power.Format(" W", 1));
+        if (c.MemoryUsed.HasValue)
+        {
+            sb.Append("\nMemória: ").Append(c.MemoryUsed.Format(" GB", 1));
+            if (c.MemoryTotal.HasValue) sb.Append(" de ").Append(c.MemoryTotal.Format(" GB", 1));
+        }
+
+        if (rotulo == "CPU" && !hw.Elevated && !c.Temperature.HasValue)
+        {
+            sb.Append("\n\nTemperatura e watts da CPU exigem executar como administrador: eles vêm ")
+              .Append("de registradores do processador, que precisam de um driver de kernel. ")
+              .Append("Use \"Reiniciar como administrador\" em Configurações.");
+        }
+
+        return sb.ToString();
     }
 
     private static UIElement Divider() => new Border
@@ -331,11 +527,15 @@ public partial class TaskbarBarWindow : Window
     // Posicionamento
     // ------------------------------------------------------------------
 
+    /// <summary>Lado da barra onde este painel se ancora.</summary>
+    private TaskbarAnchor Anchor =>
+        Kind == PanelKind.Pc ? _settings.PcPanelAnchor : _settings.TaskbarBarAnchor;
+
     private void Reposition()
     {
         if (_hidden) return;
 
-        var span = TaskbarInfo.FreeSpan(_settings.TaskbarBarAnchor);
+        var span = TaskbarInfo.FreeSpan(Anchor);
         var bounds = TaskbarInfo.Bounds();
         if (span == null || bounds == null || !TaskbarInfo.IsHorizontal())
         {
@@ -364,7 +564,7 @@ public partial class TaskbarBarWindow : Window
         var availableDip = (span.Value.To - span.Value.From) * scaleX;
         if (width > availableDip) width = availableDip;
 
-        var left = _settings.TaskbarBarAnchor == TaskbarAnchor.Left
+        var left = Anchor == TaskbarAnchor.Left
             ? span.Value.From * scaleX + _settings.TaskbarBarOffset
             : span.Value.To * scaleX - width - _settings.TaskbarBarOffset;
         var top = bar.Top * scaleY;

@@ -11,9 +11,9 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
-    <Version>1.7.8</Version>
-    <FileVersion>1.7.8.0</FileVersion>
-    <AssemblyVersion>1.7.8.0</AssemblyVersion>
+    <Version>1.8.0</Version>
+    <FileVersion>1.8.0.0</FileVersion>
+    <AssemblyVersion>1.8.0.0</AssemblyVersion>
     <Product>Claude Indicator</Product>
     <Company>Claude Indicator</Company>
     <AssemblyTitle>Claude Indicator</AssemblyTitle>
@@ -25,6 +25,11 @@
 
   <ItemGroup>
     <Resource Include="Assets\app.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- sensores de CPU/GPU; a parte da CPU depende de driver de kernel e elevacao -->
+    <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.4" />
   </ItemGroup>
 
 </Project>

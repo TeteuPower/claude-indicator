@@ -9,6 +9,10 @@ acompanhar o consumo sem abrir nada — combináveis entre si:
 | **Painel na barra de tarefas** | faixa no espaço livre da barra, com rótulo, porcentagem e barra de cada limite |
 | **Gadget flutuante** | janela arrastável que fica por cima dos outros aplicativos |
 
+E, opcionalmente, um **segundo painel na barra com os sensores do computador** — CPU, GPU e
+memória —, ancorado no lado oposto ao da IA. A seção *Sensores do computador* explica o que cada
+um entrega e por que a CPU precisa de elevação.
+
 O painel da barra e o gadget mostram também um **velocímetro do ritmo de consumo** (`0,15% p/min`):
 o meio da escala é o ritmo que o limite aguenta até renovar, então ponteiro à esquerda significa
 que dá para seguir assim e à direita que vai acabar antes. **Clicar nele troca o limite**
@@ -67,8 +71,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.7.8
-git push origin v1.7.8
+git tag v1.8.0
+git push origin v1.8.0
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -89,7 +93,7 @@ Dois detalhes do GitHub que o app precisa contornar:
   pré-release. Por isso o app lista as releases e escolhe a maior versão, com uma opção para
   considerar ou não as pré-releases.
 - A pré-release usa a tag fixa `latest`, que não é uma versão. A versão sai então do **nome do
-  instalador anexado** (`ClaudeIndicator-Setup-1.7.8.exe`) — de propósito antes do título da
+  instalador anexado** (`ClaudeIndicator-Setup-1.8.0.exe`) — de propósito antes do título da
   release, porque o instalador é o arquivo que será realmente instalado e o título é texto que
   pode ficar defasado se a chamada que o atualiza falhar.
 
@@ -114,7 +118,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~63 MB)
-- `dist\ClaudeIndicator-Setup-1.7.8.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-1.8.0.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -249,6 +253,43 @@ O **histórico** é gravado em `%APPDATA%\ClaudeIndicator\history.jsonl` enquant
 por padrão, **nada é apagado** — dá para ligar uma retenção em *Configurações › Dados*. Não há como
 importar consumo anterior: a API devolve só o estado atual dos limites, sem série histórica, então o
 gráfico começa vazio e enche a partir do primeiro uso.
+
+## Sensores do computador
+
+Um segundo painel na barra de tarefas mostra **CPU, GPU e memória**, com uso, temperatura, watts e
+memória usada. Ele fica no lado oposto ao painel da IA: a ideia é que cada bloco tenha lugar fixo,
+em vez de ícones que trocam de posição e não se identificam.
+
+A leitura usa a [LibreHardwareMonitorLib](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor),
+numa thread própria — abrir os sensores leva alguns segundos e cada leitura, dezenas de
+milissegundos, então nada disso acontece na interface. Com o painel desligado, nenhuma leitura
+roda e nenhum driver fica aberto.
+
+Quase tudo é lido **sem driver e sem elevação**:
+
+| Métrica | Como é lida | Precisa de driver? |
+|---|---|---|
+| GPU: uso, temperatura, watts, VRAM | NVAPI/NVML, pela biblioteca | não |
+| Memória: uso e GB | API do sistema | não |
+| CPU: uso | contador de desempenho do Windows | não |
+| **CPU: temperatura e watts** | registradores do processador | **sim** |
+
+Só a última linha é diferente, e por um motivo de fundo: temperatura e consumo do processador só
+são acessíveis por um driver de kernel. O que a biblioteca usa é o **WinRing0**, o mesmo que está
+por trás de vários utilitários de monitoramento — e ele dá acesso direto a memória física e portas
+de E/S a qualquer processo que consiga falar com ele. Por isso:
+
+- o **Windows Defender o classifica como `VulnerableDriver`** e o remove — não é um engano de
+  assinatura, é a classificação correta para o que o driver permite;
+- com a **Integridade de Memória (HVCI) ligada** — padrão no Windows 11 —, o Windows aplica a
+  lista de drivers vulneráveis da Microsoft e **o driver não carrega nem como administrador**.
+
+Por isso essa leitura é uma **opção desligada por padrão** (*Configurações › Onde exibir › Ler
+também temperatura e watts da CPU*). Com ela desligada, nenhum driver é extraído e nenhum alerta
+aparece. Ligada, o app avisa o que está faltando: elevação, quando é só isso, com um botão para
+reabrir elevado; ou a Integridade de Memória, quando nem elevar resolve — e nesse caso a saída
+seria desligá-la, o que reduz a proteção do sistema contra ataques que abusam exatamente desse
+tipo de driver. A recomendação é não desligar.
 
 ## Consumo por projeto
 
