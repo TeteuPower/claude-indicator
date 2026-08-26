@@ -98,6 +98,7 @@ public partial class SettingsPage : UserControl
         Win60.IsChecked = s.RateWindowMinutes == 60;
         Win1440.IsChecked = s.RateWindowMinutes == 1440;
         ChkTimeProgress.IsChecked = s.ShowTimeProgress;
+        ChkCallTimeline.IsChecked = s.ShowCallTimeline;
 
         ChkStartup.IsChecked = s.StartWithWindows;
         ChkStartHidden.IsChecked = s.StartHidden;
@@ -170,6 +171,7 @@ public partial class SettingsPage : UserControl
             : Win60.IsChecked == true ? 60
             : Win1440.IsChecked == true ? 1440 : 20;
         s.ShowTimeProgress = ChkTimeProgress.IsChecked == true;
+        s.ShowCallTimeline = ChkCallTimeline.IsChecked == true;
 
         s.StartWithWindows = ChkStartup.IsChecked == true;
         s.StartHidden = ChkStartHidden.IsChecked == true;
@@ -219,7 +221,7 @@ public partial class SettingsPage : UserControl
                      OrientVertical, OrientHorizontal, TbLeft, TbRight,
                      GadgetVertical, GadgetHorizontal, ChkCheckUpdates,
                      ChkRateTaskbar, ChkRateGadget, RateWeekly, RateSession, RateFable,
-                     Win5, Win20, Win60, Win1440, ChkTimeProgress
+                     Win5, Win20, Win60, Win1440, ChkTimeProgress, ChkCallTimeline
                  })
         {
             Hook(c);

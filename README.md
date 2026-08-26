@@ -67,8 +67,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.7.7
-git push origin v1.7.7
+git tag v1.7.8
+git push origin v1.7.8
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -89,7 +89,7 @@ Dois detalhes do GitHub que o app precisa contornar:
   pré-release. Por isso o app lista as releases e escolhe a maior versão, com uma opção para
   considerar ou não as pré-releases.
 - A pré-release usa a tag fixa `latest`, que não é uma versão. A versão sai então do **nome do
-  instalador anexado** (`ClaudeIndicator-Setup-1.7.7.exe`) — de propósito antes do título da
+  instalador anexado** (`ClaudeIndicator-Setup-1.7.8.exe`) — de propósito antes do título da
   release, porque o instalador é o arquivo que será realmente instalado e o título é texto que
   pode ficar defasado se a chamada que o atualiza falhar.
 
@@ -114,7 +114,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~63 MB)
-- `dist\ClaudeIndicator-Setup-1.7.7.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-1.7.8.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -227,12 +227,23 @@ As preferências ficam em `%APPDATA%\ClaudeIndicator\settings.json`.
 - **Painel na barra de tarefas**: clique abre o painel; botão direito tem o mesmo menu, incluindo
   ocultá-lo. Passar o mouse sobre cada indicador mostra quanto resta e quando renova.
 - **Gadget**: arraste **pelo cabeçalho** (a faixa com o nome, no topo); passe o mouse para ver os
-  botões de atualizar, configurar e ocultar; botão direito abre o menu. No rodapé, uma **linha do
-  tempo das últimas dez consultas à API**: verde respondeu, âmbar recusou por limite (HTTP 429),
-  vermelho falhou, e os pontos apagados são consultas que ainda não aconteceram. A mais recente
-  fica à direita e empurra a mais antiga para fora; **passar o mouse sobre cada bolinha** mostra o
-  horário e o resultado daquela consulta. Só entram consultas que realmente aconteceram — enquanto
-  o app espera o fim de uma pausa por limite, nada é registrado.
+  botões de atualizar, configurar e ocultar; botão direito abre o menu.
+
+A **linha do tempo da comunicação** aparece no rodapé do gadget e ao lado dos indicadores no painel
+da barra de tarefas: dez pontos, o mais recente à direita, **um por ciclo do intervalo configurado**
+— e não um por chamada. É essa cadência fixa que mostra a saúde da conexão: durante uma pausa por
+limite os pontos continuam avançando, em vez de a faixa congelar como se nada estivesse
+acontecendo.
+
+| Ponto | O que aconteceu naquele ciclo |
+|---|---|
+| **Verde** | a consulta respondeu |
+| **Âmbar** | não deu para falar com a API por limite de consultas (HTTP 429) |
+| **Vermelho** | a consulta falhou (rede, credencial, formato inesperado) |
+| **Apagado** | não houve consulta porque o consumo não mudou e o app espaçou de propósito — conexão saudável |
+
+Passar o mouse sobre cada ponto mostra o horário e o motivo daquele ciclo. Dá para desligar a faixa
+em Configurações › Sistema.
 
 O **histórico** é gravado em `%APPDATA%\ClaudeIndicator\history.jsonl` enquanto o app está aberto e,
 por padrão, **nada é apagado** — dá para ligar uma retenção em *Configurações › Dados*. Não há como

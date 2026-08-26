@@ -303,6 +303,9 @@ public partial class GadgetWindow : Window
     /// Cada consulta nova empurra a mais antiga para fora. Verde respondeu, ambar recusou por
     /// limite de consultas, vermelho falhou. Os vazios sao consultas que ainda nao aconteceram.
     /// </summary>
+    /// <summary>Redesenha só a linha do tempo — chamado a cada batimento, sem tocar nas barras.</summary>
+    public void RefreshTimeline() => DrawCallTimeline();
+
     private void DrawCallTimeline()
     {
         // com o mouse sobre a faixa, trocar as bolinhas fecharia o tooltip que está sendo lido
@@ -314,6 +317,7 @@ public partial class GadgetWindow : Window
         _timelinePending = false;
 
         CallsPanel.Children.Clear();
+        if (AppHost.Current is { } h && !h.Settings.ShowCallTimeline) return;
 
         var calls = AppHost.Current?.Calls.Recent() ?? new System.Collections.Generic.List<ApiCall>();
         var vazios = ApiCallLog.Capacity - calls.Count;

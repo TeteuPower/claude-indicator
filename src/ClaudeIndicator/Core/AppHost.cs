@@ -32,6 +32,16 @@ public sealed class AppHost
     private readonly UpdateChecker _updates = new();
     private readonly ApiCallLog _calls = new();
     private readonly DispatcherTimer _timer = new();
+
+    /// <summary>
+    /// Batimento da linha do tempo. Roda na cadência configurada, independente de quando a
+    /// próxima consulta está agendada: é o que revela uma conexão parada, porque durante uma
+    /// pausa por limite os pontos continuam avançando em vez de a faixa congelar.
+    /// </summary>
+    private readonly DispatcherTimer _heartbeat = new();
+
+    /// <summary>Resultado da consulta que aconteceu desde o último batimento, se houve alguma.</summary>
+    private (ApiOutcome Outcome, string Detail)? _slotResult;
     private readonly Dictionary<BarKind, bool> _alerted = new();
 
     private WinForms.NotifyIcon? _tray;
@@ -84,6 +94,9 @@ public sealed class AppHost
         _timer.Tick += (_, _) => _ = RefreshAsync();
         _timer.Start();
         ScheduleNext();
+
+        _heartbeat.Tick += (_, _) => Heartbeat();
+        RestartHeartbeat();
 
         _ = RefreshAsync();
 
@@ -281,6 +294,7 @@ public sealed class AppHost
         _idleStreak = 0;
 
         ScheduleNext();
+        RestartHeartbeat();
         ApplyDisplayMode();
         _ = RefreshAsync(true);
     }
@@ -342,17 +356,46 @@ public sealed class AppHost
     private void RecordCall(UsageSnapshot snap)
     {
         if (snap.RateLimited)
-        {
-            _calls.Record(ApiOutcome.RateLimited, "HTTP 429");
-        }
+            _slotResult = (ApiOutcome.RateLimited, "HTTP 429");
         else if (snap.Ok && snap.Bars.Count > 0)
+            _slotResult = (ApiOutcome.Ok, "");
+        else
+            _slotResult = (ApiOutcome.Failed, Shorten(snap.Error));
+    }
+
+    /// <summary>Reinicia o batimento com o intervalo configurado.</summary>
+    private void RestartHeartbeat()
+    {
+        _heartbeat.Stop();
+        _heartbeat.Interval = TimeSpan.FromSeconds(Math.Clamp(Settings.RefreshSeconds, 15, 3600));
+        _heartbeat.Start();
+    }
+
+    /// <summary>
+    /// Fecha um ciclo da linha do tempo. Verde se a consulta do ciclo respondeu; vermelho se
+    /// falhou; âmbar se o app quis falar e foi recusado por limite — inclusive quando ele nem
+    /// tentou, por estar cumprindo a pausa. Sem consulta e sem pausa significa que o app espaçou
+    /// de propósito porque o consumo não mudou: é conexão saudável, não falha.
+    /// </summary>
+    private void Heartbeat()
+    {
+        if (_slotResult is { } resultado)
         {
-            _calls.Record(ApiOutcome.Ok);
+            _calls.Record(resultado.Outcome, resultado.Detail);
+            _slotResult = null;
+        }
+        else if (_pausedUntil > DateTimeOffset.Now)
+        {
+            _calls.Record(ApiOutcome.RateLimited,
+                $"aguardando o limite até {_pausedUntil.ToLocalTime():HH:mm}");
         }
         else
         {
-            _calls.Record(ApiOutcome.Failed, Shorten(snap.Error));
+            _calls.Record(ApiOutcome.Idle, "consumo parado, consulta espaçada");
         }
+
+        _gadget?.RefreshTimeline();
+        _taskbarBar?.RefreshTimeline();
     }
 
     private static string Shorten(string? text)
@@ -530,6 +573,7 @@ public sealed class AppHost
     public void Exit()
     {
         _timer.Stop();
+        _heartbeat.Stop();
         if (_tray != null)
         {
             _tray.Visible = false;

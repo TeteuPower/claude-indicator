@@ -13,7 +13,13 @@ public enum ApiOutcome
     RateLimited,
 
     /// <summary>Não deu para obter o consumo: rede, credencial, formato inesperado.</summary>
-    Failed
+    Failed,
+
+    /// <summary>
+    /// Não houve consulta neste ciclo porque o app espaçou de propósito — o consumo não estava
+    /// mudando. Não é falha de conexão, e por isso não é vermelho.
+    /// </summary>
+    Idle
 }
 
 /// <summary>Uma consulta registrada.</summary>
@@ -30,6 +36,7 @@ public sealed class ApiCall
         {
             ApiOutcome.Ok => "respondeu",
             ApiOutcome.RateLimited => "limite de consultas",
+            ApiOutcome.Idle => "sem consulta neste ciclo",
             _ => "falhou"
         };
         return string.IsNullOrEmpty(Detail) ? $"{hora} — {texto}" : $"{hora} — {texto}: {Detail}";
@@ -37,12 +44,12 @@ public sealed class ApiCall
 }
 
 /// <summary>
-/// As últimas consultas à API, em ordem cronológica. Guarda um número fixo: a mais nova entra
-/// pela direita e empurra a mais antiga para fora, que é como a linha do tempo é lida.
+/// Os últimos ciclos de comunicação com a API, em ordem cronológica. Guarda um número fixo: o
+/// mais novo entra pela direita e empurra o mais antigo para fora.
 ///
-/// Só entram consultas que de fato aconteceram — quando o app está esperando o fim de uma pausa
-/// por limite, nenhuma chamada é feita e nada é registrado, senão a linha mostraria falhas que
-/// não ocorreram.
+/// O registro é por CICLO, não por chamada: um ponto é anotado a cada intervalo configurado,
+/// tenha havido consulta ou não. É isso que faz a faixa mostrar a saúde da conexão — durante uma
+/// pausa por limite os pontos continuam avançando em vermelho, em vez de a faixa congelar.
 /// </summary>
 public sealed class ApiCallLog
 {
@@ -66,7 +73,7 @@ public sealed class ApiCallLog
         lock (_lock) return new List<ApiCall>(_calls);
     }
 
-    /// <summary>Quantas das registradas falharam (inclui limite de consultas).</summary>
+    /// <summary>Quantos ciclos não conseguiram falar com a API (falha ou limite).</summary>
     public int FailureCount()
     {
         lock (_lock)
@@ -74,7 +81,7 @@ public sealed class ApiCallLog
             var n = 0;
             foreach (var c in _calls)
             {
-                if (c.Outcome != ApiOutcome.Ok) n++;
+                if (c.Outcome is ApiOutcome.Failed or ApiOutcome.RateLimited) n++;
             }
             return n;
         }

@@ -92,6 +92,12 @@ public class AppSettings
     /// <summary>Qual limite o ritmo acompanha.</summary>
     public BarKind RateKind { get; set; } = BarKind.Weekly;
 
+    /// <summary>
+    /// Linha do tempo dos últimos ciclos de comunicação com a API, no gadget e no painel da
+    /// barra de tarefas.
+    /// </summary>
+    public bool ShowCallTimeline { get; set; } = true;
+
     /// <summary>Janela de medição do ritmo, em minutos (5, 20, 60 ou 1440).</summary>
     public int RateWindowMinutes { get; set; } = 20;
 

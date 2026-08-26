@@ -26,6 +26,7 @@ public partial class TaskbarBarWindow : Window
     private bool _hidden;
     private DateTime _lastTopmost = DateTime.MinValue;
     private bool _pendingRender;
+    private bool _timelinePending;
 
     public TaskbarBarWindow()
     {
@@ -48,6 +49,7 @@ public partial class TaskbarBarWindow : Window
         MouseLeave += (_, _) =>
         {
             if (_pendingRender) Render(_snapshot, _settings);
+            else if (_timelinePending) DrawCallTimeline();
         };
     }
 
@@ -112,7 +114,67 @@ public partial class TaskbarBarWindow : Window
             CellsPanel.Children.Add(BuildGaugeCell(rate, s));
         }
 
+        DrawCallTimeline();
         Reposition();
+    }
+
+    /// <summary>Redesenha só a linha do tempo — chamada a cada batimento, sem refazer as células.</summary>
+    public void RefreshTimeline() => DrawCallTimeline();
+
+    /// <summary>
+    /// Linha do tempo dos últimos ciclos de comunicação com a API, a mais recente à direita.
+    /// Verde respondeu, âmbar não conseguiu falar por limite, vermelho falhou, e o ponto vazado é
+    /// ciclo sem consulta porque o consumo não mudou.
+    /// </summary>
+    private void DrawCallTimeline()
+    {
+        // com o mouse sobre a faixa, trocar as bolinhas fecharia o tooltip que está sendo lido
+        if (CallsPanel.IsMouseOver)
+        {
+            _timelinePending = true;
+            return;
+        }
+        _timelinePending = false;
+
+        CallsPanel.Children.Clear();
+        if (!_settings.ShowCallTimeline) return;
+
+        var calls = AppHost.Current?.Calls.Recent() ?? new List<ApiCall>();
+        for (var i = 0; i < ApiCallLog.Capacity - calls.Count; i++)
+            CallsPanel.Children.Add(Dot(null));
+        foreach (var call in calls)
+            CallsPanel.Children.Add(Dot(call));
+    }
+
+    private UIElement Dot(ApiCall? call)
+    {
+        var cor = call?.Outcome switch
+        {
+            ApiOutcome.Ok => BarRenderer.Swatch("OkBrush"),
+            ApiOutcome.RateLimited => BarRenderer.Swatch("WarnBrush"),
+            ApiOutcome.Failed => BarRenderer.Swatch("DangerBrush"),
+            _ => BarRenderer.Swatch("TrackBrush")
+        };
+
+        var bolinha = new System.Windows.Shapes.Ellipse
+        {
+            Width = 6,
+            Height = 6,
+            Fill = cor,
+            Opacity = call == null || call.Outcome == ApiOutcome.Idle ? 0.5 : 1,
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+
+        return new Border
+        {
+            Child = bolinha,
+            Background = System.Windows.Media.Brushes.Transparent,
+            Width = 11,
+            Height = 22,
+            VerticalAlignment = VerticalAlignment.Center,
+            ToolTip = call?.Describe() ?? "ciclo ainda não registrado"
+        };
     }
 
     private static UIElement Divider() => new Border
