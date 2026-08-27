@@ -10,14 +10,6 @@ using ClaudeIndicator.Core;
 
 namespace ClaudeIndicator.Views;
 
-/// <summary>
-/// Indicadores desenhados dentro da barra de tarefas, no espaço livre dela.
-///
-/// O Windows 11 não aceita mais deskbands, então isto é uma janela sem borda posicionada sobre
-/// a barra e mantida por cima. Um timer reposiciona quando a barra muda (resolução, DPI, mover
-/// de lado, ocultar automaticamente) e esconde o painel quando um aplicativo em tela cheia está
-/// na frente.
-/// </summary>
 /// <summary>O que este painel mostra.</summary>
 public enum PanelKind
 {
@@ -28,6 +20,15 @@ public enum PanelKind
     Pc
 }
 
+/// <summary>
+/// Indicadores desenhados dentro da barra de tarefas, no espaço livre dela.
+///
+/// O Windows 11 não aceita mais deskbands, então isto é uma janela sem borda posicionada sobre
+/// a barra e mantida por cima. Um timer reposiciona quando a barra muda (resolução, DPI, mover
+/// de lado, ocultar automaticamente) e esconde o painel quando um aplicativo em tela cheia está
+/// na frente. A mesma janela serve aos dois painéis — o da IA e o do computador —, mudando o
+/// conteúdo e o lado conforme o <see cref="PanelKind"/>.
+/// </summary>
 public partial class TaskbarBarWindow : Window
 {
     private readonly DispatcherTimer _follow = new() { Interval = TimeSpan.FromMilliseconds(900) };
@@ -363,11 +364,17 @@ public partial class TaskbarBarWindow : Window
             if (c.MemoryTotal.HasValue) sb.Append(" de ").Append(c.MemoryTotal.Format(" GB", 1));
         }
 
-        if (rotulo == "CPU" && !hw.Elevated && !c.Temperature.HasValue)
+        if (rotulo == "CPU" && c.Temperature.HasValue && hw.CpuTemperatureFromThermalZone)
         {
-            sb.Append("\n\nTemperatura e watts da CPU exigem executar como administrador: eles vêm ")
-              .Append("de registradores do processador, que precisam de um driver de kernel. ")
-              .Append("Use \"Reiniciar como administrador\" em Configurações.");
+            sb.Append("\n\nA temperatura vem da zona térmica ACPI — o conjunto ao redor do ")
+              .Append("processador, não o sensor interno dele. Acompanha o aquecimento de perto, ")
+              .Append("mas pode diferir alguns graus do que o Afterburner mostra.");
+        }
+
+        if (rotulo == "CPU" && !c.Power.HasValue)
+        {
+            sb.Append("\n\nOs watts da CPU só existem nos registradores do processador, que ")
+              .Append("precisam de um driver de kernel — é a única medida daqui que depende disso.");
         }
 
         return sb.ToString();

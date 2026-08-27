@@ -27,6 +27,7 @@ public sealed class HardwareMonitor : IDisposable
     private volatile int _intervalMs = 1000;
     private volatile bool _cpuSensors;
     private PerformanceCounter? _cpuLoad;
+    private PerformanceCounter? _thermalZone;
 
     public HardwareSnapshot Current { get; private set; } = HardwareSnapshot.Empty;
 
@@ -110,6 +111,23 @@ public sealed class HardwareMonitor : IDisposable
         catch
         {
             _cpuLoad = null; // sem contador, o uso da CPU fica sem leitura
+        }
+
+        try
+        {
+            // Zona térmica ACPI: temperatura sem driver e sem elevação, a ~2 ms por leitura.
+            // Não é o sensor interno do processador, mas acompanha o aquecimento dele de perto.
+            var cat = new PerformanceCounterCategory("Thermal Zone Information");
+            var zona = cat.GetInstanceNames().FirstOrDefault();
+            if (zona != null)
+            {
+                _thermalZone = new PerformanceCounter("Thermal Zone Information", "Temperature", zona);
+                _thermalZone.NextValue();
+            }
+        }
+        catch
+        {
+            _thermalZone = null; // nem toda máquina expõe zona térmica
         }
 
         try
@@ -204,12 +222,16 @@ public sealed class HardwareMonitor : IDisposable
             }
         }
 
-        // o uso vem do contador, que funciona sempre; o resto da CPU só existe com o driver
+        // O uso vem do contador, que funciona sempre. A temperatura tem duas fontes: o sensor
+        // interno do processador (só com driver) e, na falta dele, a zona térmica ACPI.
+        var doDriver = cpu.Temperature;
+        var daZona = doDriver.HasValue ? Reading.None : ReadThermalZone();
+
         cpu = new ComponentReading
         {
             Name = cpu.Name.Length > 0 ? cpu.Name : "CPU",
             Load = ReadCpuLoad(),
-            Temperature = cpu.Temperature,
+            Temperature = doDriver.HasValue ? doDriver : daZona,
             Power = cpu.Power
         };
 
@@ -220,8 +242,28 @@ public sealed class HardwareMonitor : IDisposable
             Gpu = gpu,
             Ram = ram,
             Elevated = elevado,
-            CpuSensorsEnabled = _cpuSensors
+            CpuSensorsEnabled = _cpuSensors,
+            CpuTemperatureFromThermalZone = daZona.HasValue
         };
+    }
+
+    /// <summary>Zona térmica ACPI, em Kelvin no contador.</summary>
+    private Reading ReadThermalZone()
+    {
+        try
+        {
+            if (_thermalZone == null) return Reading.None;
+            var kelvin = _thermalZone.NextValue();
+            if (kelvin <= 0 || float.IsNaN(kelvin)) return Reading.None;
+
+            var celsius = kelvin - 273.15;
+            // leitura fora de qualquer faixa plausível é ruído, não temperatura
+            return celsius is > 0 and < 125 ? new Reading(celsius) : Reading.None;
+        }
+        catch
+        {
+            return Reading.None;
+        }
     }
 
     private Reading ReadCpuLoad()

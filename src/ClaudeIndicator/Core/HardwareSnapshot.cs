@@ -60,6 +60,13 @@ public sealed class HardwareSnapshot
     /// </summary>
     public bool Elevated { get; init; }
 
+    /// <summary>
+    /// A temperatura da CPU veio da zona térmica ACPI, e não do sensor interno do processador.
+    /// A zona é do conjunto ao redor do processador: acompanha bem, mas não é o mesmo número que
+    /// o Afterburner mostra, e a interface não deve fingir que é.
+    /// </summary>
+    public bool CpuTemperatureFromThermalZone { get; init; }
+
     /// <summary>Os sensores profundos da CPU foram pedidos nesta execução?</summary>
     public bool CpuSensorsEnabled { get; init; }
 

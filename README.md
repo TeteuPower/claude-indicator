@@ -71,8 +71,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.8.0
-git push origin v1.8.0
+git tag v1.8.1
+git push origin v1.8.1
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -93,7 +93,7 @@ Dois detalhes do GitHub que o app precisa contornar:
   pré-release. Por isso o app lista as releases e escolhe a maior versão, com uma opção para
   considerar ou não as pré-releases.
 - A pré-release usa a tag fixa `latest`, que não é uma versão. A versão sai então do **nome do
-  instalador anexado** (`ClaudeIndicator-Setup-1.8.0.exe`) — de propósito antes do título da
+  instalador anexado** (`ClaudeIndicator-Setup-1.8.1.exe`) — de propósito antes do título da
   release, porque o instalador é o arquivo que será realmente instalado e o título é texto que
   pode ficar defasado se a chamada que o atualiza falhar.
 
@@ -118,7 +118,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~63 MB)
-- `dist\ClaudeIndicator-Setup-1.8.0.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-1.8.1.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -272,10 +272,17 @@ Quase tudo é lido **sem driver e sem elevação**:
 | GPU: uso, temperatura, watts, VRAM | NVAPI/NVML, pela biblioteca | não |
 | Memória: uso e GB | API do sistema | não |
 | CPU: uso | contador de desempenho do Windows | não |
-| **CPU: temperatura e watts** | registradores do processador | **sim** |
+| CPU: temperatura | zona térmica ACPI, por contador de desempenho | não |
+| **CPU: watts** | registradores do processador | **sim** |
 
-Só a última linha é diferente, e por um motivo de fundo: temperatura e consumo do processador só
-são acessíveis por um driver de kernel. O que a biblioteca usa é o **WinRing0**, o mesmo que está
+A temperatura da CPU vem da **zona térmica ACPI** (`Thermal Zone Information`), que custa ~2 ms
+por leitura e não exige nada. Ela mede o conjunto ao redor do processador, não o sensor interno
+dele: acompanha o aquecimento de perto, mas pode diferir alguns graus do número que o Afterburner
+mostra — e o tooltip diz isso, em vez de fingir equivalência. Quando o sensor interno está
+disponível (com driver), ele tem preferência.
+
+Sobra uma única medida atrás do driver: **os watts da CPU**, que só existem nos registradores do
+processador. O que a biblioteca usa é o **WinRing0**, o mesmo que está
 por trás de vários utilitários de monitoramento — e ele dá acesso direto a memória física e portas
 de E/S a qualquer processo que consiga falar com ele. Por isso:
 
