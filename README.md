@@ -71,8 +71,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.8.2
-git push origin v1.8.2
+git tag v1.8.3
+git push origin v1.8.3
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -93,7 +93,7 @@ Dois detalhes do GitHub que o app precisa contornar:
   pré-release. Por isso o app lista as releases e escolhe a maior versão, com uma opção para
   considerar ou não as pré-releases.
 - A pré-release usa a tag fixa `latest`, que não é uma versão. A versão sai então do **nome do
-  instalador anexado** (`ClaudeIndicator-Setup-1.8.2.exe`) — de propósito antes do título da
+  instalador anexado** (`ClaudeIndicator-Setup-1.8.3.exe`) — de propósito antes do título da
   release, porque o instalador é o arquivo que será realmente instalado e o título é texto que
   pode ficar defasado se a chamada que o atualiza falhar.
 
@@ -118,7 +118,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~63 MB)
-- `dist\ClaudeIndicator-Setup-1.8.2.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-1.8.3.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -176,8 +176,7 @@ Quando uma consulta falha (rede, HTTP 429 de limite de consultas etc.), o app **
 O arquivo de credenciais é reescrito pelo Claude Code quando ele renova o token, e ler exatamente
 nesse instante devolve JSON incompleto — o que aparecia como "credenciais não encontradas" até a
 consulta seguinte. A leitura agora tenta de novo antes de desistir e, no pior caso, reaproveita a
-última leitura boa. Uma falha também devolve o intervalo de consulta ao valor base, senão ela
-poderia ficar visível pelos dez minutos do espaçamento máximo.
+última leitura boa.
 
 ### Sobre o HTTP 429
 
@@ -186,14 +185,21 @@ endpoint de uso. Com várias sessões abertas, um intervalo curto no indicador e
 que o app sozinho pareça comportado. O endpoint não devolve cabeçalhos de rate-limit, então não há
 como saber o teto — a única saída é consultar menos.
 
-Por isso o intervalo escolhido nas configurações é um **mínimo**, e não uma cadência fixa:
+O intervalo escolhido nas configurações é a **cadência**, e o app a cumpre: uma consulta por
+intervalo, sempre, mesmo com o consumo parado. Um relógio só dispara a consulta e desenha o ponto
+da linha do tempo, então os dois nunca discordam.
 
-- Enquanto o consumo não muda, o app espaça sozinho as consultas (`intervalo × (1 + rodadas
-  paradas)`, até 10 minutos) e volta ao intervalo escolhido assim que algo muda. Ocioso, isso leva
-  60 consultas/hora para 11.
-- Depois de um 429 ele espera 5, 10 ou 15 minutos e só volta ao ritmo normal após três consultas
-  bem-sucedidas seguidas — voltar na primeira é o caminho de bater no limite de novo.
-- O mínimo aceito é 60 s.
+Houve uma versão em que o app espaçava sozinho as consultas enquanto o consumo não mudava, até 10
+minutos. Economizava chamadas, mas tornava o indicador imprevisível — a linha do tempo parava de
+querer dizer "uma consulta por intervalo" e não dava mais para saber, olhando, se a conexão estava
+de pé. Cadência fixa vale mais que a economia.
+
+O que continua sendo reação e não escolha:
+
+- Depois de um 429 ele espera 5, 10 ou 15 minutos antes de tentar de novo, e só volta ao ritmo
+  normal após três consultas bem-sucedidas seguidas — voltar na primeira é o caminho de bater no
+  limite outra vez. Durante a espera os pontos seguem avançando, em âmbar.
+- O mínimo aceito é 60 s. Se o 429 aparecer com frequência, o remédio é aumentar o intervalo.
 
 ## Configurações disponíveis
 

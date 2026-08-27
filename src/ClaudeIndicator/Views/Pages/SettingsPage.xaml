@@ -400,7 +400,7 @@
                                            HorizontalAlignment="Right" Foreground="{StaticResource MutedBrush}"/>
                             </Grid>
                             <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0"
-                                       Text="Quando o consumo não muda, o app espaça sozinho as consultas (até 10 min) e volta a este intervalo assim que algo muda. O limite de consultas é da conta inteira e cada sessão do Claude Code aberta consulta o mesmo endpoint — por isso intervalos curtos com várias sessões abertas causam HTTP 429."/>
+                                       Text="A cadência é fixa: uma consulta por intervalo, sempre, mesmo com o consumo parado. O limite de consultas é da conta inteira e cada sessão do Claude Code aberta consulta o mesmo endpoint — por isso intervalos curtos com várias sessões abertas causam HTTP 429. Se isso acontecer, o app espera o limite passar e volta sozinho; o remédio permanente é aumentar este intervalo."/>
 
                             <CheckBox x:Name="ChkCallTimeline" Style="{StaticResource Switch}"
                                       Content="Mostrar a linha do tempo das consultas"/>

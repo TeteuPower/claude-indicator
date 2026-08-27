@@ -16,8 +16,8 @@ public enum ApiOutcome
     Failed,
 
     /// <summary>
-    /// Não houve consulta neste ciclo porque o app espaçou de propósito — o consumo não estava
-    /// mudando. Não é falha de conexão, e por isso não é vermelho.
+    /// A consulta do ciclo não respondeu antes de o ciclo seguinte começar — rede lenta, quase
+    /// sempre. Não é falha de conexão, e por isso não é vermelho.
     /// </summary>
     Idle
 }
@@ -36,7 +36,7 @@ public sealed class ApiCall
         {
             ApiOutcome.Ok => "respondeu",
             ApiOutcome.RateLimited => "limite de consultas",
-            ApiOutcome.Idle => "sem consulta neste ciclo",
+            ApiOutcome.Idle => "ciclo sem resposta",
             _ => "falhou"
         };
         return string.IsNullOrEmpty(Detail) ? $"{hora} — {texto}" : $"{hora} — {texto}: {Detail}";

@@ -31,17 +31,16 @@ public sealed class AppHost
     private readonly UsageService _service;
     private readonly UpdateChecker _updates = new();
     private readonly ApiCallLog _calls = new();
+    /// <summary>
+    /// O relógio do app, na cadência configurada. Cada tique fecha o ciclo anterior na linha do
+    /// tempo e dispara a consulta seguinte — um relógio só para as duas coisas, para que o ponto
+    /// e a consulta nunca discordem. O intervalo nunca é reprogramado por consulta: se está em
+    /// 1 min, é 1 min sempre, mudando apenas quando a configuração muda.
+    /// </summary>
     private readonly DispatcherTimer _timer = new();
 
-    /// <summary>
-    /// Batimento da linha do tempo. Roda na cadência configurada, independente de quando a
-    /// próxima consulta está agendada: é o que revela uma conexão parada, porque durante uma
-    /// pausa por limite os pontos continuam avançando em vez de a faixa congelar.
-    /// </summary>
-    private readonly DispatcherTimer _heartbeat = new();
-
-    /// <summary>Resultado da consulta que aconteceu desde o último batimento, se houve alguma.</summary>
-    private (ApiOutcome Outcome, string Detail)? _slotResult;
+    /// <summary>A consulta deste ciclo já virou ponto na linha do tempo?</summary>
+    private bool _registradoNoCiclo;
     private readonly Dictionary<BarKind, bool> _alerted = new();
 
     private WinForms.NotifyIcon? _tray;
@@ -58,12 +57,6 @@ public sealed class AppHost
     private DateTimeOffset _pausedUntil = DateTimeOffset.MinValue;
     private int _rateLimitStreak;
     private int _okStreak;
-
-    /// <summary>Consultas seguidas em que nada mudou: espaça as próximas.</summary>
-    private int _idleStreak;
-
-    /// <summary>Teto do espaçamento automático quando o consumo está parado.</summary>
-    private const int MaxIdleSeconds = 600;
 
     /// <summary>Piso enquanto o limite de consultas estiver sendo respeitado.</summary>
     private const int CooldownSeconds = 300;
@@ -92,13 +85,8 @@ public sealed class AppHost
         BuildTray();
         ApplyDisplayMode();
 
-        _timer.Interval = TimeSpan.FromSeconds(Settings.RefreshSeconds);
-        _timer.Tick += (_, _) => _ = RefreshAsync();
-        _timer.Start();
-        ScheduleNext();
-
-        _heartbeat.Tick += (_, _) => Heartbeat();
-        RestartHeartbeat();
+        _timer.Tick += (_, _) => Pulse();
+        RestartClock();
 
         _ = RefreshAsync();
 
@@ -370,10 +358,8 @@ public sealed class AppHost
         _pausedUntil = DateTimeOffset.MinValue;
         _rateLimitStreak = 0;
         _okStreak = 0;
-        _idleStreak = 0;
 
-        ScheduleNext();
-        RestartHeartbeat();
+        RestartClock();
         ApplyDisplayMode();
         _ = RefreshAsync(true);
     }
@@ -406,75 +392,68 @@ public sealed class AppHost
     }
 
     /// <summary>
-    /// Reprograma o timer. O consumo só muda quando você usa o Claude, e o limite de consultas
-    /// é da conta inteira — cada sessão do Claude Code aberta consulta o mesmo endpoint. Então:
-    /// quando nada muda, espaça; depois de um 429, segura por um bom tempo.
+    /// (Re)programa o relógio com o intervalo configurado. Só é chamado ao abrir o app e quando a
+    /// configuração muda: a cadência é fixa de propósito, para que a linha do tempo signifique
+    /// sempre a mesma coisa — um ponto por intervalo, sem o app decidir pular consultas.
     /// </summary>
-    private void ScheduleNext()
+    private void RestartClock()
     {
-        var seconds = (double)Settings.RefreshSeconds;
-
-        if (_idleStreak > 0)
-            seconds = Math.Min(seconds * (1 + _idleStreak), MaxIdleSeconds);
-
-        if (_rateLimitStreak > 0)
-            seconds = Math.Max(seconds, CooldownSeconds);
-
-        var untilPause = (_pausedUntil - DateTimeOffset.Now).TotalSeconds;
-        if (untilPause > seconds) seconds = untilPause;
-
         _timer.Stop();
-        _timer.Interval = TimeSpan.FromSeconds(Math.Clamp(seconds, 15, 3600));
+        _timer.Interval = TimeSpan.FromSeconds(Math.Clamp(Settings.RefreshSeconds, 15, 3600));
         _timer.Start();
     }
 
     /// <summary>
-    /// Anota como terminou esta consulta. Tem que ser antes de o Publish reaproveitar as barras
-    /// antigas e reescrever a mensagem: depois disso a falha ficaria com cara de sucesso.
+    /// Anota como terminou esta consulta, na hora em que ela terminou — é esse horário que o
+    /// balão de cada ponto mostra. Tem que ser antes de o Publish reaproveitar as barras antigas
+    /// e reescrever a mensagem: depois disso a falha ficaria com cara de sucesso.
     /// </summary>
     private void RecordCall(UsageSnapshot snap)
     {
         if (snap.RateLimited)
-            _slotResult = (ApiOutcome.RateLimited, "HTTP 429");
+            _calls.Record(ApiOutcome.RateLimited, "HTTP 429");
         else if (snap.Ok && snap.Bars.Count > 0)
-            _slotResult = (ApiOutcome.Ok, "");
+            _calls.Record(ApiOutcome.Ok, "");
         else
-            _slotResult = (ApiOutcome.Failed, Shorten(snap.Error));
+            _calls.Record(ApiOutcome.Failed, Shorten(snap.Error));
+
+        _registradoNoCiclo = true;
+        RefreshTimelines();
     }
 
-    /// <summary>Reinicia o batimento com o intervalo configurado.</summary>
-    private void RestartHeartbeat()
+    private void RefreshTimelines()
     {
-        _heartbeat.Stop();
-        _heartbeat.Interval = TimeSpan.FromSeconds(Math.Clamp(Settings.RefreshSeconds, 15, 3600));
-        _heartbeat.Start();
+        _gadget?.RefreshTimeline();
+        _taskbarBar?.RefreshTimeline();
     }
 
     /// <summary>
-    /// Fecha um ciclo da linha do tempo. Verde se a consulta do ciclo respondeu; vermelho se
-    /// falhou; âmbar se o app quis falar e foi recusado por limite — inclusive quando ele nem
-    /// tentou, por estar cumprindo a pausa. Sem consulta e sem pausa significa que o app espaçou
-    /// de propósito porque o consumo não mudou: é conexão saudável, não falha.
+    /// Um ciclo do relógio: garante o ponto deste ciclo e dispara a consulta do próximo.
+    ///
+    /// Quase sempre a consulta do ciclo já respondeu e já se registrou sozinha — este tique só
+    /// começa a seguinte. O ponto nasce aqui quando não houve resposta nenhuma: âmbar se o app
+    /// está cumprindo a pausa de um HTTP 429, cinza se a consulta simplesmente demorou mais que o
+    /// intervalo. Assim a faixa nunca congela, mesmo quando não há o que consultar.
     /// </summary>
-    private void Heartbeat()
+    private void Pulse()
     {
-        if (_slotResult is { } resultado)
+        if (!_registradoNoCiclo)
         {
-            _calls.Record(resultado.Outcome, resultado.Detail);
-            _slotResult = null;
-        }
-        else if (_pausedUntil > DateTimeOffset.Now)
-        {
-            _calls.Record(ApiOutcome.RateLimited,
-                $"aguardando o limite até {_pausedUntil.ToLocalTime():HH:mm}");
-        }
-        else
-        {
-            _calls.Record(ApiOutcome.Idle, "consumo parado, consulta espaçada");
+            if (_pausedUntil > DateTimeOffset.Now)
+            {
+                _calls.Record(ApiOutcome.RateLimited,
+                    $"aguardando o limite até {_pausedUntil.ToLocalTime():HH:mm}");
+            }
+            else
+            {
+                _calls.Record(ApiOutcome.Idle, "consulta sem resposta dentro do ciclo");
+            }
+
+            RefreshTimelines();
         }
 
-        _gadget?.RefreshTimeline();
-        _taskbarBar?.RefreshTimeline();
+        _registradoNoCiclo = false;
+        _ = RefreshAsync();
     }
 
     private static string Shorten(string? text)
@@ -484,16 +463,6 @@ public sealed class AppHost
         return t.Length <= 90 ? t : t.Substring(0, 89) + "…";
     }
 
-    private static bool SameReading(UsageSnapshot? a, UsageSnapshot? b)
-    {
-        if (a == null || b == null || a.Bars.Count != b.Bars.Count) return false;
-        foreach (var bar in a.Bars)
-        {
-            var other = b.Get(bar.Kind);
-            if (other == null || Math.Abs(other.Percent - bar.Percent) > 0.001) return false;
-        }
-        return true;
-    }
 
     private Dictionary<BarKind, RateReading> _rates = new();
 
@@ -568,8 +537,6 @@ public sealed class AppHost
 
         if (snap.Ok && snap.Bars.Count > 0)
         {
-            _idleStreak = SameReading(snap, _lastGood) ? _idleStreak + 1 : 0;
-
             // o alívio do 429 só vem depois de algumas consultas boas seguidas: voltar ao
             // intervalo curto na primeira que funciona é o caminho de bater no limite de novo
             if (_rateLimitStreak > 0 && ++_okStreak >= 3)
@@ -583,11 +550,6 @@ public sealed class AppHost
         }
         else
         {
-            // Falhou: volta ao intervalo base. Sem isto uma falha transitória — o arquivo de
-            // credenciais sendo reescrito, por exemplo — podia ficar visível por dez minutos,
-            // que é o espaçamento máximo de quando nada muda.
-            _idleStreak = 0;
-
             if (snap.Bars.Count == 0 && _lastGood != null)
             {
                 // A consulta falhou, mas o consumo de minutos atrás continua sendo a melhor
@@ -604,7 +566,6 @@ public sealed class AppHost
             // publica limites), backoff 5 min → 10 → 15, com teto de 15 minutos.
             _rateLimitStreak++;
             _okStreak = 0;
-            _idleStreak = 0;
             var baseDelay = snap.RetryAfterSeconds ?? CooldownSeconds * Math.Min(3, _rateLimitStreak);
             var delay = Math.Clamp(baseDelay, 60, 900);
             _pausedUntil = DateTimeOffset.Now.AddSeconds(delay);
@@ -614,7 +575,6 @@ public sealed class AppHost
 
         Last = snap;
         UpdateRate(snap);
-        ScheduleNext();
 
         // enquanto o app fica aberto por dias, o próprio ciclo de atualização carrega a
         // verificação de versão nova — o UpdateChecker limita a uma consulta a cada 6 h
@@ -652,7 +612,6 @@ public sealed class AppHost
     public void Exit()
     {
         _timer.Stop();
-        _heartbeat.Stop();
         _hardware.Stop();
         if (_tray != null)
         {
