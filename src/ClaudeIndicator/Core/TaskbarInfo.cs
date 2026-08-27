@@ -46,6 +46,23 @@ public static class TaskbarInfo
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int GetClassName(IntPtr hWnd, StringBuilder text, int count);
 
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr hWnd, uint flags);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern bool GetMonitorInfo(IntPtr monitor, ref MONITORINFO info);
+
+    private const uint MONITOR_DEFAULTTONEAREST = 2;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MONITORINFO
+    {
+        public int cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
+    }
+
     /// <summary>Área ocupada pela barra de tarefas, em pixels de tela. Null se não achar.</summary>
     public static RECT? Bounds()
     {
@@ -94,10 +111,15 @@ public static class TaskbarInfo
     }
 
     /// <summary>
-    /// Uma janela em tela cheia está na frente (jogo, vídeo, apresentação)? Nesse caso o painel
-    /// se esconde: ficar por cima de um jogo em tela cheia seria pior que não aparecer.
+    /// Uma janela em tela cheia está na frente (jogo, vídeo, apresentação) no monitor da barra?
+    /// Nesse caso o painel se esconde: ficar por cima de um jogo em tela cheia seria pior que não
+    /// aparecer.
+    ///
+    /// A comparação é sempre com o monitor onde a barra de tarefas está. Medir contra o tamanho do
+    /// monitor principal escondia o painel toda vez que uma janela era maximizada em outro monitor
+    /// maior — ela é maior que o principal sem estar em tela cheia coisa nenhuma.
     /// </summary>
-    public static bool FullscreenAppInFront(double screenWidth, double screenHeight)
+    public static bool FullscreenAppInFront()
     {
         var fg = GetForegroundWindow();
         if (fg == IntPtr.Zero) return false;
@@ -107,7 +129,19 @@ public static class TaskbarInfo
         var cls = sb.ToString();
         if (cls is "Progman" or "WorkerW" or "Shell_TrayWnd") return false; // área de trabalho
 
+        var tray = FindWindow("Shell_TrayWnd", null);
+        if (tray == IntPtr.Zero) return false;
+
+        // outro monitor: o que acontece lá não cobre o nosso painel
+        var monitorDaBarra = MonitorFromWindow(tray, MONITOR_DEFAULTTONEAREST);
+        if (MonitorFromWindow(fg, MONITOR_DEFAULTTONEAREST) != monitorDaBarra) return false;
+
+        var info = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+        if (!GetMonitorInfo(monitorDaBarra, ref info)) return false;
         if (!GetWindowRect(fg, out var r)) return false;
-        return r.Width >= screenWidth - 1 && r.Height >= screenHeight - 1;
+
+        // cobre o monitor inteiro, inclusive onde a barra fica: aí é tela cheia de verdade
+        return r.Left <= info.rcMonitor.Left && r.Top <= info.rcMonitor.Top
+            && r.Right >= info.rcMonitor.Right && r.Bottom >= info.rcMonitor.Bottom;
     }
 }

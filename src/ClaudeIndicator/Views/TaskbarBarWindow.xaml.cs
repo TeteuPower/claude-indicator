@@ -65,7 +65,7 @@ public partial class TaskbarBarWindow : Window
 
         MouseLeave += (_, _) =>
         {
-            if (_pendingRender) Render(_snapshot, _settings);
+            if (_pendingRender) RenderCurrent();
             else if (_timelinePending) DrawCallTimeline();
         };
     }
@@ -80,8 +80,19 @@ public partial class TaskbarBarWindow : Window
         var alpha = (byte)Math.Clamp(Math.Round(s.TaskbarBarOpacity * 255), 1, 255);
         Root.Background = new SolidColorBrush(Color.FromArgb(alpha, 0x1F, 0x1E, 0x1D));
 
-        Render(_snapshot, s);
+        RenderCurrent();
         Reposition();
+    }
+
+    /// <summary>
+    /// Redesenha o conteúdo certo para este painel. Existe porque chamar o caminho da IA no
+    /// painel do PC pintava "Claude · carregando…" — não há UsageSnapshot ali — até a próxima
+    /// leitura de sensores, o que aparecia como uma recarga com mensagem piscando.
+    /// </summary>
+    private void RenderCurrent()
+    {
+        if (Kind == PanelKind.Pc) RenderHardware(_hardware, _settings);
+        else Render(_snapshot, _settings);
     }
 
     // ------------------------------------------------------------------
@@ -284,9 +295,10 @@ public partial class TaskbarBarWindow : Window
             MinWidth = 34 * scale
         });
 
+        var largura = 44 * scale;
         var track = new Border
         {
-            Width = 44 * scale,
+            Width = largura,
             Height = 5,
             CornerRadius = new CornerRadius(2.5),
             Background = BarRenderer.Swatch("TrackBrush"),
@@ -301,7 +313,7 @@ public partial class TaskbarBarWindow : Window
         var fill = new Border
         {
             CornerRadius = new CornerRadius(2.5),
-            Background = new SolidColorBrush(LoadColor(c.Load)),
+            Background = ScaleGradient(largura),
             MinWidth = frac > 0 ? 3 : 0
         };
         Grid.SetColumn(fill, 0);
@@ -330,23 +342,61 @@ public partial class TaskbarBarWindow : Window
         return string.Join(" · ", partes);
     }
 
+    private static readonly Color Verde = Color.FromArgb(255, 76, 195, 138);
+    private static readonly Color Amarelo = Color.FromArgb(255, 232, 176, 75);
+    private static readonly Color Vermelho = Color.FromArgb(255, 240, 92, 92);
+    private static readonly Color Cinza = Color.FromArgb(255, 156, 151, 145);
+
+    /// <summary>
+    /// Régua de cor da barra: verde no início, amarela no meio, vermelha no fim. O gradiente é
+    /// medido em unidades absolutas sobre a largura da trilha, e não sobre a parte preenchida —
+    /// sem isso ele se comprimiria dentro do preenchimento e a barra ficaria vermelha já nos
+    /// primeiros por cento, que é o oposto da ideia.
+    /// </summary>
+    private static LinearGradientBrush ScaleGradient(double larguraDaTrilha)
+    {
+        var g = new LinearGradientBrush
+        {
+            MappingMode = BrushMappingMode.Absolute,
+            StartPoint = new Point(0, 0),
+            EndPoint = new Point(larguraDaTrilha, 0)
+        };
+        g.GradientStops.Add(new GradientStop(Verde, 0.0));
+        g.GradientStops.Add(new GradientStop(Amarelo, 0.5));
+        g.GradientStops.Add(new GradientStop(Vermelho, 1.0));
+        g.Freeze();
+        return g;
+    }
+
+    /// <summary>Cor da mesma régua no ponto onde a barra parou — é o que o número mostra.</summary>
     private static Color LoadColor(Reading load)
     {
-        if (!load.HasValue) return Color.FromArgb(255, 156, 151, 145);
-        var v = load.Value!.Value;
-        if (v >= 90) return Color.FromArgb(255, 240, 92, 92);
-        if (v >= 70) return Color.FromArgb(255, 232, 176, 75);
-        return Color.FromArgb(255, 76, 195, 138);
+        if (!load.HasValue) return Cinza;
+
+        var f = Math.Clamp(load.Value!.Value / 100.0, 0, 1);
+        return f <= 0.5
+            ? Mix(Verde, Amarelo, f / 0.5)
+            : Mix(Amarelo, Vermelho, (f - 0.5) / 0.5);
+    }
+
+    private static Color Mix(Color a, Color b, double t)
+    {
+        t = Math.Clamp(t, 0, 1);
+        return Color.FromArgb(
+            255,
+            (byte)(a.R + (b.R - a.R) * t),
+            (byte)(a.G + (b.G - a.G) * t),
+            (byte)(a.B + (b.B - a.B) * t));
     }
 
     /// <summary>Temperatura manda na cor de apoio; sem ela, os watts não têm faixa universal.</summary>
     private static Color HardwareColor(ComponentReading c)
     {
-        if (!c.Temperature.HasValue) return Color.FromArgb(255, 156, 151, 145);
+        if (!c.Temperature.HasValue) return Cinza;
         var t = c.Temperature.Value!.Value;
-        if (t >= 90) return Color.FromArgb(255, 240, 92, 92);
-        if (t >= 80) return Color.FromArgb(255, 232, 176, 75);
-        return Color.FromArgb(255, 156, 151, 145);
+        if (t >= 90) return Vermelho;
+        if (t >= 80) return Amarelo;
+        return Cinza;
     }
 
     private static string DescribeHardware(string rotulo, ComponentReading c, HardwareSnapshot hw)
@@ -557,8 +607,7 @@ public partial class TaskbarBarWindow : Window
         var scaleY = m.M22 == 0 ? 1 : m.M22;
 
         var bar = bounds.Value;
-        if (TaskbarInfo.FullscreenAppInFront(SystemParameters.PrimaryScreenWidth / scaleX,
-                                             SystemParameters.PrimaryScreenHeight / scaleY))
+        if (TaskbarInfo.FullscreenAppInFront())
         {
             Visibility = Visibility.Collapsed;
             return;
