@@ -122,6 +122,87 @@
 
                     <Border Style="{StaticResource Card}">
                         <StackPanel>
+                            <TextBlock Text="Indicadores por cima do jogo" Style="{StaticResource Title}"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4"
+                                       Text="Quando um jogo está em primeiro plano, o app desenha FPS e os sensores por cima dele. A medição de quadros usa o rastreamento do próprio Windows — o mesmo caminho do PresentMon: nada é injetado no jogo e nada é lido da memória dele."/>
+
+                            <CheckBox x:Name="ChkOverlay" Style="{StaticResource Switch}" Content="Mostrar indicadores no jogo"/>
+
+                            <Border x:Name="OverlayStatus" Background="{StaticResource BgBrush}" CornerRadius="9"
+                                    Padding="14,11" Margin="0,12,0,0">
+                                <StackPanel>
+                                    <TextBlock x:Name="OverlayStatusText" Style="{StaticResource Hint}" FontSize="12.5"
+                                               TextWrapping="Wrap"/>
+                                    <Button x:Name="BtnOverlayElevate" Content="Reiniciar como administrador"
+                                            Click="OnElevateClick" HorizontalAlignment="Left" Margin="0,10,0,0"
+                                            Visibility="Collapsed"/>
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Text="Onde na tela" Style="{StaticResource FieldLabel}" Margin="0,14,0,5"/>
+                            <UniformGrid x:Name="AnchorGrid" Rows="3" Columns="3" Width="180"
+                                         HorizontalAlignment="Left"/>
+
+                            <Grid Margin="0,14,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="70"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Distância da borda" VerticalAlignment="Center" FontSize="12.5"/>
+                                <Slider x:Name="SldOverlayMargin" Grid.Column="1" Minimum="0" Maximum="200" TickFrequency="2"
+                                        IsSnapToTickEnabled="True" Value="18" VerticalAlignment="Center" Margin="8,0"
+                                        ValueChanged="OnAnyChanged"/>
+                                <TextBlock x:Name="LblOverlayMargin" Grid.Column="2" Text="18 px" VerticalAlignment="Center"
+                                           HorizontalAlignment="Right" Foreground="{StaticResource MutedBrush}"/>
+                            </Grid>
+
+                            <Grid Margin="0,10,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="70"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Tamanho" VerticalAlignment="Center" FontSize="12.5"/>
+                                <Slider x:Name="SldOverlayScale" Grid.Column="1" Minimum="0.7" Maximum="2.5" TickFrequency="0.05"
+                                        IsSnapToTickEnabled="True" Value="1" VerticalAlignment="Center" Margin="8,0"
+                                        ValueChanged="OnAnyChanged"/>
+                                <TextBlock x:Name="LblOverlayScale" Grid.Column="2" Text="100%" VerticalAlignment="Center"
+                                           HorizontalAlignment="Right" Foreground="{StaticResource MutedBrush}"/>
+                            </Grid>
+
+                            <Grid Margin="0,10,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="70"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Fundo" VerticalAlignment="Center" FontSize="12.5"/>
+                                <Slider x:Name="SldOverlayOpacity" Grid.Column="1" Minimum="0.1" Maximum="1" TickFrequency="0.05"
+                                        IsSnapToTickEnabled="True" Value="0.7" VerticalAlignment="Center" Margin="8,0"
+                                        ValueChanged="OnAnyChanged"/>
+                                <TextBlock x:Name="LblOverlayOpacity" Grid.Column="2" Text="70%" VerticalAlignment="Center"
+                                           HorizontalAlignment="Right" Foreground="{StaticResource MutedBrush}"/>
+                            </Grid>
+
+                            <TextBlock Text="O que mostrar no jogo" Style="{StaticResource FieldLabel}" Margin="0,14,0,0"/>
+                            <CheckBox x:Name="ChkOvFps" Style="{StaticResource Switch}" Content="FPS"/>
+                            <CheckBox x:Name="ChkOvFrameTime" Style="{StaticResource Switch}"
+                                      Content="Tempo de quadro e 1% low" Margin="27,9,0,0"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="27,2,0,0"
+                                       Text="O 1% low é o ritmo nos 1% de quadros mais lentos — é ele que denuncia engasgo que a média esconde."/>
+                            <CheckBox x:Name="ChkOvCpu" Style="{StaticResource Switch}" Content="CPU"/>
+                            <CheckBox x:Name="ChkOvGpu" Style="{StaticResource Switch}" Content="GPU"/>
+                            <CheckBox x:Name="ChkOvRam" Style="{StaticResource Switch}" Content="Memória"/>
+                            <CheckBox x:Name="ChkOvClaude" Style="{StaticResource Switch}" Content="Limites da assinatura Claude"/>
+
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,14,0,0" TextWrapping="Wrap"
+                                       Text="Em janela sem bordas e em tela cheia com as otimizações do Windows ligadas (o padrão no Windows 11) o bloco aparece normalmente. Em tela cheia exclusiva de verdade o jogo é dono da tela e nenhuma janela sobrepõe — nesse caso, alternar o jogo para “tela cheia em janela” resolve."/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
                             <TextBlock Text="Painel do computador na barra de tarefas" Style="{StaticResource Title}"/>
                             <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4"
                                        Text="Um segundo painel com CPU, GPU e memória, do lado oposto ao da IA — assim cada bloco tem lugar fixo e você nunca confunde qual é qual."/>

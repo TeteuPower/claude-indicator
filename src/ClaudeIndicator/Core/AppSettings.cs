@@ -23,6 +23,20 @@ public enum BarOrientation
     Horizontal
 }
 
+/// <summary>Canto da tela do jogo onde o indicador se encosta.</summary>
+public enum OverlayAnchor
+{
+    TopLeft,
+    TopCenter,
+    TopRight,
+    MiddleLeft,
+    MiddleCenter,
+    MiddleRight,
+    BottomLeft,
+    BottomCenter,
+    BottomRight
+}
+
 /// <summary>
 /// Todas as preferências do usuário. Persistido em %APPDATA%\ClaudeIndicator\settings.json
 /// </summary>
@@ -71,6 +85,32 @@ public class AppSettings
 
     /// <summary>Intervalo de leitura dos sensores, em segundos.</summary>
     public int PcIntervalSeconds { get; set; } = 2;
+
+    // ---- Indicador por cima do jogo ----
+    /// <summary>Desenhar os indicadores por cima do jogo em primeiro plano.</summary>
+    public bool ShowGameOverlay { get; set; }
+
+    public OverlayAnchor OverlayAnchor { get; set; } = OverlayAnchor.TopLeft;
+
+    /// <summary>Distância entre o bloco e a borda da janela do jogo, em pixels.</summary>
+    public double OverlayMargin { get; set; } = 18;
+
+    public double OverlayScale { get; set; } = 1.0;
+
+    /// <summary>Opacidade do fundo. Zero deixaria o texto solto sobre o jogo, difícil de ler.</summary>
+    public double OverlayOpacity { get; set; } = 0.7;
+
+    public bool OverlayShowFps { get; set; } = true;
+
+    /// <summary>Tempo de quadro e 1% low ao lado do FPS.</summary>
+    public bool OverlayShowFrameTime { get; set; } = true;
+
+    public bool OverlayShowCpu { get; set; } = true;
+    public bool OverlayShowGpu { get; set; } = true;
+    public bool OverlayShowRam { get; set; }
+
+    /// <summary>Os limites da assinatura Claude também aparecem no jogo.</summary>
+    public bool OverlayShowClaude { get; set; }
 
     [JsonIgnore] public bool TrayEnabled => ShowTrayIcon ?? true;
     [JsonIgnore] public bool GadgetEnabled => ShowGadget ?? false;
@@ -276,6 +316,16 @@ public class AppSettings
         if (PcIntervalSeconds < 1) PcIntervalSeconds = 1;
         if (PcIntervalSeconds > 30) PcIntervalSeconds = 30;
         if (!PcShowCpu && !PcShowGpu && !PcShowRam) PcShowCpu = true;
+
+        if (OverlayScale < 0.7) OverlayScale = 0.7;
+        if (OverlayScale > 2.5) OverlayScale = 2.5;
+        if (OverlayOpacity < 0.1) OverlayOpacity = 0.1;
+        if (OverlayOpacity > 1.0) OverlayOpacity = 1.0;
+        if (OverlayMargin < 0) OverlayMargin = 0;
+        if (OverlayMargin > 400) OverlayMargin = 400;
+        // um bloco sem nada dentro nunca apareceria, e a opção ligada pareceria quebrada
+        if (!OverlayShowFps && !OverlayShowCpu && !OverlayShowGpu && !OverlayShowRam && !OverlayShowClaude)
+            OverlayShowFps = true;
         if (WeightOutput <= 0 || double.IsNaN(WeightOutput)) WeightOutput = 5.0;
         if (WeightCacheWrite < 0 || double.IsNaN(WeightCacheWrite)) WeightCacheWrite = 1.25;
         if (WeightCacheRead < 0 || double.IsNaN(WeightCacheRead)) WeightCacheRead = 0.1;

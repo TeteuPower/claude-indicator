@@ -49,6 +49,12 @@ public sealed class AppHost
     private TaskbarBarWindow? _taskbarBar;
     private TaskbarBarWindow? _pcPanel;
     private readonly HardwareMonitor _hardware = new();
+
+    // Indicador por cima do jogo: medição de quadros, detecção e a janela em si.
+    private readonly FrameRateMonitor _frames = new();
+    private GameDetector? _detector;
+    private GameOverlayWindow? _overlay;
+    private readonly DispatcherTimer _overlayClock = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private MainWindow? _main;
     private bool _busy;
 
@@ -87,6 +93,8 @@ public sealed class AppHost
 
         _timer.Tick += (_, _) => Pulse();
         RestartClock();
+
+        _overlayClock.Tick += (_, _) => OverlayTick();
 
         _ = RefreshAsync();
 
@@ -186,6 +194,7 @@ public sealed class AppHost
         }
 
         ApplyPcPanel();
+        ApplyOverlay();
     }
 
     /// <summary>
@@ -201,23 +210,102 @@ public sealed class AppHost
                 _pcPanel = new TaskbarBarWindow(PanelKind.Pc);
                 _pcPanel.ApplySettings(Settings);
                 _pcPanel.Closed += (_, _) => _pcPanel = null;
-                _hardware.Updated += OnHardwareUpdated;
             }
 
             _pcPanel.ApplySettings(Settings);
             _pcPanel.RenderHardware(_hardware.Current, Settings);
             _pcPanel.ShowInTaskbarArea();
+        }
+        else
+        {
+            _pcPanel?.HidePanel();
+        }
+
+        ApplyHardware();
+    }
+
+    /// <summary>
+    /// Liga a leitura de sensores quando alguém precisa dela — o painel do PC ou o indicador no
+    /// jogo. Ler hardware custa CPU, então com os dois desligados nada roda.
+    /// </summary>
+    private void ApplyHardware()
+    {
+        var overlayQuerSensores = Settings.ShowGameOverlay
+            && (Settings.OverlayShowCpu || Settings.OverlayShowGpu || Settings.OverlayShowRam);
+
+        if (Settings.ShowPcPanel || overlayQuerSensores)
+        {
+            if (!_assinouSensores)
+            {
+                _hardware.Updated += OnHardwareUpdated;
+                _assinouSensores = true;
+            }
 
             _hardware.SetInterval(Settings.PcIntervalSeconds);
             _hardware.Start(Settings.PcIntervalSeconds, Settings.PcCpuSensors && SystemGuard.CanReadCpuSensors);
         }
         else
         {
-            _pcPanel?.HidePanel();
-            _hardware.Updated -= OnHardwareUpdated;
+            if (_assinouSensores)
+            {
+                _hardware.Updated -= OnHardwareUpdated;
+                _assinouSensores = false;
+            }
             _hardware.Stop();
         }
     }
+
+    private bool _assinouSensores;
+
+    /// <summary>
+    /// Liga ou desliga o indicador por cima do jogo. A medição de quadros só sobe junto: ela cria
+    /// uma sessão de rastreamento do Windows, que não faz sentido manter aberta sem ninguém olhando.
+    /// </summary>
+    private void ApplyOverlay()
+    {
+        if (Settings.ShowGameOverlay)
+        {
+            if (!_frames.Running) _frames.Start();
+            _detector ??= new GameDetector(_frames);
+
+            if (_overlay == null)
+            {
+                _overlay = new GameOverlayWindow();
+                _overlay.Closed += (_, _) => _overlay = null;
+            }
+
+            _overlay.ApplySettings(Settings);
+            _overlayClock.Start();
+        }
+        else
+        {
+            _overlayClock.Stop();
+            _overlay?.Hide();
+            _frames.Stop();
+        }
+    }
+
+    /// <summary>Um passo do indicador no jogo: quem está na frente, e o que mostrar sobre ele.</summary>
+    private void OverlayTick()
+    {
+        if (!Settings.ShowGameOverlay || _overlay == null || _detector == null) return;
+
+        var jogo = _detector.Detect();
+        CurrentGame = jogo;
+        _overlay.Render(jogo, _hardware.Current, Last, Settings);
+    }
+
+    /// <summary>O jogo detectado no último passo, para a tela de configurações mostrar.</summary>
+    public GameInfo? CurrentGame { get; private set; }
+
+    /// <summary>Por que a medição de quadros não está de pé, quando não está.</summary>
+    public string? FrameMonitorError => _frames.Running ? null : _frames.Error;
+
+    /// <summary>A medição de quadros está funcionando?</summary>
+    public bool FrameMonitorRunning => _frames.Running;
+
+    /// <summary>Liga a medição sob demanda, para a tela de configurações poder testar na hora.</summary>
+    public bool StartFrameMonitor() => _frames.Start();
 
     /// <summary>Chega da thread de leitura: volta para a interface antes de desenhar.</summary>
     private void OnHardwareUpdated(HardwareSnapshot snap)
@@ -612,6 +700,9 @@ public sealed class AppHost
     public void Exit()
     {
         _timer.Stop();
+        _overlayClock.Stop();
+        _overlay?.Close();
+        _frames.Dispose();
         _hardware.Stop();
         if (_tray != null)
         {

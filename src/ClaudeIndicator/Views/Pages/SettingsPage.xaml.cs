@@ -63,6 +63,18 @@ public partial class SettingsPage : UserControl
         ChkPcRam.IsChecked = s.PcShowRam;
         SldPcInterval.Value = s.PcIntervalSeconds;
 
+        ChkOverlay.IsChecked = s.ShowGameOverlay;
+        SldOverlayMargin.Value = s.OverlayMargin;
+        SldOverlayScale.Value = s.OverlayScale;
+        SldOverlayOpacity.Value = s.OverlayOpacity;
+        ChkOvFps.IsChecked = s.OverlayShowFps;
+        ChkOvFrameTime.IsChecked = s.OverlayShowFrameTime;
+        ChkOvCpu.IsChecked = s.OverlayShowCpu;
+        ChkOvGpu.IsChecked = s.OverlayShowGpu;
+        ChkOvRam.IsChecked = s.OverlayShowRam;
+        ChkOvClaude.IsChecked = s.OverlayShowClaude;
+        BuildAnchorGrid(s.OverlayAnchor);
+
         OrientVertical.IsChecked = s.TrayOrientation == BarOrientation.Vertical;
         OrientHorizontal.IsChecked = s.TrayOrientation == BarOrientation.Horizontal;
 
@@ -146,6 +158,18 @@ public partial class SettingsPage : UserControl
         s.PcShowGpu = ChkPcGpu.IsChecked == true;
         s.PcShowRam = ChkPcRam.IsChecked == true;
         s.PcIntervalSeconds = (int)Math.Round(SldPcInterval.Value);
+
+        s.ShowGameOverlay = ChkOverlay.IsChecked == true;
+        s.OverlayAnchor = _overlayAnchor;
+        s.OverlayMargin = Math.Round(SldOverlayMargin.Value);
+        s.OverlayScale = Math.Round(SldOverlayScale.Value, 2);
+        s.OverlayOpacity = Math.Round(SldOverlayOpacity.Value, 2);
+        s.OverlayShowFps = ChkOvFps.IsChecked == true;
+        s.OverlayShowFrameTime = ChkOvFrameTime.IsChecked == true;
+        s.OverlayShowCpu = ChkOvCpu.IsChecked == true;
+        s.OverlayShowGpu = ChkOvGpu.IsChecked == true;
+        s.OverlayShowRam = ChkOvRam.IsChecked == true;
+        s.OverlayShowClaude = ChkOvClaude.IsChecked == true;
 
         s.TrayOrientation = OrientHorizontal.IsChecked == true ? BarOrientation.Horizontal : BarOrientation.Vertical;
 
@@ -239,11 +263,96 @@ public partial class SettingsPage : UserControl
                      GadgetVertical, GadgetHorizontal, ChkCheckUpdates,
                      ChkPcPanel, PcLeft, PcRight, ChkPcCpu, ChkPcCpuSensors, ChkPcGpu, ChkPcRam,
                      ChkRateTaskbar, ChkRateGadget, RateWeekly, RateSession, RateFable,
-                     Win5, Win20, Win60, Win1440, ChkTimeProgress, ChkCallTimeline
+                     Win5, Win20, Win60, Win1440, ChkTimeProgress, ChkCallTimeline,
+                     ChkOverlay, ChkOvFps, ChkOvFrameTime, ChkOvCpu, ChkOvGpu, ChkOvRam, ChkOvClaude
                  })
         {
             Hook(c);
         }
+    }
+
+    private OverlayAnchor _overlayAnchor = OverlayAnchor.TopLeft;
+
+    /// <summary>
+    /// Nove botões desenhando os nove cantos da tela. Escolher "onde" apontando o lugar é mais
+    /// direto que ler uma lista de nomes — o desenho já é a resposta.
+    /// </summary>
+    private void BuildAnchorGrid(OverlayAnchor selecionada)
+    {
+        _overlayAnchor = selecionada;
+        AnchorGrid.Children.Clear();
+
+        foreach (OverlayAnchor a in Enum.GetValues<OverlayAnchor>())
+        {
+            var botao = new RadioButton
+            {
+                GroupName = "OverlayAnchor",
+                Content = string.Empty,
+                IsChecked = a == selecionada,
+                Margin = new Thickness(2),
+                Height = 30,
+                Style = (Style)FindResource("Segment"),
+                ToolTip = AnchorName(a),
+                Tag = a
+            };
+            botao.Checked += (sender, _) =>
+            {
+                if (sender is RadioButton r && r.Tag is OverlayAnchor escolhida)
+                {
+                    _overlayAnchor = escolhida;
+                    MarkDirty();
+                }
+            };
+            AnchorGrid.Children.Add(botao);
+        }
+    }
+
+    private static string AnchorName(OverlayAnchor a) => a switch
+    {
+        OverlayAnchor.TopLeft => "canto superior esquerdo",
+        OverlayAnchor.TopCenter => "topo, ao centro",
+        OverlayAnchor.TopRight => "canto superior direito",
+        OverlayAnchor.MiddleLeft => "meio, à esquerda",
+        OverlayAnchor.MiddleCenter => "centro da tela",
+        OverlayAnchor.MiddleRight => "meio, à direita",
+        OverlayAnchor.BottomLeft => "canto inferior esquerdo",
+        OverlayAnchor.BottomCenter => "base, ao centro",
+        _ => "canto inferior direito"
+    };
+
+    /// <summary>
+    /// Diz em uma frase o que está acontecendo com a medição de quadros: funcionando, precisando
+    /// de elevação, ou desligada. Sem isso, "não aparece FPS" viraria adivinhação.
+    /// </summary>
+    private void UpdateOverlayUi()
+    {
+        if (OverlayStatusText == null) return;
+
+        if (ChkOverlay.IsChecked != true)
+        {
+            OverlayStatusText.Text = "Desligado. Ligando, o app passa a escutar os eventos de quadro "
+                                   + "do Windows e mostra o bloco assim que um jogo estiver em foco.";
+            BtnOverlayElevate.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        if (_host.FrameMonitorRunning)
+        {
+            var jogo = _host.CurrentGame;
+            OverlayStatusText.Text = jogo == null
+                ? "Medição de quadros ativa. Nenhum jogo em primeiro plano agora."
+                : $"Medindo {jogo.ProcessName}: {jogo.Frames.Fps:0} FPS, "
+                  + (jogo.Mode == GameWindowMode.Fullscreen ? "ocupando a tela toda." : "em janela.");
+            BtnOverlayElevate.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var erro = _host.FrameMonitorError;
+        OverlayStatusText.Text = "Sem medição de quadros: " + (erro ?? "motivo desconhecido")
+            + ". Criar uma sessão de rastreamento do Windows exige administrador — é a mesma "
+            + "exigência do PresentMon e do FrameView. Sem ela, o bloco ainda aparece com os "
+            + "sensores, mas o FPS fica em branco.";
+        BtnOverlayElevate.Visibility = Visibility.Visible;
     }
 
     private void MarkDirty()
@@ -301,7 +410,11 @@ public partial class SettingsPage : UserControl
         LblTbScale.Text = Math.Round(SldTbScale.Value * 100) + "%";
         LblTbOpacity.Text = Math.Round(SldTbOpacity.Value * 100) + "%";
         LblPcInterval.Text = Math.Round(SldPcInterval.Value) + " s";
+        LblOverlayMargin.Text = Math.Round(SldOverlayMargin.Value) + " px";
+        LblOverlayScale.Text = Math.Round(SldOverlayScale.Value * 100) + "%";
+        LblOverlayOpacity.Text = Math.Round(SldOverlayOpacity.Value * 100) + "%";
         UpdateElevationUi();
+        UpdateOverlayUi();
     }
 
     private static string FormatInterval(int seconds) =>

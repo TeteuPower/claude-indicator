@@ -71,8 +71,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.8.3
-git push origin v1.8.3
+git tag v1.9.0
+git push origin v1.9.0
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -93,7 +93,7 @@ Dois detalhes do GitHub que o app precisa contornar:
   pré-release. Por isso o app lista as releases e escolhe a maior versão, com uma opção para
   considerar ou não as pré-releases.
 - A pré-release usa a tag fixa `latest`, que não é uma versão. A versão sai então do **nome do
-  instalador anexado** (`ClaudeIndicator-Setup-1.8.3.exe`) — de propósito antes do título da
+  instalador anexado** (`ClaudeIndicator-Setup-1.9.0.exe`) — de propósito antes do título da
   release, porque o instalador é o arquivo que será realmente instalado e o título é texto que
   pode ficar defasado se a chamada que o atualiza falhar.
 
@@ -118,7 +118,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~63 MB)
-- `dist\ClaudeIndicator-Setup-1.8.3.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-1.9.0.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -304,6 +304,82 @@ reabrir elevado; ou a Integridade de Memória, quando nem elevar resolve — e n
 seria desligá-la, o que reduz a proteção do sistema contra ataques que abusam exatamente desse
 tipo de driver. A recomendação é não desligar.
 
+## Indicadores por cima do jogo
+
+Quando um jogo está em primeiro plano, o app desenha um bloco discreto por cima dele com **FPS,
+tempo de quadro, 1% low** e os mesmos sensores do painel da barra — a ideia é não precisar de um
+segundo programa só para isso.
+
+### Como se mede FPS sem entrar no jogo
+
+Há dois caminhos no mercado, e eles são opostos:
+
+| | **Injeção** (RTSS/MSI Afterburner, Steam, Discord) | **Rastreamento** (PresentMon, NVIDIA FrameView) |
+|---|---|---|
+| Como funciona | injeta uma DLL no processo do jogo e engancha `Present`/`vkQueuePresentKHR` | escuta os eventos que o próprio Windows emite a cada quadro |
+| Desenha dentro do jogo | sim, no buffer do jogo | não, é uma janela por cima |
+| Tela cheia exclusiva | funciona | não sobrepõe |
+| Risco com anticheat | real — é o mesmo gesto de um cheat | nenhum: passivo, nada é injetado nem lido da memória |
+
+O RTSS injeta `RTSSHooks64.dll` via *CBT hook* em processos que fazem gerenciamento de janela e,
+achando um runtime D3D/OpenGL/Vulkan carregado, instala os ganchos de API. É o que permite a ele
+desenhar dentro de tela cheia exclusiva — e também o que faz alguns anticheats reclamarem.
+
+**Este app usa o segundo caminho.** O runtime gráfico do Windows já anuncia cada quadro
+apresentado por Event Tracing for Windows; basta escutar. É o mesmo mecanismo do PresentMon da
+Intel e do FrameView da NVIDIA. Os provedores usados:
+
+| Provedor | GUID | Evento | Cobre |
+|---|---|---|---|
+| `Microsoft-Windows-DXGI` | `ca11c036-…` | `PresentStart` (42) | Direct3D 10/11/12 |
+| `Microsoft-Windows-D3D9` | `783aca0a-…` | `PresentStart` (1) | jogos antigos |
+
+Só o **cabeçalho** de cada evento é lido — qual processo apresentou e quando. O corpo é ignorado,
+o que dispensa decodificar manifesto e deixa o custo em quase nada.
+
+Criar uma sessão de rastreamento **exige administrador** (a mesma exigência do PresentMon e do
+FrameView). Sem elevação o bloco ainda aparece com os sensores, e o FPS fica em branco com o
+motivo explicado nas configurações. Duas saídas: usar *Reiniciar como administrador*, ou — uma vez
+só — colocar seu usuário no grupo **Usuários do log de desempenho**, que concede exatamente esse
+privilégio sem elevar o resto:
+
+```
+net localgroup "Performance Log Users" "%USERNAME%" /add
+```
+
+(precisa de um prompt como administrador e de sair e entrar na sessão do Windows)
+
+### Como ele sabe que aquilo é um jogo
+
+Sem lista de executáveis conhecidos — lista envelhece mal e nunca cobre tudo. O critério é:
+
+1. a janela em **primeiro plano** (jogo fora de foco não recebe indicador);
+2. o processo **está apresentando quadros** acima de 10 por segundo — a prova vem do próprio
+   medidor, e é o sinal mais forte que existe;
+3. o processo não está na lista de exceções (navegador, editor, OBS, Wallpaper Engine, o próprio
+   Explorer): esses apresentam quadros o tempo todo sem serem jogo.
+
+Sem a medição de quadros, sobra a geometria: janela em primeiro plano **cobrindo o monitor**, fora
+da lista de exceções. Reconhece menos e por isso a lista importa mais.
+
+### Onde ele aparece
+
+A posição é escolhida numa grade de nove cantos, com distância da borda, tamanho e opacidade
+ajustáveis. O bloco se ancora na **janela do jogo**, não no monitor, para continuar certo quando o
+jogo roda em janela menor que a tela. A janela do indicador é *click-through*: o mouse não a
+enxerga, o clique vai direto para o jogo.
+
+| Modo do jogo | Aparece? |
+|---|---|
+| Janela sem bordas | sim |
+| Tela cheia com otimizações do Windows (padrão no Windows 11) | sim |
+| Tela cheia **exclusiva de verdade** | não — o jogo é dono do buffer da tela |
+
+A terceira linha é o limite honesto desta abordagem: nenhuma janela sobrepõe tela cheia exclusiva,
+e sair disso exigiria injetar no processo do jogo. Como o Windows 11 roda quase todo jogo em tela
+cheia com otimizações, na prática o caso raro é o terceiro; quando acontecer, alternar o jogo para
+"tela cheia em janela" resolve.
+
 ## Consumo por projeto
 
 A API informa **porcentagem do limite**; ela não diz em que você gastou. Quem sabe disso são as
@@ -375,12 +451,16 @@ src/ClaudeIndicator/
     TranscriptIndex.cs   índice incremental das transcrições do Claude Code
     TrayIconRenderer.cs  desenha o ícone da bandeja em tempo real
     TaskbarInfo.cs       geometria da barra de tarefas e espaço livre nela
+    EtwSession.cs        sessão de rastreamento do Windows: eventos de quadro apresentado
+    FrameRateMonitor.cs  carimbos de quadro -> FPS, tempo de quadro e 1% low por processo
+    GameDetector.cs      decide se o que está em primeiro plano é um jogo
     StartupManager.cs    inicialização automática (HKCU\...\Run)
     AppInfo.cs           versão exibida na interface
   Views/
     MainWindow.xaml      painel: navegação lateral + página escolhida
     GadgetWindow.xaml    gadget transparente, arrastável, sempre por cima
     TaskbarBarWindow.xaml  faixa ancorada no espaço livre da barra de tarefas
+    GameOverlayWindow.xaml indicadores por cima do jogo, sem foco e sem receber clique
     BarRenderer.cs       desenho das barras (gadget e prévia)
     Pages/
       OverviewPage.xaml  visão geral: restante, ritmo, projeção e top projetos
