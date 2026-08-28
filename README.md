@@ -71,8 +71,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.9.3
-git push origin v1.9.3
+git tag v1.9.4
+git push origin v1.9.4
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -93,7 +93,7 @@ Dois detalhes do GitHub que o app precisa contornar:
   pré-release. Por isso o app lista as releases e escolhe a maior versão, com uma opção para
   considerar ou não as pré-releases.
 - A pré-release usa a tag fixa `latest`, que não é uma versão. A versão sai então do **nome do
-  instalador anexado** (`ClaudeIndicator-Setup-1.9.3.exe`) — de propósito antes do título da
+  instalador anexado** (`ClaudeIndicator-Setup-1.9.4.exe`) — de propósito antes do título da
   release, porque o instalador é o arquivo que será realmente instalado e o título é texto que
   pode ficar defasado se a chamada que o atualiza falhar.
 
@@ -118,7 +118,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~63 MB)
-- `dist\ClaudeIndicator-Setup-1.9.3.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-1.9.4.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -186,7 +186,18 @@ que o app sozinho pareça comportado. O endpoint não devolve cabeçalhos de rat
 como saber o teto — a única saída é consultar menos.
 
 O intervalo escolhido nas configurações é a **cadência**, e o app a cumpre: uma consulta por
-intervalo, sempre, mesmo com o consumo parado. Um relógio só dispara a consulta e desenha o ponto
+intervalo, sempre, mesmo com o consumo parado.
+
+Fechar e reabrir **não recomeça a contagem**. A última leitura boa e os últimos ciclos ficam
+guardados em `session.json`; ao abrir, as barras já nascem preenchidas e a faixa de bolinhas
+continua de onde parou. O relógio é adiantado para completar o ciclo que estava em curso, em vez de
+começar um novo: reabrir trinta segundos depois de fechar dispara a consulta seguinte trinta
+segundos depois, e não na hora. O consumo de trinta segundos atrás continua sendo o consumo, e o
+limite de consultas é da conta inteira — não há nada a ganhar perguntando de novo.
+
+Duas guardas nesse retrato: leitura com mais de duas horas é descartada (a sessão pode ter renovado
+várias vezes desde então, e mostrar o número velho seria pior que mostrar "carregando"), e limite
+cujo horário de renovação já passou não volta com a porcentagem antiga. Um relógio só dispara a consulta e desenha o ponto
 da linha do tempo, então os dois nunca discordam.
 
 Houve uma versão em que o app espaçava sozinho as consultas enquanto o consumo não mudava, até 10
@@ -480,6 +491,7 @@ src/ClaudeIndicator/
     CredentialStore.cs   leitura do login do Claude Code + refresh OAuth
     UsageService.cs      HTTP + parser tolerante do JSON de consumo
     UsageHistory.cs      grava/lê o histórico de consumo (history.jsonl)
+    SessionState.cs      retrato da última leitura e dos últimos ciclos, para reabrir sabendo
     TranscriptIndex.cs   índice incremental das transcrições do Claude Code
     TrayIconRenderer.cs  desenha o ícone da bandeja em tempo real
     TaskbarInfo.cs       geometria da barra de tarefas e espaço livre nela

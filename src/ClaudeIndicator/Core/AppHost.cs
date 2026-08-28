@@ -41,6 +41,9 @@ public sealed class AppHost
 
     /// <summary>A consulta deste ciclo já virou ponto na linha do tempo?</summary>
     private bool _registradoNoCiclo;
+
+    /// <summary>O primeiro ciclo foi encurtado para emendar no que ficou da execução anterior.</summary>
+    private bool _cicloAdiantado;
     private readonly Dictionary<BarKind, bool> _alerted = new();
 
     private WinForms.NotifyIcon? _tray;
@@ -88,6 +91,8 @@ public sealed class AppHost
 
         StartupManager.Apply(Settings.StartWithWindows);
 
+        var idadeDoRetrato = RestoreSession();
+
         BuildTray();
         ApplyDisplayMode();
 
@@ -96,7 +101,22 @@ public sealed class AppHost
 
         _overlayClock.Tick += (_, _) => OverlayTick();
 
-        _ = RefreshAsync();
+        // Com uma leitura recente restaurada, perguntar de novo agora não traria nada: o consumo
+        // de segundos atrás continua sendo o consumo, e o limite de consultas é da conta inteira.
+        // O relógio é adiantado para completar o ciclo que já estava em curso, e não recomeçado.
+        var intervalo = TimeSpan.FromSeconds(Settings.RefreshSeconds);
+        if (idadeDoRetrato is { } idade && idade < intervalo - TimeSpan.FromSeconds(2))
+        {
+            _timer.Interval = intervalo - idade;
+            _cicloAdiantado = true;
+
+            // o ciclo restaurado já tem o seu ponto na faixa; sem isto nasceria um cinza falso
+            _registradoNoCiclo = true;
+        }
+        else
+        {
+            _ = RefreshAsync();
+        }
 
         var minimized = Array.Exists(args, a =>
             string.Equals(a, "--minimized", StringComparison.OrdinalIgnoreCase) ||
@@ -501,6 +521,31 @@ public sealed class AppHost
     }
 
     /// <summary>
+    /// Recoloca na tela o que o app sabia quando foi fechado. Devolve a idade da leitura
+    /// restaurada, ou null se não havia nenhuma aproveitável.
+    /// </summary>
+    private TimeSpan? RestoreSession()
+    {
+        var estado = SessionState.Load();
+        if (estado == null) return null;
+
+        var ciclos = new List<ApiCall>();
+        foreach (var c in estado.Calls)
+            ciclos.Add(new ApiCall { At = c.At, Outcome = c.Outcome, Detail = c.Detail });
+        if (ciclos.Count > 0) _calls.Restore(ciclos);
+
+        // Uma leitura de horas atrás não ajuda ninguém: mostrar 40% de sessão quando a sessão
+        // pode ter renovado três vezes seria pior que mostrar "carregando".
+        var snap = estado.ToSnapshot(TimeSpan.FromHours(2));
+        if (snap == null) return null;
+
+        Last = snap;
+        _lastGood = snap;
+        UpdateRate(snap);
+        return estado.SnapshotAge;
+    }
+
+    /// <summary>
     /// (Re)programa o relógio com o intervalo configurado. Só é chamado ao abrir o app e quando a
     /// configuração muda: a cadência é fixa de propósito, para que a linha do tempo signifique
     /// sempre a mesma coisa — um ponto por intervalo, sem o app decidir pular consultas.
@@ -546,6 +591,13 @@ public sealed class AppHost
     /// </summary>
     private void Pulse()
     {
+        // o ciclo encurtado da abertura acabou: daqui em diante, a cadência cheia
+        if (_cicloAdiantado)
+        {
+            _cicloAdiantado = false;
+            RestartClock();
+        }
+
         if (!_registradoNoCiclo)
         {
             if (_pausedUntil > DateTimeOffset.Now)
@@ -656,6 +708,7 @@ public sealed class AppHost
 
             _lastGood = snap;
             UsageHistory.Append(snap, Settings);
+            SessionState.Save(snap, _calls.Recent());
         }
         else
         {
@@ -720,6 +773,7 @@ public sealed class AppHost
 
     public void Exit()
     {
+        SessionState.Save(_lastGood, _calls.Recent());
         _timer.Stop();
         _overlayClock.Stop();
         _overlay?.Close();

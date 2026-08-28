@@ -67,6 +67,20 @@ public sealed class ApiCallLog
         }
     }
 
+    /// <summary>
+    /// Recoloca os ciclos guardados da execução anterior. Sem isto a faixa nasce vazia a cada
+    /// abertura, e "conexão saudável" vira uma pergunta sem resposta nos primeiros minutos.
+    /// </summary>
+    public void Restore(IEnumerable<ApiCall> anteriores)
+    {
+        lock (_lock)
+        {
+            _calls.Clear();
+            foreach (var c in anteriores) _calls.Enqueue(c);
+            while (_calls.Count > Capacity) _calls.Dequeue();
+        }
+    }
+
     /// <summary>Da mais antiga para a mais recente.</summary>
     public List<ApiCall> Recent()
     {
