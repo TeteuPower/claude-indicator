@@ -91,7 +91,7 @@ public partial class GameOverlayWindow : Window
 
         if (!frames.HasValue)
         {
-            linha.Children.Add(new TextBlock
+            linha.Children.Add(new OutlinedText
             {
                 Text = "FPS —",
                 FontSize = 20,
@@ -102,7 +102,7 @@ public partial class GameOverlayWindow : Window
             return linha;
         }
 
-        linha.Children.Add(new TextBlock
+        linha.Children.Add(new OutlinedText
         {
             Text = $"{frames.Fps:0}",
             FontSize = 22,
@@ -110,7 +110,7 @@ public partial class GameOverlayWindow : Window
             Foreground = new SolidColorBrush(FpsColor(frames.Fps)),
             VerticalAlignment = VerticalAlignment.Center
         });
-        linha.Children.Add(new TextBlock
+        linha.Children.Add(new OutlinedText
         {
             Text = "FPS",
             FontSize = 11,
@@ -121,7 +121,7 @@ public partial class GameOverlayWindow : Window
 
         if (_settings.OverlayShowFrameTime)
         {
-            linha.Children.Add(new TextBlock
+            linha.Children.Add(new OutlinedText
             {
                 Text = $"{frames.FrameTimeMs:0.0} ms",
                 FontSize = 12,
@@ -129,7 +129,7 @@ public partial class GameOverlayWindow : Window
                 Foreground = BarRenderer.Swatch("TextBrush"),
                 VerticalAlignment = VerticalAlignment.Bottom
             });
-            linha.Children.Add(new TextBlock
+            linha.Children.Add(new OutlinedText
             {
                 Text = $"1% {frames.OnePercentLowFps:0}",
                 FontSize = 12,
@@ -146,7 +146,7 @@ public partial class GameOverlayWindow : Window
     {
         var linha = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 3, 0, 0) };
 
-        linha.Children.Add(new TextBlock
+        linha.Children.Add(new OutlinedText
         {
             Text = rotulo,
             FontSize = 11.5,
@@ -159,7 +159,7 @@ public partial class GameOverlayWindow : Window
             ? c.MemoryUsed.Format(" GB", 1)
             : c.Load.Format("%", 0);
 
-        linha.Children.Add(new TextBlock
+        linha.Children.Add(new OutlinedText
         {
             Text = valor,
             FontSize = 13,
@@ -189,7 +189,7 @@ public partial class GameOverlayWindow : Window
         for (var i = 0; i < barras.Count; i++)
         {
             var b = barras[i];
-            linha.Children.Add(new TextBlock
+            linha.Children.Add(new OutlinedText
             {
                 Text = s.LabelFor(b.Kind),
                 FontSize = 10.5,
@@ -197,7 +197,7 @@ public partial class GameOverlayWindow : Window
                 Foreground = BarRenderer.Swatch("MutedBrush"),
                 VerticalAlignment = VerticalAlignment.Center
             });
-            linha.Children.Add(new TextBlock
+            linha.Children.Add(new OutlinedText
             {
                 Text = $"{b.Percent:0}%",
                 FontSize = 12,

@@ -1,0 +1,40 @@
+<Window x:Class="ClaudeIndicator.Views.GamePickerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Escolher a janela do jogo"
+        Width="560" Height="460"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BgBrush}"
+        Foreground="{StaticResource TextBrush}"
+        FontFamily="Segoe UI"
+        ResizeMode="CanResize"
+        ShowInTaskbar="False">
+
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock Text="Janelas abertas" FontSize="15" FontWeight="SemiBold"/>
+            <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap"
+                       Margin="0,4,0,10"
+                       Text="As que ocupam o monitor inteiro vêm primeiro — é onde o jogo costuma estar. O indicador passa a seguir a janela do processo escolhido."/>
+        </StackPanel>
+
+        <Border Grid.Row="1" Background="#14FFFFFF" CornerRadius="9" Padding="4">
+            <ListBox x:Name="Lista" Background="Transparent" BorderThickness="0"
+                     Foreground="{StaticResource TextBrush}"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     MouseDoubleClick="OnUseClick"/>
+        </Border>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+            <Button Content="Atualizar lista" Click="OnRefreshClick" Margin="0,0,8,0"/>
+            <Button Content="Cancelar" Click="OnCancelClick" Margin="0,0,8,0"/>
+            <Button x:Name="BtnUse" Content="Usar esta janela" Click="OnUseClick" IsDefault="True"/>
+        </StackPanel>
+    </Grid>
+</Window>

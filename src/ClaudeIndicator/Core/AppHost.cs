@@ -267,6 +267,10 @@ public sealed class AppHost
         {
             if (!_frames.Running) _frames.Start();
             _detector ??= new GameDetector(_frames);
+            _detector.TargetProcess = string.IsNullOrWhiteSpace(Settings.OverlayGameProcess)
+                ? null
+                : Settings.OverlayGameProcess.Trim();
+            _detector.ShowWithoutFocus = Settings.OverlayWithoutFocus;
 
             if (_overlay == null)
             {
@@ -290,19 +294,34 @@ public sealed class AppHost
     {
         if (!Settings.ShowGameOverlay || _overlay == null || _detector == null) return;
 
-        var jogo = _detector.Detect();
-        CurrentGame = jogo;
-        _overlay.Render(jogo, _hardware.Current, Last, Settings);
+        // Um erro aqui roda 4 vezes por segundo: sem o catch, uma janela que fecha no meio do
+        // passo derrubaria o app inteiro.
+        try
+        {
+            var jogo = _detector.Detect();
+            CurrentGame = jogo;
+            _overlay.Render(jogo, _hardware.Current, Last, Settings);
+        }
+        catch
+        {
+            // janela do jogo sumiu entre a leitura e o desenho: o próximo tique acerta
+        }
     }
 
     /// <summary>O jogo detectado no último passo, para a tela de configurações mostrar.</summary>
     public GameInfo? CurrentGame { get; private set; }
+
+    /// <summary>Por que o jogo escolhido não está aparecendo agora, quando não está.</summary>
+    public string? GameTargetStatus => _detector?.TargetStatus;
 
     /// <summary>Por que a medição de quadros não está de pé, quando não está.</summary>
     public string? FrameMonitorError => _frames.Running ? null : _frames.Error;
 
     /// <summary>A medição de quadros está funcionando?</summary>
     public bool FrameMonitorRunning => _frames.Running;
+
+    /// <summary>Quadros por segundo deste processo agora, ou zero sem leitura.</summary>
+    public double FpsOf(int processId) => _frames.StatsFor(processId).Fps;
 
     /// <summary>Liga a medição sob demanda, para a tela de configurações poder testar na hora.</summary>
     public bool StartFrameMonitor() => _frames.Start();

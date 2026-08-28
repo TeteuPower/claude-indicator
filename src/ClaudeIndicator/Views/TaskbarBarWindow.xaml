@@ -31,7 +31,7 @@
     <!-- fundo levemente destacado para separar da barra sem brigar com ela -->
     <Border x:Name="Root" Background="#00000000" Padding="10,0" MouseLeftButtonUp="OnClick"
             Cursor="Hand">
-        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+        <StackPanel x:Name="ContentRow" Orientation="Horizontal" VerticalAlignment="Center">
             <StackPanel x:Name="CellsPanel" Orientation="Horizontal" VerticalAlignment="Center"/>
             <StackPanel x:Name="CallsPanel" Orientation="Horizontal" VerticalAlignment="Center"
                         Margin="10,0,0,0"/>

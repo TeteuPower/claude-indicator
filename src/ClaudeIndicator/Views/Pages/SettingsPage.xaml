@@ -124,9 +124,31 @@
                         <StackPanel>
                             <TextBlock Text="Indicadores por cima do jogo" Style="{StaticResource Title}"/>
                             <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4"
-                                       Text="Quando um jogo está em primeiro plano, o app desenha FPS e os sensores por cima dele. A medição de quadros usa o rastreamento do próprio Windows — o mesmo caminho do PresentMon: nada é injetado no jogo e nada é lido da memória dele."/>
+                                       Text="Escolha a janela do jogo e o app desenha FPS e os sensores por cima dela. A medição de quadros usa o rastreamento do próprio Windows — o mesmo caminho do PresentMon: nada é injetado no jogo e nada é lido da memória dele, que é o que faz anticheat reclamar."/>
 
                             <CheckBox x:Name="ChkOverlay" Style="{StaticResource Switch}" Content="Mostrar indicadores no jogo"/>
+
+                            <TextBlock Text="Qual é o jogo" Style="{StaticResource FieldLabel}" Margin="0,14,0,5"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,6" TextWrapping="Wrap"
+                                       Text="Abra o jogo primeiro e escolha a janela dele aqui. Escolher à mão sempre funciona; adivinhar não, porque em janela sem bordas um jogo é indistinguível de qualquer outra janela."/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Background="{StaticResource BgBrush}" CornerRadius="9" Padding="12,9"
+                                        VerticalAlignment="Center">
+                                    <TextBlock x:Name="GameTargetText" FontSize="12.5" TextWrapping="Wrap"
+                                               Foreground="{StaticResource TextBrush}"/>
+                                </Border>
+                                <Button x:Name="BtnPickGame" Grid.Column="1" Content="Escolher janela…"
+                                        Click="OnPickGameClick" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                <Button x:Name="BtnClearGame" Grid.Column="2" Content="Limpar"
+                                        Click="OnClearGameClick" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                            </Grid>
+                            <CheckBox x:Name="ChkOverlayNoFocus" Style="{StaticResource Switch}" Margin="0,10,0,0"
+                                      Content="Mostrar mesmo quando o jogo não está em primeiro plano"/>
 
                             <Border x:Name="OverlayStatus" Background="{StaticResource BgBrush}" CornerRadius="9"
                                     Padding="14,11" Margin="0,12,0,0">

@@ -134,7 +134,7 @@ public partial class TaskbarBarWindow : Window
         if (cells == 0 || (!hw.Ok && !hw.Cpu.HasAnything && !hw.Gpu.HasAnything))
         {
             CellsPanel.Children.Clear();
-            CellsPanel.Children.Add(new TextBlock
+            CellsPanel.Children.Add(new OutlinedText
             {
                 Text = hw.Error != null ? "PC · sem leitura" : "PC · lendo…",
                 FontSize = 11.5,
@@ -166,7 +166,7 @@ public partial class TaskbarBarWindow : Window
         var bars = snap?.Visible(s) ?? new List<UsageBar>();
         if (bars.Count == 0)
         {
-            CellsPanel.Children.Add(new TextBlock
+            CellsPanel.Children.Add(new OutlinedText
             {
                 Text = snap == null ? "Claude · carregando…" : "Claude · sem dados",
                 FontSize = 11.5,
@@ -229,7 +229,7 @@ public partial class TaskbarBarWindow : Window
             ApiOutcome.Ok => BarRenderer.Swatch("OkBrush"),
             ApiOutcome.RateLimited => BarRenderer.Swatch("WarnBrush"),
             ApiOutcome.Failed => BarRenderer.Swatch("DangerBrush"),
-            _ => BarRenderer.Swatch("TrackBrush")
+            _ => TrilhaBorda
         };
 
         var bolinha = new System.Windows.Shapes.Ellipse
@@ -264,7 +264,7 @@ public partial class TaskbarBarWindow : Window
         var cell = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
 
         var head = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 2) };
-        head.Children.Add(new TextBlock
+        head.Children.Add(new OutlinedText
         {
             Text = rotulo,
             FontSize = 9.5 * scale,
@@ -274,7 +274,7 @@ public partial class TaskbarBarWindow : Window
         var apoio = Support(c, rotulo);
         if (apoio.Length > 0)
         {
-            head.Children.Add(new TextBlock
+            head.Children.Add(new OutlinedText
             {
                 Text = "  " + apoio,
                 FontSize = 9.5 * scale,
@@ -285,7 +285,7 @@ public partial class TaskbarBarWindow : Window
         cell.Children.Add(head);
 
         var row = new StackPanel { Orientation = Orientation.Horizontal };
-        row.Children.Add(new TextBlock
+        row.Children.Add(new OutlinedText
         {
             Text = c.Load.Format("%"),
             FontSize = 12.5 * scale,
@@ -301,7 +301,9 @@ public partial class TaskbarBarWindow : Window
             Width = largura,
             Height = 5,
             CornerRadius = new CornerRadius(2.5),
-            Background = BarRenderer.Swatch("TrackBrush"),
+            Background = TrilhaEscura,
+            BorderBrush = TrilhaBorda,
+            BorderThickness = new Thickness(1),
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(5, 0, 0, 0),
             ClipToBounds = true
@@ -390,6 +392,21 @@ public partial class TaskbarBarWindow : Window
     }
 
     /// <summary>Temperatura manda na cor de apoio; sem ela, os watts não têm faixa universal.</summary>
+    /// <summary>
+    /// A trilha vazia da barra precisa aparecer tanto sobre a barra escura quanto sobre um papel de
+    /// parede claro. Um preenchimento escuro resolve o segundo caso e a borda clara o primeiro —
+    /// isolados, cada um sumiria justamente no outro.
+    /// </summary>
+    private static readonly Brush TrilhaEscura = Congelado(Color.FromArgb(0x73, 0, 0, 0));
+    private static readonly Brush TrilhaBorda = Congelado(Color.FromArgb(0x59, 0xFF, 0xFF, 0xFF));
+
+    private static Brush Congelado(Color c)
+    {
+        var b = new SolidColorBrush(c);
+        b.Freeze();
+        return b;
+    }
+
     private static Color HardwareColor(ComponentReading c)
     {
         if (!c.Temperature.HasValue) return Cinza;
@@ -457,13 +474,13 @@ public partial class TaskbarBarWindow : Window
 
         // linha do filtro: nome do limite + seta, indicando que dá para trocar
         var header = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 2) };
-        header.Children.Add(new TextBlock
+        header.Children.Add(new OutlinedText
         {
             Text = s.LabelFor(s.RateKind),
             FontSize = 9.5 * scale,
             Foreground = BarRenderer.Swatch("MutedBrush")
         });
-        header.Children.Add(new TextBlock
+        header.Children.Add(new OutlinedText
         {
             Text = " ↻",
             FontSize = 9 * scale,
@@ -472,7 +489,7 @@ public partial class TaskbarBarWindow : Window
         });
         text.Children.Add(header);
 
-        text.Children.Add(new TextBlock
+        text.Children.Add(new OutlinedText
         {
             Text = ConsumptionRate.Format(rate),
             FontSize = 12 * scale,
@@ -505,7 +522,7 @@ public partial class TaskbarBarWindow : Window
         var scale = Math.Clamp(s.TaskbarBarScale, 0.8, 1.6);
         var cell = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
 
-        cell.Children.Add(new TextBlock
+        cell.Children.Add(new OutlinedText
         {
             Text = s.LabelFor(bar.Kind),
             FontSize = 9.5 * scale,
@@ -514,7 +531,7 @@ public partial class TaskbarBarWindow : Window
         });
 
         var row = new StackPanel { Orientation = Orientation.Horizontal };
-        row.Children.Add(new TextBlock
+        row.Children.Add(new OutlinedText
         {
             Text = Math.Round(bar.Percent) + "%",
             FontSize = 12.5 * scale,
@@ -531,7 +548,9 @@ public partial class TaskbarBarWindow : Window
             Width = 52 * scale,
             Height = 5,
             CornerRadius = new CornerRadius(2.5),
-            Background = BarRenderer.Swatch("TrackBrush"),
+            Background = TrilhaEscura,
+            BorderBrush = TrilhaBorda,
+            BorderThickness = new Thickness(1),
             ClipToBounds = true
         };
         var grid = new Grid();

@@ -71,8 +71,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.9.0
-git push origin v1.9.0
+git tag v1.9.1
+git push origin v1.9.1
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -93,7 +93,7 @@ Dois detalhes do GitHub que o app precisa contornar:
   pré-release. Por isso o app lista as releases e escolhe a maior versão, com uma opção para
   considerar ou não as pré-releases.
 - A pré-release usa a tag fixa `latest`, que não é uma versão. A versão sai então do **nome do
-  instalador anexado** (`ClaudeIndicator-Setup-1.9.0.exe`) — de propósito antes do título da
+  instalador anexado** (`ClaudeIndicator-Setup-1.9.1.exe`) — de propósito antes do título da
   release, porque o instalador é o arquivo que será realmente instalado e o título é texto que
   pode ficar defasado se a chamada que o atualiza falhar.
 
@@ -118,7 +118,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~63 MB)
-- `dist\ClaudeIndicator-Setup-1.9.0.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-1.9.1.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -349,25 +349,36 @@ net localgroup "Performance Log Users" "%USERNAME%" /add
 
 (precisa de um prompt como administrador e de sair e entrar na sessão do Windows)
 
-### Como ele sabe que aquilo é um jogo
+### Como ele sabe qual é o jogo
 
-Sem lista de executáveis conhecidos — lista envelhece mal e nunca cobre tudo. O critério é:
+**Você aponta.** Abra o jogo, vá em *Configurações › Indicadores por cima do jogo › Escolher
+janela…* e clique na janela dele. A lista mostra tamanho, se a janela cobre o monitor e o FPS
+quando há medição — os três sinais que identificam o jogo sem precisar reconhecer o executável.
+A escolha fica guardada pelo nome do processo, então da próxima vez que o jogo abrir o indicador
+volta sozinho.
 
-1. a janela em **primeiro plano** (jogo fora de foco não recebe indicador);
-2. o processo **está apresentando quadros** acima de 10 por segundo — a prova vem do próprio
-   medidor, e é o sinal mais forte que existe;
-3. o processo não está na lista de exceções (navegador, editor, OBS, Wallpaper Engine, o próprio
-   Explorer): esses apresentam quadros o tempo todo sem serem jogo.
+Escolher à mão é o caminho principal por um motivo simples: **em janela sem bordas um jogo é
+indistinguível de qualquer outra janela**. Não há sinal confiável para adivinhar, e adivinhar
+errado significa o indicador não aparecer sem explicação.
 
-Sem a medição de quadros, sobra a geometria: janela em primeiro plano **cobrindo o monitor**, fora
-da lista de exceções. Reconhece menos e por isso a lista importa mais.
+Deixando o campo vazio, o app tenta adivinhar: janela em primeiro plano, fora de uma lista de
+exceções (navegador, editor, OBS, Wallpaper Engine), cobrindo o monitor **ou** apresentando mais
+de 10 quadros por segundo. Repare no **ou**: os quadros são um sinal a favor, nunca um veto — um
+jogo em Vulkan ou OpenGL não passa pelos provedores DXGI e D3D9, e recusá-lo por isso seria trocar
+"sem FPS" por "sem indicador nenhum".
 
 ### Onde ele aparece
 
 A posição é escolhida numa grade de nove cantos, com distância da borda, tamanho e opacidade
 ajustáveis. O bloco se ancora na **janela do jogo**, não no monitor, para continuar certo quando o
 jogo roda em janela menor que a tela. A janela do indicador é *click-through*: o mouse não a
-enxerga, o clique vai direto para o jogo.
+enxerga, o clique vai direto para o jogo. Por padrão ele só aparece com o jogo em primeiro plano;
+há uma opção para mostrar mesmo sem foco.
+
+Todo o texto sai com **contorno escuro desenhado ao redor das letras**, e não com sombra
+desfocada. Desfoque espalha a tinta: em texto de 10 px o contorno fica fraco justamente onde mais
+precisa. Um traço sólido em volta da letra mantém a leitura sobre cena clara de jogo — e sobre
+papel de parede claro, no painel da barra de tarefas, que era onde o texto sumia.
 
 | Modo do jogo | Aparece? |
 |---|---|
@@ -453,7 +464,8 @@ src/ClaudeIndicator/
     TaskbarInfo.cs       geometria da barra de tarefas e espaço livre nela
     EtwSession.cs        sessão de rastreamento do Windows: eventos de quadro apresentado
     FrameRateMonitor.cs  carimbos de quadro -> FPS, tempo de quadro e 1% low por processo
-    GameDetector.cs      decide se o que está em primeiro plano é um jogo
+    GameDetector.cs      resolve qual janela recebe o indicador (escolhida ou adivinhada)
+    WindowScanner.cs     lista as janelas abertas para você apontar qual é o jogo
     StartupManager.cs    inicialização automática (HKCU\...\Run)
     AppInfo.cs           versão exibida na interface
   Views/
@@ -461,6 +473,8 @@ src/ClaudeIndicator/
     GadgetWindow.xaml    gadget transparente, arrastável, sempre por cima
     TaskbarBarWindow.xaml  faixa ancorada no espaço livre da barra de tarefas
     GameOverlayWindow.xaml indicadores por cima do jogo, sem foco e sem receber clique
+    GamePickerWindow.xaml  lista de janelas abertas para escolher o jogo
+    OutlinedText.cs        texto com contorno, legível sobre qualquer fundo
     BarRenderer.cs       desenho das barras (gadget e prévia)
     Pages/
       OverviewPage.xaml  visão geral: restante, ritmo, projeção e top projetos

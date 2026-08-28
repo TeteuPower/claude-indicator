@@ -83,11 +83,66 @@ public sealed class GameDetector
     public GameDetector(FrameRateMonitor frames) => _frames = frames;
 
     /// <summary>
+    /// Processo escolhido à mão. Com ele definido, adivinhação nenhuma acontece: o indicador vai
+    /// para a janela desse processo e ponto. É o modo padrão, porque adivinhar erra — em janela
+    /// sem bordas um jogo é indistinguível de qualquer outra janela, e sem a medição de quadros,
+    /// que exige administrador, não sobra sinal forte para separar um do outro.
+    /// </summary>
+    public string? TargetProcess { get; set; }
+
+    /// <summary>Mostrar mesmo quando o jogo não está em primeiro plano.</summary>
+    public bool ShowWithoutFocus { get; set; }
+
+    /// <summary>Por que o alvo escolhido não está sendo mostrado agora, quando não está.</summary>
+    public string? TargetStatus { get; private set; }
+
+    /// <summary>
+    /// O alvo escolhido, se ele estiver aberto. Sem processo com esse nome, ou com o jogo atrás de
+    /// outra janela, devolve null e explica o motivo em <see cref="TargetStatus"/>.
+    /// </summary>
+    private GameInfo? DetectTarget(string alvo)
+    {
+        var janela = WindowScanner.MainWindowOf(alvo);
+        if (janela == null)
+        {
+            TargetStatus = $"{alvo} não está aberto";
+            return null;
+        }
+
+        if (!ShowWithoutFocus)
+        {
+            var frente = GetForegroundWindow();
+            GetWindowThreadProcessId(frente, out var pidFrente);
+            if (pidFrente != janela.ProcessId)
+            {
+                TargetStatus = $"{alvo} está aberto, mas não está em primeiro plano";
+                return null;
+            }
+        }
+
+        TargetStatus = null;
+        return new GameInfo
+        {
+            ProcessId = janela.ProcessId,
+            ProcessName = janela.ProcessName,
+            Title = janela.Title,
+            Window = janela.Handle,
+            Bounds = janela.Bounds,
+            Monitor = janela.Monitor,
+            Mode = janela.CoversMonitor ? GameWindowMode.Fullscreen : GameWindowMode.Windowed,
+            Frames = _frames.StatsFor(janela.ProcessId)
+        };
+    }
+
+    /// <summary>
     /// O jogo em primeiro plano agora, ou null. Só devolve algo enquanto o jogo está em foco: um
     /// indicador por cima de um jogo que o usuário deixou para trás só atrapalharia.
     /// </summary>
     public GameInfo? Detect()
     {
+        if (!string.IsNullOrWhiteSpace(TargetProcess)) return DetectTarget(TargetProcess!);
+
+        TargetStatus = null;
         var hwnd = GetForegroundWindow();
         if (hwnd == IntPtr.Zero) return null;
 
@@ -108,16 +163,12 @@ public sealed class GameDetector
 
         var frames = _frames.StatsFor((int)pid);
 
-        // Com a medição de pé, ela decide: quem não apresenta quadros não é jogo, mesmo em tela
-        // cheia. Sem ela, a geometria decide sozinha e só a tela cheia conta.
-        if (_frames.Running)
-        {
-            if (!frames.HasValue || frames.Fps < MinimumFps) return null;
-        }
-        else if (modo != GameWindowMode.Fullscreen)
-        {
-            return null;
-        }
+        // A medição é um sinal POSITIVO, nunca um veto. A versão anterior exigia quadros quando a
+        // medição estava de pé, e com isso um jogo em Vulkan ou OpenGL — que não passa pelos
+        // provedores DXGI e D3D9 — era ativamente recusado, enquanto sem medição ele apareceria.
+        // Perder o FPS de um jogo é aceitável; esconder o indicador por causa disso, não.
+        var apresentando = frames.HasValue && frames.Fps >= MinimumFps;
+        if (!apresentando && modo != GameWindowMode.Fullscreen) return null;
 
         return new GameInfo
         {

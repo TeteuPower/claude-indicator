@@ -90,6 +90,15 @@ public class AppSettings
     /// <summary>Desenhar os indicadores por cima do jogo em primeiro plano.</summary>
     public bool ShowGameOverlay { get; set; }
 
+    /// <summary>
+    /// Nome do processo do jogo, escolhido à mão em Configurações. Vazio deixa o app adivinhar —
+    /// o que só funciona bem com a medição de quadros ligada.
+    /// </summary>
+    public string OverlayGameProcess { get; set; } = "";
+
+    /// <summary>Mostrar o bloco mesmo quando o jogo não está em primeiro plano.</summary>
+    public bool OverlayWithoutFocus { get; set; }
+
     public OverlayAnchor OverlayAnchor { get; set; } = OverlayAnchor.TopLeft;
 
     /// <summary>Distância entre o bloco e a borda da janela do jogo, em pixels.</summary>

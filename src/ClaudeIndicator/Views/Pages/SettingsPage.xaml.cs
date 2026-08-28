@@ -64,6 +64,9 @@ public partial class SettingsPage : UserControl
         SldPcInterval.Value = s.PcIntervalSeconds;
 
         ChkOverlay.IsChecked = s.ShowGameOverlay;
+        ChkOverlayNoFocus.IsChecked = s.OverlayWithoutFocus;
+        _gameTarget = s.OverlayGameProcess ?? "";
+        UpdateGameTargetUi();
         SldOverlayMargin.Value = s.OverlayMargin;
         SldOverlayScale.Value = s.OverlayScale;
         SldOverlayOpacity.Value = s.OverlayOpacity;
@@ -160,6 +163,8 @@ public partial class SettingsPage : UserControl
         s.PcIntervalSeconds = (int)Math.Round(SldPcInterval.Value);
 
         s.ShowGameOverlay = ChkOverlay.IsChecked == true;
+        s.OverlayGameProcess = _gameTarget;
+        s.OverlayWithoutFocus = ChkOverlayNoFocus.IsChecked == true;
         s.OverlayAnchor = _overlayAnchor;
         s.OverlayMargin = Math.Round(SldOverlayMargin.Value);
         s.OverlayScale = Math.Round(SldOverlayScale.Value, 2);
@@ -264,11 +269,52 @@ public partial class SettingsPage : UserControl
                      ChkPcPanel, PcLeft, PcRight, ChkPcCpu, ChkPcCpuSensors, ChkPcGpu, ChkPcRam,
                      ChkRateTaskbar, ChkRateGadget, RateWeekly, RateSession, RateFable,
                      Win5, Win20, Win60, Win1440, ChkTimeProgress, ChkCallTimeline,
-                     ChkOverlay, ChkOvFps, ChkOvFrameTime, ChkOvCpu, ChkOvGpu, ChkOvRam, ChkOvClaude
+                     ChkOverlay, ChkOvFps, ChkOvFrameTime, ChkOvCpu, ChkOvGpu, ChkOvRam, ChkOvClaude,
+                     ChkOverlayNoFocus
                  })
         {
             Hook(c);
         }
+    }
+
+    private string _gameTarget = "";
+
+    private void OnPickGameClick(object sender, RoutedEventArgs e)
+    {
+        var picker = new GamePickerWindow { Owner = Window.GetWindow(this) };
+        if (picker.ShowDialog() != true || picker.ChosenProcess == null) return;
+
+        _gameTarget = picker.ChosenProcess;
+        UpdateGameTargetUi();
+        MarkDirty();
+    }
+
+    private void OnClearGameClick(object sender, RoutedEventArgs e)
+    {
+        _gameTarget = "";
+        UpdateGameTargetUi();
+        MarkDirty();
+    }
+
+    private void UpdateGameTargetUi()
+    {
+        if (GameTargetText == null) return;
+
+        if (string.IsNullOrWhiteSpace(_gameTarget))
+        {
+            GameTargetText.Text = "Nenhuma janela escolhida — o app vai tentar adivinhar, "
+                                + "o que só funciona bem com a medição de quadros ligada.";
+            GameTargetText.Foreground = BarRenderer.Swatch("MutedBrush");
+            BtnClearGame.IsEnabled = false;
+            return;
+        }
+
+        var aberto = WindowScanner.MainWindowOf(_gameTarget);
+        GameTargetText.Text = aberto != null
+            ? $"{_gameTarget}.exe — aberto agora, {aberto.Describe()}"
+            : $"{_gameTarget}.exe — não está aberto no momento";
+        GameTargetText.Foreground = BarRenderer.Swatch(aberto != null ? "TextBrush" : "MutedBrush");
+        BtnClearGame.IsEnabled = true;
     }
 
     private OverlayAnchor _overlayAnchor = OverlayAnchor.TopLeft;
@@ -336,22 +382,27 @@ public partial class SettingsPage : UserControl
             return;
         }
 
+        var jogo = _host.CurrentGame;
+        var ondeEsta = jogo != null
+            ? $"Aparecendo sobre {jogo.ProcessName}, "
+              + (jogo.Mode == GameWindowMode.Fullscreen ? "que ocupa a tela toda." : "em janela.")
+            : _host.GameTargetStatus is { } motivo
+                ? "Não está aparecendo: " + motivo + "."
+                : "Nenhum jogo em primeiro plano agora.";
+
         if (_host.FrameMonitorRunning)
         {
-            var jogo = _host.CurrentGame;
-            OverlayStatusText.Text = jogo == null
-                ? "Medição de quadros ativa. Nenhum jogo em primeiro plano agora."
-                : $"Medindo {jogo.ProcessName}: {jogo.Frames.Fps:0} FPS, "
-                  + (jogo.Mode == GameWindowMode.Fullscreen ? "ocupando a tela toda." : "em janela.");
+            var comFps = jogo != null && jogo.Frames.HasValue ? $" {jogo.Frames.Fps:0} FPS." : "";
+            OverlayStatusText.Text = ondeEsta + comFps + " Medição de quadros ativa.";
             BtnOverlayElevate.Visibility = Visibility.Collapsed;
             return;
         }
 
         var erro = _host.FrameMonitorError;
-        OverlayStatusText.Text = "Sem medição de quadros: " + (erro ?? "motivo desconhecido")
+        OverlayStatusText.Text = ondeEsta + " Sem medição de quadros: " + (erro ?? "motivo desconhecido")
             + ". Criar uma sessão de rastreamento do Windows exige administrador — é a mesma "
-            + "exigência do PresentMon e do FrameView. Sem ela, o bloco ainda aparece com os "
-            + "sensores, mas o FPS fica em branco.";
+            + "exigência do PresentMon e do FrameView. Sem ela o bloco aparece com os sensores, "
+            + "e só o FPS fica em branco.";
         BtnOverlayElevate.Visibility = Visibility.Visible;
     }
 
