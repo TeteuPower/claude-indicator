@@ -575,14 +575,10 @@ public partial class TaskbarBarWindow : Window
         Grid.SetColumn(fill, 0);
         grid.Children.Add(fill);
         track.Child = grid;
-        bars.Children.Add(track);
 
-        // fio do tempo decorrido, logo abaixo: comparar com o consumo mostra se está adiantado
+        // marca do tempo decorrido, no próprio trilho: preenchimento além dela é consumo adiantado
         var timeFrac = s.ShowTimeProgress ? bar.TimeFraction() : null;
-        if (timeFrac != null)
-        {
-            bars.Children.Add(BarRenderer.BuildTimeLine(timeFrac.Value, 52 * scale, 2, new Thickness(0, 2, 0, 0)));
-        }
+        bars.Children.Add(BarRenderer.TrackWithMarker(track, timeFrac, 5));
 
         row.Children.Add(bars);
         cell.Children.Add(row);

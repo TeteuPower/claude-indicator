@@ -43,6 +43,72 @@ public static class BarRenderer
     /// Fio fino do tempo decorrido na janela do limite. Fica sob a barra de consumo: se o fio
     /// está à frente, você gasta mais devagar que o relógio; atrás, mais rápido.
     /// </summary>
+    /// <summary>
+    /// Marca vertical no trilho, no ponto onde o tempo da janela já chegou.
+    ///
+    /// Antes isto era um segundo fio, mais fino, logo abaixo da barra — e ninguém achava onde ele
+    /// estava: cinza sobre cinza, com 2 px de altura, competindo com a barra de verdade. Marcar
+    /// DENTRO do trilho resolve as duas coisas de uma vez: fica visível, e a comparação que
+    /// interessa vira imediata — preenchimento antes da marca é consumo abaixo do relógio, depois
+    /// dela é consumo adiantado.
+    ///
+    /// A marca é clara com as bordas escuras, então se destaca tanto sobre o trilho escuro quanto
+    /// sobre um preenchimento colorido, e transborda a altura do trilho para ninguém confundi-la
+    /// com um pedaço do preenchimento.
+    /// </summary>
+    public static UIElement BuildTimeMarker(double fraction, double trackHeight)
+    {
+        var grade = new Grid { IsHitTestVisible = false };
+
+        var f = Math.Clamp(fraction, 0, 1);
+        grade.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(f, 0.0001), GridUnitType.Star) });
+        grade.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(1 - f, 0.0001), GridUnitType.Star) });
+
+        var marca = new Border
+        {
+            Width = 4,
+            Height = trackHeight + 6,
+            Background = MarcaClara,
+            BorderBrush = MarcaEscura,
+            BorderThickness = new Thickness(1, 0, 1, 0),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center,
+            // meia largura para a esquerda: a marca fica centrada no ponto, e não começando nele
+            Margin = new Thickness(-2, 0, 0, 0)
+        };
+        Grid.SetColumn(marca, 1);
+        grade.Children.Add(marca);
+        return grade;
+    }
+
+    private static readonly Brush MarcaClara = Freeze(Color.FromArgb(0xF2, 0xFF, 0xFF, 0xFF));
+    private static readonly Brush MarcaEscura = Freeze(Color.FromArgb(0xCC, 0x10, 0x10, 0x10));
+
+    private static Brush Freeze(Color c)
+    {
+        var b = new SolidColorBrush(c);
+        b.Freeze();
+        return b;
+    }
+
+    /// <summary>
+    /// Trilho com a marca do tempo por cima, quando há tempo a marcar. O trilho sozinho quando não
+    /// há — limite sem horário de renovação informado pela API.
+    /// </summary>
+    public static UIElement TrackWithMarker(UIElement track, double? timeFraction, double trackHeight)
+    {
+        if (timeFraction == null) return track;
+
+        // A marca é mais alta que o trilho, então o Grid fica mais alto que ele. Sem centrar, o
+        // trilho encostaria no topo e a marca pareceria pendurada embaixo, e não atravessando.
+        if (track is FrameworkElement fe) fe.VerticalAlignment = VerticalAlignment.Center;
+
+        var pilha = new Grid();
+        pilha.Children.Add(track);
+        pilha.Children.Add(BuildTimeMarker(timeFraction.Value, trackHeight));
+        return pilha;
+    }
+
     public static UIElement BuildTimeLine(double fraction, double width, double height, Thickness margin)
     {
         var track = new Border
@@ -141,11 +207,8 @@ public static class BarRenderer
         grid.Children.Add(fill);
         track.Child = grid;
 
-        container.Children.Add(track);
-
         var timeFrac = s.ShowTimeProgress ? bar.TimeFraction() : null;
-        if (timeFrac != null)
-            container.Children.Add(BuildTimeLine(timeFrac.Value, double.NaN, 3, new Thickness(0, 3, 0, 0)));
+        container.Children.Add(TrackWithMarker(track, timeFrac, 7));
 
         return container;
     }

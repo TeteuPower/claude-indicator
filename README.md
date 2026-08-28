@@ -21,9 +21,14 @@ escolhida em Configurações — 5 min, 20 min, 1 h ou 24 h: curta reage rápido
 estável e demora a perceber mudança. No ícone da bandeja o ritmo aparece ao passar o mouse — em
 16 px não há espaço para desenhá-lo.
 
-Sob cada barra corre um **fio do tempo decorrido** até a renovação. Comparar os dois é a leitura
-que interessa: se o fio está à frente do consumo, você gasta mais devagar que o relógio e o limite
-chega inteiro até o fim da janela.
+Cada barra tem uma **marca do tempo decorrido** até a renovação, atravessando o próprio trilho.
+Comparar os dois é a leitura que interessa: preenchimento **antes** da marca é consumo mais devagar
+que o relógio, e o limite chega inteiro ao fim da janela; preenchimento **além** dela é consumo
+adiantado.
+
+Antes isso era um segundo fio, mais fino, logo abaixo da barra — e ninguém achava onde ele estava:
+cinza sobre cinza, 2 px de altura, competindo com a barra de verdade. Marcar dentro do trilho
+resolveu as duas coisas de uma vez, visibilidade e comparação.
 
 A legenda do velocímetro leva a renovação em conta. Só diz "acaba em X" quando o limite realmente
 se esgota **antes** de renovar; caso contrário mostra quanto deve sobrar na renovação, que é a
@@ -71,8 +76,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.9.4
-git push origin v1.9.4
+git tag v1.9.5
+git push origin v1.9.5
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -93,7 +98,7 @@ Dois detalhes do GitHub que o app precisa contornar:
   pré-release. Por isso o app lista as releases e escolhe a maior versão, com uma opção para
   considerar ou não as pré-releases.
 - A pré-release usa a tag fixa `latest`, que não é uma versão. A versão sai então do **nome do
-  instalador anexado** (`ClaudeIndicator-Setup-1.9.4.exe`) — de propósito antes do título da
+  instalador anexado** (`ClaudeIndicator-Setup-1.9.5.exe`) — de propósito antes do título da
   release, porque o instalador é o arquivo que será realmente instalado e o título é texto que
   pode ficar defasado se a chamada que o atualiza falhar.
 
@@ -118,7 +123,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~63 MB)
-- `dist\ClaudeIndicator-Setup-1.9.4.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-1.9.5.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -224,7 +229,7 @@ O que continua sendo reação e não escolha:
   separador), opacidade, tamanho, sempre por cima, travar posição, mostrar horário de renovação,
   reposicionar no canto inferior direito
 - **Ritmo**: velocímetro no painel da barra e/ou no gadget, de qual limite ele acompanha, a janela
-  da média (5 min a 24 h) e o fio do tempo decorrido sob as barras
+  da média (5 min a 24 h) e a marca do tempo decorrido nas barras
 - **Histórico de consumo**: guardar tudo (padrão) ou apagar registros com mais de N dias
 - **Atualizações**: procurar versão nova no GitHub automaticamente, repositório consultado, e
   botão para baixar e instalar sem sair do app
