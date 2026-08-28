@@ -271,6 +271,8 @@ public sealed class AppHost
                 ? null
                 : Settings.OverlayGameProcess.Trim();
             _detector.ShowWithoutFocus = Settings.OverlayWithoutFocus;
+            _detector.Excluded.Clear();
+            foreach (var n in Settings.OverlayExcluded) _detector.Excluded.Add(n);
 
             if (_overlay == null)
             {

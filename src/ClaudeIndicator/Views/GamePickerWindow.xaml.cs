@@ -16,9 +16,24 @@ public partial class GamePickerWindow : Window
     /// <summary>Nome do processo escolhido, ou null se a janela foi cancelada.</summary>
     public string? ChosenProcess { get; private set; }
 
-    public GamePickerWindow()
+    /// <param name="paraExcecao">
+    /// A mesma lista serve para dois propósitos opostos — escolher onde o indicador aparece e
+    /// escolher onde ele nunca deve aparecer. Só muda o texto, então não vale duplicar a janela.
+    /// </param>
+    public GamePickerWindow(bool paraExcecao = false)
     {
         InitializeComponent();
+
+        if (paraExcecao)
+        {
+            Janela.Title = "Escolher o aplicativo a ignorar";
+            Titulo.Text = "Aplicativos abertos";
+            Explicacao.Text = "O indicador nunca vai aparecer sobre o processo escolhido, mesmo "
+                            + "que a janela dele ocupe a tela inteira. Fica guardado pelo nome do "
+                            + "executável, então vale também nas próximas vezes que ele abrir.";
+            BtnUse.Content = "Nunca mostrar neste";
+        }
+
         Carregar();
     }
 

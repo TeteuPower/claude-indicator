@@ -71,8 +71,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.9.2
-git push origin v1.9.2
+git tag v1.9.3
+git push origin v1.9.3
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -93,7 +93,7 @@ Dois detalhes do GitHub que o app precisa contornar:
   pré-release. Por isso o app lista as releases e escolhe a maior versão, com uma opção para
   considerar ou não as pré-releases.
 - A pré-release usa a tag fixa `latest`, que não é uma versão. A versão sai então do **nome do
-  instalador anexado** (`ClaudeIndicator-Setup-1.9.2.exe`) — de propósito antes do título da
+  instalador anexado** (`ClaudeIndicator-Setup-1.9.3.exe`) — de propósito antes do título da
   release, porque o instalador é o arquivo que será realmente instalado e o título é texto que
   pode ficar defasado se a chamada que o atualiza falhar.
 
@@ -118,7 +118,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~63 MB)
-- `dist\ClaudeIndicator-Setup-1.9.2.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-1.9.3.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -361,11 +361,21 @@ Escolher à mão é o caminho principal por um motivo simples: **em janela sem b
 indistinguível de qualquer outra janela**. Não há sinal confiável para adivinhar, e adivinhar
 errado significa o indicador não aparecer sem explicação.
 
-Deixando o campo vazio, o app tenta adivinhar: janela em primeiro plano, fora de uma lista de
-exceções (navegador, editor, OBS, Wallpaper Engine), cobrindo o monitor **ou** apresentando mais
-de 10 quadros por segundo. Repare no **ou**: os quadros são um sinal a favor, nunca um veto — um
-jogo em Vulkan ou OpenGL não passa pelos provedores DXGI e D3D9, e recusá-lo por isso seria trocar
-"sem FPS" por "sem indicador nenhum".
+Deixando o campo vazio, o app tenta adivinhar: janela em primeiro plano, fora da lista de
+exceções, cobrindo o monitor **ou** apresentando mais de 10 quadros por segundo. Repare no **ou**:
+os quadros são um sinal a favor, nunca um veto — um jogo em Vulkan ou OpenGL não passa pelos
+provedores DXGI e D3D9, e recusá-lo por isso seria trocar "sem FPS" por "sem indicador nenhum".
+
+### Exceções
+
+Adivinhar erra para os dois lados, e o erro de mostrar demais incomoda mais: uma planilha
+maximizada cobre o monitor exatamente como um jogo. Há uma lista embutida (navegador, editor,
+Office, leitor de PDF, OBS, Wallpaper Engine, o próprio Explorer) e uma **sua**, em *Configurações
+› Indicadores por cima do jogo › Nunca mostrar nestes*, montada pela mesma lista de janelas
+abertas. Fica guardada por nome de executável, então vale nas próximas vezes que o programa abrir.
+
+A exceção só vale para a adivinhação. Um processo apontado à mão é uma decisão explícita, e vetá-la
+seria desobedecer.
 
 ### Onde ele aparece
 

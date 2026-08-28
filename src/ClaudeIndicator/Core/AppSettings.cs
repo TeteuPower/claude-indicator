@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -105,6 +106,13 @@ public class AppSettings
 
     /// <summary>Mostrar o bloco mesmo quando o jogo não está em primeiro plano.</summary>
     public bool OverlayWithoutFocus { get; set; }
+
+    /// <summary>
+    /// Processos que nunca recebem o indicador, por nome do executável. A lista embutida cobre o
+    /// óbvio, mas "o que é jogo" depende de quem usa: uma planilha maximizada cobre o monitor
+    /// igualzinho a um jogo, e só você sabe que ali não deve aparecer nada.
+    /// </summary>
+    public List<string> OverlayExcluded { get; set; } = new();
 
     public OverlayAnchor OverlayAnchor { get; set; } = OverlayAnchor.TopLeft;
 
@@ -332,6 +340,14 @@ public class AppSettings
         if (PcIntervalSeconds < 1) PcIntervalSeconds = 1;
         if (PcIntervalSeconds > 30) PcIntervalSeconds = 30;
         if (!PcShowCpu && !PcShowGpu && !PcShowRam) PcShowCpu = true;
+
+        OverlayExcluded ??= new List<string>();
+        // sem espaços, sem repetidos, sem vazios: a lista é comparada nome a nome
+        OverlayExcluded = OverlayExcluded
+            .Select(n => (n ?? "").Trim())
+            .Where(n => n.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         if (OverlayScale < 0.7) OverlayScale = 0.7;
         if (OverlayScale > 2.5) OverlayScale = 2.5;

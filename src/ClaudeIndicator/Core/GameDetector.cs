@@ -75,7 +75,9 @@ public sealed class GameDetector
         "Code", "devenv", "rider64", "idea64", "pycharm64", "sublime_text", "notepad",
         "obs64", "obs32", "wallpaper32", "wallpaper64", "Discord", "Spotify", "vlc", "mpc-hc64",
         "ClaudeIndicator", "Taskmgr", "mmc", "WindowsTerminal", "powershell", "pwsh", "cmd",
-        "conhost", "ShellHost", "PhoneExperienceHost", "msteams", "Teams", "slack", "zoom"
+        "conhost", "ShellHost", "PhoneExperienceHost", "msteams", "Teams", "slack", "zoom",
+        "EXCEL", "WINWORD", "POWERPNT", "OUTLOOK", "ONENOTE", "MSACCESS", "MSPUB", "VISIO",
+        "acrobat", "AcroRd32", "SumatraPDF", "Photoshop", "Illustrator"
     };
 
     private readonly FrameRateMonitor _frames;
@@ -92,6 +94,12 @@ public sealed class GameDetector
 
     /// <summary>Mostrar mesmo quando o jogo não está em primeiro plano.</summary>
     public bool ShowWithoutFocus { get; set; }
+
+    /// <summary>
+    /// Exceções escolhidas pelo usuário, somadas à lista embutida. Só valem para a adivinhação:
+    /// um processo apontado à mão é uma decisão explícita, e vetá-la seria desobedecer.
+    /// </summary>
+    public HashSet<string> Excluded { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Por que o alvo escolhido não está sendo mostrado agora, quando não está.</summary>
     public string? TargetStatus { get; private set; }
@@ -150,7 +158,7 @@ public sealed class GameDetector
         if (pid == 0 || pid == Environment.ProcessId) return null;
 
         var nome = ProcessName((int)pid);
-        if (nome == null || NaoSaoJogo.Contains(nome)) return null;
+        if (nome == null || NaoSaoJogo.Contains(nome) || Excluded.Contains(nome)) return null;
 
         if (!GetWindowRect(hwnd, out var r)) return null;
         var bounds = new GameInfo.Rect(r.Left, r.Top, r.Right, r.Bottom);

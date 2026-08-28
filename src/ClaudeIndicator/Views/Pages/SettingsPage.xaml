@@ -164,6 +164,26 @@
                             <CheckBox x:Name="ChkOverlayNoFocus" Style="{StaticResource Switch}" Margin="0,10,0,0"
                                       Content="Mostrar mesmo quando o jogo não está em primeiro plano"/>
 
+                            <TextBlock Text="Nunca mostrar nestes" Style="{StaticResource FieldLabel}" Margin="0,16,0,5"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,6" TextWrapping="Wrap"
+                                       Text="Vale para quando o app está adivinhando. Uma planilha maximizada cobre o monitor igualzinho a um jogo — aqui você diz quais aplicativos devem ser ignorados."/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Background="{StaticResource BgBrush}" CornerRadius="9" Padding="4" MinHeight="86">
+                                    <ListBox x:Name="ListaExcecoes" Background="Transparent" BorderThickness="0"
+                                             MaxHeight="130" Foreground="{StaticResource TextBrush}"
+                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Top">
+                                    <Button Content="Adicionar…" Click="OnAddExceptionClick" MinWidth="112"/>
+                                    <Button x:Name="BtnRemoverExcecao" Content="Remover" Click="OnRemoveExceptionClick"
+                                            Margin="0,8,0,0" MinWidth="112"/>
+                                </StackPanel>
+                            </Grid>
+
                             <Border x:Name="OverlayStatus" Background="{StaticResource BgBrush}" CornerRadius="9"
                                     Padding="14,11" Margin="0,12,0,0">
                                 <StackPanel>

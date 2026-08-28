@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Escolher a janela do jogo"
+        x:Name="Janela"
         Width="560" Height="460"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource BgBrush}"
@@ -18,8 +19,8 @@
         </Grid.RowDefinitions>
 
         <StackPanel>
-            <TextBlock Text="Janelas abertas" FontSize="15" FontWeight="SemiBold"/>
-            <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap"
+            <TextBlock x:Name="Titulo" Text="Janelas abertas" FontSize="15" FontWeight="SemiBold"/>
+            <TextBlock x:Name="Explicacao" Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap"
                        Margin="0,4,0,10"
                        Text="As que ocupam o monitor inteiro vêm primeiro — é onde o jogo costuma estar. O indicador passa a seguir a janela do processo escolhido."/>
         </StackPanel>

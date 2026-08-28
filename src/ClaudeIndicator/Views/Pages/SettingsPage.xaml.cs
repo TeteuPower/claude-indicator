@@ -66,7 +66,9 @@ public partial class SettingsPage : UserControl
         ChkOverlay.IsChecked = s.ShowGameOverlay;
         ChkOverlayNoFocus.IsChecked = s.OverlayWithoutFocus;
         _gameTarget = s.OverlayGameProcess ?? "";
+        _excecoes = new List<string>(s.OverlayExcluded ?? new List<string>());
         UpdateGameTargetUi();
+        UpdateExceptionsUi();
         SldOverlayMargin.Value = s.OverlayMargin;
         SldOverlayScale.Value = s.OverlayScale;
         SldOverlayOpacity.Value = s.OverlayOpacity;
@@ -167,6 +169,7 @@ public partial class SettingsPage : UserControl
         s.ShowGameOverlay = ChkOverlay.IsChecked == true;
         s.OverlayGameProcess = _gameTarget;
         s.OverlayWithoutFocus = ChkOverlayNoFocus.IsChecked == true;
+        s.OverlayExcluded = new List<string>(_excecoes);
         s.OverlayAnchor = _overlayAnchor;
         s.OverlayMargin = Math.Round(SldOverlayMargin.Value);
         s.OverlayScale = Math.Round(SldOverlayScale.Value, 2);
@@ -281,6 +284,63 @@ public partial class SettingsPage : UserControl
     }
 
     private string _gameTarget = "";
+    private List<string> _excecoes = new();
+
+    private void OnAddExceptionClick(object sender, RoutedEventArgs e)
+    {
+        var picker = new GamePickerWindow(paraExcecao: true) { Owner = Window.GetWindow(this) };
+        if (picker.ShowDialog() != true || picker.ChosenProcess == null) return;
+
+        var jaTem = _excecoes.Exists(n => string.Equals(n, picker.ChosenProcess, StringComparison.OrdinalIgnoreCase));
+        if (!jaTem) _excecoes.Add(picker.ChosenProcess);
+
+        UpdateExceptionsUi();
+        MarkDirty();
+    }
+
+    private void OnRemoveExceptionClick(object sender, RoutedEventArgs e)
+    {
+        if (ListaExcecoes.SelectedItem is not ListBoxItem item || item.Tag is not string nome) return;
+
+        _excecoes.RemoveAll(n => string.Equals(n, nome, StringComparison.OrdinalIgnoreCase));
+        UpdateExceptionsUi();
+        MarkDirty();
+    }
+
+    private void UpdateExceptionsUi()
+    {
+        if (ListaExcecoes == null) return;
+
+        ListaExcecoes.Items.Clear();
+        foreach (var nome in _excecoes)
+        {
+            ListaExcecoes.Items.Add(new ListBoxItem
+            {
+                Content = new TextBlock { Text = nome + ".exe", FontSize = 12.5 },
+                Tag = nome,
+                Padding = new Thickness(8, 5, 8, 5)
+            });
+        }
+
+        if (ListaExcecoes.Items.Count == 0)
+        {
+            ListaExcecoes.Items.Add(new ListBoxItem
+            {
+                Content = new TextBlock
+                {
+                    Text = "nenhuma — só a lista embutida (navegador, editor, Office, OBS…)",
+                    FontSize = 12,
+                    TextWrapping = TextWrapping.Wrap,
+                    Foreground = BarRenderer.Swatch("MutedBrush")
+                },
+                IsEnabled = false,
+                Padding = new Thickness(8, 5, 8, 5)
+            });
+        }
+
+        BtnRemoverExcecao.IsEnabled = _excecoes.Count > 0;
+    }
+
 
     private void OnPickGameClick(object sender, RoutedEventArgs e)
     {
