@@ -43,6 +43,8 @@ public partial class GameOverlayWindow : Window
 
         var alpha = (byte)Math.Clamp(Math.Round(s.OverlayOpacity * 255), 1, 255);
         Root.Background = new SolidColorBrush(Color.FromArgb(alpha, 0x12, 0x11, 0x10));
+
+        OutlinedText.SetOutlineEnabled(Root, s.PanelOutline);
     }
 
     /// <summary>

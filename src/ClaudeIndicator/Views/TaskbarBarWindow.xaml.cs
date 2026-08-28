@@ -80,6 +80,9 @@ public partial class TaskbarBarWindow : Window
         var alpha = (byte)Math.Clamp(Math.Round(s.TaskbarBarOpacity * 255), 1, 255);
         Root.Background = new SolidColorBrush(Color.FromArgb(alpha, 0x1F, 0x1E, 0x1D));
 
+        // marcada na raiz, a preferência desce sozinha para todo texto do painel
+        OutlinedText.SetOutlineEnabled(Root, s.PanelOutline);
+
         RenderCurrent();
         Reposition();
     }
@@ -229,7 +232,7 @@ public partial class TaskbarBarWindow : Window
             ApiOutcome.Ok => BarRenderer.Swatch("OkBrush"),
             ApiOutcome.RateLimited => BarRenderer.Swatch("WarnBrush"),
             ApiOutcome.Failed => BarRenderer.Swatch("DangerBrush"),
-            _ => TrilhaBorda
+            _ => _settings.PanelOutline ? TrilhaBorda : BarRenderer.Swatch("TrackBrush")
         };
 
         var bolinha = new System.Windows.Shapes.Ellipse
@@ -301,9 +304,9 @@ public partial class TaskbarBarWindow : Window
             Width = largura,
             Height = 5,
             CornerRadius = new CornerRadius(2.5),
-            Background = TrilhaEscura,
+            Background = FundoDaTrilha,
             BorderBrush = TrilhaBorda,
-            BorderThickness = new Thickness(1),
+            BorderThickness = EsperaDaTrilha,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(5, 0, 0, 0),
             ClipToBounds = true
@@ -395,10 +398,16 @@ public partial class TaskbarBarWindow : Window
     /// <summary>
     /// A trilha vazia da barra precisa aparecer tanto sobre a barra escura quanto sobre um papel de
     /// parede claro. Um preenchimento escuro resolve o segundo caso e a borda clara o primeiro —
-    /// isolados, cada um sumiria justamente no outro.
+    /// isolados, cada um sumiria justamente no outro. É o par que acompanha o texto com contorno.
     /// </summary>
     private static readonly Brush TrilhaEscura = Congelado(Color.FromArgb(0x73, 0, 0, 0));
     private static readonly Brush TrilhaBorda = Congelado(Color.FromArgb(0x59, 0xFF, 0xFF, 0xFF));
+
+    /// <summary>Preenchimento da trilha no estilo escolhido.</summary>
+    private Brush FundoDaTrilha => _settings.PanelOutline ? TrilhaEscura : BarRenderer.Swatch("TrackBrush");
+
+    /// <summary>Borda da trilha; sem contorno não há borda, como era antes.</summary>
+    private Thickness EsperaDaTrilha => new(_settings.PanelOutline ? 1 : 0);
 
     private static Brush Congelado(Color c)
     {
@@ -548,9 +557,9 @@ public partial class TaskbarBarWindow : Window
             Width = 52 * scale,
             Height = 5,
             CornerRadius = new CornerRadius(2.5),
-            Background = TrilhaEscura,
+            Background = FundoDaTrilha,
             BorderBrush = TrilhaBorda,
-            BorderThickness = new Thickness(1),
+            BorderThickness = EsperaDaTrilha,
             ClipToBounds = true
         };
         var grid = new Grid();

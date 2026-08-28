@@ -115,6 +115,18 @@
                                            HorizontalAlignment="Right" Foreground="{StaticResource MutedBrush}"/>
                             </Grid>
 
+                            <TextBlock Text="Estilo" Style="{StaticResource FieldLabel}" Margin="0,16,0,5"/>
+                            <Border Style="{StaticResource SegmentGroup}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton x:Name="EstiloContorno" GroupName="PanelStyle" Style="{StaticResource Segment}"
+                                                 Content="Com contorno"/>
+                                    <RadioButton x:Name="EstiloLeve" GroupName="PanelStyle" Style="{StaticResource Segment}"
+                                                 Content="Sem contorno"/>
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                       Text="Com contorno, cada letra ganha um traço escuro em volta e a trilha das barras fica escura com borda clara: lê sobre qualquer papel de parede, inclusive claro. Sem contorno é o visual mais leve, que combina com papel escuro. Vale para os dois painéis da barra e para o indicador no jogo."/>
+
                             <TextBlock Style="{StaticResource Hint}" Margin="0,10,0,0"
                                        Text="O Windows 11 não permite embutir componentes na barra de tarefas, então o painel é uma faixa posicionada sobre o espaço livre dela — ele acompanha mudanças de tamanho e some quando um aplicativo em tela cheia está na frente. Fundo em 0% deixa a barra do Windows aparecer atrás."/>
                         </StackPanel>
@@ -127,6 +139,8 @@
                                        Text="Escolha a janela do jogo e o app desenha FPS e os sensores por cima dela. A medição de quadros usa o rastreamento do próprio Windows — o mesmo caminho do PresentMon: nada é injetado no jogo e nada é lido da memória dele, que é o que faz anticheat reclamar."/>
 
                             <CheckBox x:Name="ChkOverlay" Style="{StaticResource Switch}" Content="Mostrar indicadores no jogo"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0" TextWrapping="Wrap"
+                                       Text="O estilo do texto é o mesmo dos painéis da barra — a opção fica em “Painel na barra de tarefas”."/>
 
                             <TextBlock Text="Qual é o jogo" Style="{StaticResource FieldLabel}" Margin="0,14,0,5"/>
                             <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,6" TextWrapping="Wrap"

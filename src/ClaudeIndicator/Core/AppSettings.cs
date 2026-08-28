@@ -62,6 +62,13 @@ public class AppSettings
     public double TaskbarBarScale { get; set; } = 1.0;
     public double TaskbarBarOffset { get; set; } = 8;
 
+    /// <summary>
+    /// Contorno escuro no texto e trilha escura nas barras. Ligado, os indicadores leem sobre
+    /// qualquer papel de parede; desligado, volta o visual mais leve, que combina com papel escuro.
+    /// Vale para os dois painéis da barra e para o indicador no jogo.
+    /// </summary>
+    public bool PanelOutline { get; set; } = true;
+
     // ---- Painel do PC (CPU, GPU, memória) ----
     /// <summary>Segundo painel na barra de tarefas, com os sensores do computador.</summary>
     public bool ShowPcPanel { get; set; }

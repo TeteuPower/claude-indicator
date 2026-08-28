@@ -71,8 +71,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.9.1
-git push origin v1.9.1
+git tag v1.9.2
+git push origin v1.9.2
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -93,7 +93,7 @@ Dois detalhes do GitHub que o app precisa contornar:
   pré-release. Por isso o app lista as releases e escolhe a maior versão, com uma opção para
   considerar ou não as pré-releases.
 - A pré-release usa a tag fixa `latest`, que não é uma versão. A versão sai então do **nome do
-  instalador anexado** (`ClaudeIndicator-Setup-1.9.1.exe`) — de propósito antes do título da
+  instalador anexado** (`ClaudeIndicator-Setup-1.9.2.exe`) — de propósito antes do título da
   release, porque o instalador é o arquivo que será realmente instalado e o título é texto que
   pode ficar defasado se a chamada que o atualiza falhar.
 
@@ -118,7 +118,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~63 MB)
-- `dist\ClaudeIndicator-Setup-1.9.1.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-1.9.2.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -375,10 +375,21 @@ jogo roda em janela menor que a tela. A janela do indicador é *click-through*: 
 enxerga, o clique vai direto para o jogo. Por padrão ele só aparece com o jogo em primeiro plano;
 há uma opção para mostrar mesmo sem foco.
 
-Todo o texto sai com **contorno escuro desenhado ao redor das letras**, e não com sombra
-desfocada. Desfoque espalha a tinta: em texto de 10 px o contorno fica fraco justamente onde mais
-precisa. Um traço sólido em volta da letra mantém a leitura sobre cena clara de jogo — e sobre
-papel de parede claro, no painel da barra de tarefas, que era onde o texto sumia.
+O texto sai com **contorno escuro desenhado ao redor das letras**, e não com sombra desfocada.
+Desfoque espalha a tinta: em texto de 10 px o contorno fica fraco justamente onde mais precisa. Um
+traço sólido em volta da letra mantém a leitura sobre cena clara de jogo — e sobre papel de parede
+claro, no painel da barra de tarefas, que era onde o texto sumia.
+
+O contorno é uma **escolha**, em *Configurações › Painel na barra de tarefas › Estilo*, e vale para
+os dois painéis da barra e para o indicador no jogo:
+
+| Estilo | Texto | Trilha da barra | Quando usar |
+|---|---|---|---|
+| **Com contorno** | traço escuro em volta da letra | escura, com borda clara | papel de parede claro, ou cena de jogo clara |
+| **Sem contorno** | texto comum | branca translúcida | papel de parede escuro, para um visual mais leve |
+
+Sem contorno o texto volta a ser desenhado pelo caminho normal do WPF, e não como forma
+preenchida — é o que devolve a nitidez de subpixel que o desenho por geometria não tem.
 
 | Modo do jogo | Aparece? |
 |---|---|

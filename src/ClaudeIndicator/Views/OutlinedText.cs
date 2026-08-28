@@ -17,9 +17,32 @@ namespace ClaudeIndicator.Views;
 /// O contorno é desenhado com o dobro da espessura e a letra por cima, de modo que só a metade de
 /// fora sobra — a metade de dentro seria comida pelo preenchimento de qualquer jeito, e assim a
 /// forma da letra não engorda.
+///
+/// Com <see cref="OutlineEnabledProperty"/> desligada ele desenha texto comum, sem contorno: o
+/// visual mais leve de antes, para quem tem papel de parede escuro e prefere assim.
 /// </summary>
 public sealed class OutlinedText : FrameworkElement
 {
+    /// <summary>
+    /// Liga o contorno. É herdada: basta marcá-la na raiz da janela e todo texto lá dentro
+    /// obedece, sem cada ponto de construção precisar saber da preferência.
+    /// </summary>
+    public static readonly DependencyProperty OutlineEnabledProperty =
+        DependencyProperty.RegisterAttached(
+            "OutlineEnabled", typeof(bool), typeof(OutlinedText),
+            new FrameworkPropertyMetadata(true,
+                FrameworkPropertyMetadataOptions.Inherits |
+                FrameworkPropertyMetadataOptions.AffectsRender |
+                FrameworkPropertyMetadataOptions.AffectsMeasure));
+
+    public static void SetOutlineEnabled(DependencyObject alvo, bool valor) =>
+        alvo.SetValue(OutlineEnabledProperty, valor);
+
+    public static bool GetOutlineEnabled(DependencyObject alvo) =>
+        (bool)alvo.GetValue(OutlineEnabledProperty);
+
+    private bool Contornar => GetOutlineEnabled(this);
+
     private FormattedText? _formatado;
     private Geometry? _geometria;
 
@@ -94,7 +117,8 @@ public sealed class OutlinedText : FrameworkElement
     {
         var ft = Formatar();
         // a folga é o contorno, que transborda a caixa do texto para os dois lados
-        return new Size(ft.WidthIncludingTrailingWhitespace + StrokeThickness * 2, ft.Height + StrokeThickness * 2);
+        var folga = Contornar ? StrokeThickness * 2 : 0;
+        return new Size(ft.WidthIncludingTrailingWhitespace + folga, ft.Height + folga);
     }
 
     protected override void OnRender(DrawingContext dc)
@@ -102,6 +126,17 @@ public sealed class OutlinedText : FrameworkElement
         if (_texto.Length == 0) return;
 
         var ft = Formatar();
+
+        // Sem contorno, o texto sai pelo caminho normal do WPF e não como forma preenchida: é o
+        // que devolve a nitidez de antes, com o refinamento de subpixel que o desenho por
+        // geometria não tem.
+        if (!Contornar)
+        {
+            ft.SetForegroundBrush(_preenchimento);
+            dc.DrawText(ft, new Point(0, 0));
+            return;
+        }
+
         _geometria ??= ft.BuildGeometry(new Point(StrokeThickness, StrokeThickness));
 
         // junta arredondada: sem isso, cantos agudos viram espinhos em fontes com serifa fina

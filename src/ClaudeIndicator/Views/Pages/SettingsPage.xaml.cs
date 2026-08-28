@@ -86,6 +86,8 @@ public partial class SettingsPage : UserControl
         SldTbOffset.Value = s.TaskbarBarOffset;
         SldTbScale.Value = s.TaskbarBarScale;
         SldTbOpacity.Value = s.TaskbarBarOpacity;
+        EstiloContorno.IsChecked = s.PanelOutline;
+        EstiloLeve.IsChecked = !s.PanelOutline;
 
         GadgetVertical.IsChecked = s.GadgetOrientation == BarOrientation.Vertical;
         GadgetHorizontal.IsChecked = s.GadgetOrientation == BarOrientation.Horizontal;
@@ -182,6 +184,7 @@ public partial class SettingsPage : UserControl
         s.TaskbarBarOffset = Math.Round(SldTbOffset.Value);
         s.TaskbarBarScale = Math.Round(SldTbScale.Value, 2);
         s.TaskbarBarOpacity = Math.Round(SldTbOpacity.Value, 2);
+        s.PanelOutline = EstiloLeve.IsChecked != true;
 
         s.GadgetOrientation = GadgetHorizontal.IsChecked == true ? BarOrientation.Horizontal : BarOrientation.Vertical;
         s.GadgetOpacity = SldOpacity.Value;
@@ -270,7 +273,7 @@ public partial class SettingsPage : UserControl
                      ChkRateTaskbar, ChkRateGadget, RateWeekly, RateSession, RateFable,
                      Win5, Win20, Win60, Win1440, ChkTimeProgress, ChkCallTimeline,
                      ChkOverlay, ChkOvFps, ChkOvFrameTime, ChkOvCpu, ChkOvGpu, ChkOvRam, ChkOvClaude,
-                     ChkOverlayNoFocus
+                     ChkOverlayNoFocus, EstiloContorno, EstiloLeve
                  })
         {
             Hook(c);
