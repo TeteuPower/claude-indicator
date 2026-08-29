@@ -64,6 +64,12 @@ public class AppSettings
     public double TaskbarBarOffset { get; set; } = 8;
 
     /// <summary>
+    /// Botão de trocar o tema claro/escuro do Windows, no fim do painel. Fica no painel do
+    /// computador, que é onde moram os controles do sistema; com ele desligado, vai para o da IA.
+    /// </summary>
+    public bool ShowThemeToggle { get; set; } = true;
+
+    /// <summary>
     /// Contorno escuro no texto e trilha escura nas barras. Ligado, os indicadores leem sobre
     /// qualquer papel de parede; desligado, volta o visual mais leve, que combina com papel escuro.
     /// Vale para os dois painéis da barra e para o indicador no jogo.

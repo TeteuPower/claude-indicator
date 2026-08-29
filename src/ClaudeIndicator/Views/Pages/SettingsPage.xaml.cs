@@ -61,6 +61,7 @@ public partial class SettingsPage : UserControl
         ChkPcCpuSensors.IsChecked = s.PcCpuSensors;
         ChkPcGpu.IsChecked = s.PcShowGpu;
         ChkPcRam.IsChecked = s.PcShowRam;
+        ChkThemeToggle.IsChecked = s.ShowThemeToggle;
         SldPcInterval.Value = s.PcIntervalSeconds;
 
         ChkOverlay.IsChecked = s.ShowGameOverlay;
@@ -164,6 +165,7 @@ public partial class SettingsPage : UserControl
         s.PcCpuSensors = ChkPcCpuSensors.IsChecked == true;
         s.PcShowGpu = ChkPcGpu.IsChecked == true;
         s.PcShowRam = ChkPcRam.IsChecked == true;
+        s.ShowThemeToggle = ChkThemeToggle.IsChecked == true;
         s.PcIntervalSeconds = (int)Math.Round(SldPcInterval.Value);
 
         s.ShowGameOverlay = ChkOverlay.IsChecked == true;
@@ -273,6 +275,7 @@ public partial class SettingsPage : UserControl
                      OrientVertical, OrientHorizontal, TbLeft, TbRight,
                      GadgetVertical, GadgetHorizontal, ChkCheckUpdates,
                      ChkPcPanel, PcLeft, PcRight, ChkPcCpu, ChkPcCpuSensors, ChkPcGpu, ChkPcRam,
+                     ChkThemeToggle,
                      ChkRateTaskbar, ChkRateGadget, RateWeekly, RateSession, RateFable,
                      Win5, Win20, Win60, Win1440, ChkTimeProgress, ChkCallTimeline,
                      ChkOverlay, ChkOvFps, ChkOvFrameTime, ChkOvCpu, ChkOvGpu, ChkOvRam, ChkOvClaude,

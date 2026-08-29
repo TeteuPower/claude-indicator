@@ -1,6 +1,8 @@
 using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Shapes;
+using System.Collections.Generic;
 using System.Windows.Media;
 using ClaudeIndicator.Core;
 
@@ -56,6 +58,65 @@ public static class BarRenderer
     /// sobre um preenchimento colorido, e transborda a altura do trilho para ninguém confundi-la
     /// com um pedaço do preenchimento.
     /// </summary>
+    /// <summary>
+    /// As formas do ícone: sol (disco e raios) ou lua (crescente). <paramref name="engrossar"/>
+    /// maior que zero devolve a versão de contorno, que vai por baixo.
+    /// </summary>
+    public static List<UIElement> ThemeIcon(bool claro, double lado, Brush cor, double engrossar)
+    {
+        var partes = new List<UIElement>();
+        var c = lado / 2;
+
+        if (claro)
+        {
+            // lua crescente: um disco menos outro deslocado
+            var cheia = new EllipseGeometry(new Point(c, c), lado * 0.33, lado * 0.33);
+            var mordida = new EllipseGeometry(new Point(c + lado * 0.20, c - lado * 0.16),
+                                              lado * 0.29, lado * 0.29);
+            partes.Add(new Path
+            {
+                Data = new CombinedGeometry(GeometryCombineMode.Exclude, cheia, mordida),
+                Fill = cor,
+                Stroke = engrossar > 0 ? cor : null,
+                StrokeThickness = engrossar,
+                StrokeLineJoin = PenLineJoin.Round
+            });
+            return partes;
+        }
+
+        // sol: disco e oito raios
+        partes.Add(new Path
+        {
+            Data = new EllipseGeometry(new Point(c, c), lado * 0.21, lado * 0.21),
+            Fill = cor,
+            Stroke = engrossar > 0 ? cor : null,
+            StrokeThickness = engrossar,
+            StrokeLineJoin = PenLineJoin.Round
+        });
+
+        var raios = new GeometryGroup();
+        for (var i = 0; i < 8; i++)
+        {
+            var ang = i * Math.PI / 4;
+            var de = lado * 0.31;
+            var ate = lado * 0.45;
+            raios.Children.Add(new LineGeometry(
+                new Point(c + Math.Cos(ang) * de, c + Math.Sin(ang) * de),
+                new Point(c + Math.Cos(ang) * ate, c + Math.Sin(ang) * ate)));
+        }
+        partes.Add(new Path
+        {
+            Data = raios,
+            Stroke = cor,
+            // o reforço engrossa o raio pelos dois lados, então metade de cada lado é o que
+            // aparece como contorno — mais que isso e os oito raios viram um borrão só
+            StrokeThickness = (1.5 + engrossar) * (lado / 17),
+            StrokeStartLineCap = PenLineCap.Round,
+            StrokeEndLineCap = PenLineCap.Round
+        });
+        return partes;
+    }
+
     public static UIElement BuildTimeMarker(double fraction, double trackHeight)
     {
         var grade = new Grid { IsHitTestVisible = false };

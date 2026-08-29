@@ -76,8 +76,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.9.5
-git push origin v1.9.5
+git tag v1.9.6
+git push origin v1.9.6
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -98,7 +98,7 @@ Dois detalhes do GitHub que o app precisa contornar:
   pré-release. Por isso o app lista as releases e escolhe a maior versão, com uma opção para
   considerar ou não as pré-releases.
 - A pré-release usa a tag fixa `latest`, que não é uma versão. A versão sai então do **nome do
-  instalador anexado** (`ClaudeIndicator-Setup-1.9.5.exe`) — de propósito antes do título da
+  instalador anexado** (`ClaudeIndicator-Setup-1.9.6.exe`) — de propósito antes do título da
   release, porque o instalador é o arquivo que será realmente instalado e o título é texto que
   pode ficar defasado se a chamada que o atualiza falhar.
 
@@ -123,7 +123,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~63 MB)
-- `dist\ClaudeIndicator-Setup-1.9.5.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-1.9.6.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -428,6 +428,21 @@ e sair disso exigiria injetar no processo do jogo. Como o Windows 11 roda quase 
 cheia com otimizações, na prática o caso raro é o terceiro; quando acontecer, alternar o jogo para
 "tela cheia em janela" resolve.
 
+## Trocar o tema do Windows
+
+No fim do painel do computador há um botão que **troca o tema claro/escuro do Windows** num clique.
+Ele mostra o tema de destino — sol quando está escuro, lua quando está claro —, porque é isso que o
+clique faz; o balão diz com todas as letras, para não sobrar dúvida.
+
+Por baixo não há mágica: a página *Personalização › Cores* escreve duas chaves em
+`HKCU\...\Themes\Personalize` (`AppsUseLightTheme` e `SystemUsesLightTheme`) e avisa o sistema. São
+duas porque o Windows separa aplicativos de sistema — a barra de tarefas e o Iniciar seguem a
+segunda —, e a caixa "Escolher seu modo" muda as duas juntas. O botão faz o mesmo, incluindo o
+`WM_SETTINGCHANGE`: sem esse aviso os aplicativos já abertos ficariam com o tema antigo até serem
+reiniciados.
+
+Com o painel do computador desligado, o botão vai para o painel da IA em vez de desaparecer.
+
 ## Consumo por projeto
 
 A API informa **porcentagem do limite**; ela não diz em que você gastou. Quem sabe disso são as
@@ -505,6 +520,7 @@ src/ClaudeIndicator/
     GameDetector.cs      resolve qual janela recebe o indicador (escolhida ou adivinhada)
     WindowScanner.cs     lista as janelas abertas para você apontar qual é o jogo
     StartupManager.cs    inicialização automática (HKCU\...\Run)
+    WindowsTheme.cs      lê e troca o tema claro/escuro do Windows
     AppInfo.cs           versão exibida na interface
   Views/
     MainWindow.xaml      painel: navegação lateral + página escolhida

@@ -281,6 +281,10 @@
                             <TextBlock Style="{StaticResource Hint}" Margin="27,2,0,0"
                                        Text="A GPU entrega tudo sem driver e sem elevação. O uso da CPU e a memória também."/>
                             <CheckBox x:Name="ChkPcRam" Style="{StaticResource Switch}" Content="Memória (uso e GB)"/>
+                            <CheckBox x:Name="ChkThemeToggle" Style="{StaticResource Switch}"
+                                      Content="Botão de trocar o tema claro/escuro do Windows"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="27,2,0,0" TextWrapping="Wrap"
+                                       Text="Um clique faz o que a página Personalização › Cores faz: troca o modo dos aplicativos e do sistema de uma vez. Com o painel do computador desligado, o botão vai para o painel da IA."/>
 
                             <Grid Margin="0,14,0,0">
                                 <Grid.ColumnDefinitions>

@@ -134,6 +134,12 @@ public partial class TaskbarBarWindow : Window
             CellsPanel.Children.Add(BuildHardwareCell("RAM", hw.Ram, s, hw));
         }
 
+        if (s.ShowThemeToggle && cells > 0)
+        {
+            CellsPanel.Children.Add(Divider());
+            CellsPanel.Children.Add(BuildThemeCell(s));
+        }
+
         if (cells == 0 || (!hw.Ok && !hw.Cpu.HasAnything && !hw.Gpu.HasAnything))
         {
             CellsPanel.Children.Clear();
@@ -191,6 +197,13 @@ public partial class TaskbarBarWindow : Window
             var rate = AppHost.Current?.Rate ?? RateReading.Empty;
             CellsPanel.Children.Add(Divider());
             CellsPanel.Children.Add(BuildGaugeCell(rate, s));
+        }
+
+        // o botão do tema mora no painel do computador; sem ele, vem para cá em vez de sumir
+        if (s.ShowThemeToggle && !s.ShowPcPanel)
+        {
+            CellsPanel.Children.Add(Divider());
+            CellsPanel.Children.Add(BuildThemeCell(s));
         }
 
         DrawCallTimeline();
@@ -336,6 +349,59 @@ public partial class TaskbarBarWindow : Window
             ToolTip = DescribeHardware(rotulo, c, hw)
         };
     }
+
+    // ------------------------------------------------------------------
+    // Tema do Windows
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Botão que troca o tema claro/escuro do Windows. Mostra o tema de DESTINO, não o atual: um
+    /// sol quando está escuro, uma lua quando está claro — é o que o clique vai fazer, e o balão
+    /// diz isso com todas as letras para não sobrar dúvida.
+    ///
+    /// Os ícones são desenhados como forma, e não como caractere de fonte. Já houve glifo virando
+    /// quadrado vazio neste app por causa do estilo global de fonte, e um botão que não se explica
+    /// é pior que botão nenhum.
+    /// </summary>
+    private UIElement BuildThemeCell(AppSettings s)
+    {
+        var claro = WindowsTheme.IsLight();
+        var scale = s.TaskbarBarScale;
+        var lado = 17 * scale;
+
+        var icone = new Grid { Width = lado, Height = lado };
+        var cor = BarRenderer.Swatch("TextBrush");
+
+        // cópia escura por baixo, mais grossa: é o mesmo contorno do texto, para o ícone não
+        // sumir sobre papel de parede claro
+        if (s.PanelOutline)
+        {
+            foreach (var parte in BarRenderer.ThemeIcon(claro, lado, Contorno, 1.5))
+                icone.Children.Add(parte);
+        }
+        foreach (var parte in BarRenderer.ThemeIcon(claro, lado, cor, 0))
+            icone.Children.Add(parte);
+
+        var alvo = claro ? "escuro" : "claro";
+        var botao = new Border
+        {
+            Child = icone,
+            Background = System.Windows.Media.Brushes.Transparent,
+            Padding = new Thickness(6, 0, 4, 0),
+            Cursor = Cursors.Hand,
+            VerticalAlignment = VerticalAlignment.Center,
+            ToolTip = $"Tema do Windows: {(claro ? "claro" : "escuro")}.\nClique para mudar para o {alvo}."
+        };
+        botao.MouseLeftButtonUp += (_, e) =>
+        {
+            e.Handled = true;   // senão o clique subiria e abriria o painel
+            WindowsTheme.Toggle();
+            RenderCurrent();    // o ícone passa a mostrar o novo destino
+        };
+        return botao;
+    }
+
+    private static readonly Brush Contorno = Congelado(Color.FromArgb(0xE6, 0, 0, 0));
 
     /// <summary>Medidas de apoio da célula: temperatura, watts ou memória, conforme o componente.</summary>
     private static string Support(ComponentReading c, string rotulo)
