@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
 
@@ -90,6 +91,19 @@ public sealed class EtwSession : IDisposable
     /// <summary>Por que a sessão não subiu, quando não subiu.</summary>
     public string? Error { get; private set; }
 
+    /// <summary>Eventos recebidos, de qualquer provedor. Zero com a sessão no ar significa problema.</summary>
+    public long EventsSeen => _eventsSeen;
+
+    /// <summary>Desses, quantos eram quadro apresentado.</summary>
+    public long PresentsSeen => _presentsSeen;
+
+    /// <summary>Provedores que recusaram ser ligados, se houve algum.</summary>
+    public IReadOnlyList<string> EnableErrors => _enableErrors;
+
+    private long _eventsSeen;
+    private long _presentsSeen;
+    private readonly List<string> _enableErrors = new();
+
     /// <summary>Está escutando?</summary>
     public bool Running => _traceHandle != 0 && _traceHandle != InvalidHandle;
 
@@ -115,7 +129,11 @@ public sealed class EtwSession : IDisposable
                 {
                     BufferSize = (uint)size,
                     Flags = WnodeFlagTracedGuid,
-                    ClientContext = 1 // carimbos em QueryPerformanceCounter
+                    // Carimbos em hora do sistema (FILETIME, 100 ns desde 1601). Pedir
+                    // QueryPerformanceCounter aqui não é atendido — a sessão entrega FILETIME de
+                    // qualquer jeito —, e pedir uma coisa recebendo outra é como o medidor ficou
+                    // comparando carimbo de um relógio com "agora" de outro.
+                    ClientContext = 2
                 },
                 LogFileMode = ProcessTraceModeRealTime,
                 BufferSize = 64,
@@ -173,9 +191,16 @@ public sealed class EtwSession : IDisposable
 
     private void EnableProvider(Guid provider)
     {
-        // nível "informativo" e nenhuma palavra-chave: os eventos de Present são os básicos
-        EnableTraceEx2(_handle, ref provider, EventControlCodeEnableProvider,
-                       TraceLevelInformation, 0, 0, 0, IntPtr.Zero);
+        // O NÍVEL é um filtro, não uma etiqueta: o ETW entrega apenas eventos de nível menor ou
+        // igual ao pedido. "Informativo" (4) parecia razoável e descartava calado tudo que é
+        // detalhado (5) — que é justamente onde o Present mora. Pedindo o máximo, nada é filtrado.
+        //
+        // A palavra-chave fica em zero de propósito, e não em "todas": zero significa sem filtro
+        // por palavra-chave, enquanto todas-ligadas exigiria que o evento tivesse ao menos uma —
+        // e evento sem palavra-chave nenhuma nunca chegaria.
+        var status = EnableTraceEx2(_handle, ref provider, EventControlCodeEnableProvider,
+                                    TraceLevelAll, 0, 0, 0, IntPtr.Zero);
+        if (status != 0) _enableErrors.Add($"{provider}: erro {status}");
     }
 
     /// <summary>
@@ -234,6 +259,8 @@ public sealed class EtwSession : IDisposable
     {
         if (_stopping) return;
 
+        System.Threading.Interlocked.Increment(ref _eventsSeen);
+
         var id = record.EventHeader.EventDescriptor.Id;
         var provider = record.EventHeader.ProviderId;
 
@@ -243,6 +270,7 @@ public sealed class EtwSession : IDisposable
             if (p == provider && evento == id) { isPresent = true; break; }
         }
         if (!isPresent) return;
+        System.Threading.Interlocked.Increment(ref _presentsSeen);
 
         try
         {
@@ -296,7 +324,7 @@ public sealed class EtwSession : IDisposable
     private const uint ProcessTraceModeRealTime = 0x00000100;
     private const uint ProcessTraceModeEventRecord = 0x10000000;
     private const uint EventControlCodeEnableProvider = 1;
-    private const byte TraceLevelInformation = 4;
+    private const byte TraceLevelAll = 0xFF;
     private const uint ControlCodeStop = 1;
     private const int ErrorAccessDenied = 5;
 

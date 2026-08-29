@@ -76,8 +76,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.9.7
-git push origin v1.9.7
+git tag v1.9.8
+git push origin v1.9.8
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -98,7 +98,7 @@ Dois detalhes do GitHub que o app precisa contornar:
   pré-release. Por isso o app lista as releases e escolhe a maior versão, com uma opção para
   considerar ou não as pré-releases.
 - A pré-release usa a tag fixa `latest`, que não é uma versão. A versão sai então do **nome do
-  instalador anexado** (`ClaudeIndicator-Setup-1.9.7.exe`) — de propósito antes do título da
+  instalador anexado** (`ClaudeIndicator-Setup-1.9.8.exe`) — de propósito antes do título da
   release, porque o instalador é o arquivo que será realmente instalado e o título é texto que
   pode ficar defasado se a chamada que o atualiza falhar.
 
@@ -123,7 +123,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~63 MB)
-- `dist\ClaudeIndicator-Setup-1.9.7.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-1.9.8.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -352,6 +352,18 @@ Intel e do FrameView da NVIDIA. Os provedores usados:
 
 Só o **cabeçalho** de cada evento é lido — qual processo apresentou e quando. O corpo é ignorado,
 o que dispensa decodificar manifesto e deixa o custo em quase nada.
+
+Três detalhes desse caminho custaram caro para descobrir, e valem estar escritos:
+
+- **O nível é filtro, não etiqueta.** O ETW entrega apenas eventos de nível menor ou igual ao
+  pedido, e o Present é "detalhado" (5). Pedindo "informativo" (4), a sessão sobe, não dá erro
+  nenhum e não recebe um único evento.
+- **O carimbo vem em hora do sistema**, não no contador de alta resolução — mesmo pedindo o
+  contador. Comparar carimbo de um relógio com "agora" de outro dá tempo negativo em toda conta.
+- **A entrega é em lote.** Os eventos chegam com cerca de dois segundos de atraso, então a
+  contagem é feita sobre os próprios carimbos, e não contra o relógio de parede; este último
+  responde só a uma pergunta, se o processo ainda está apresentando. É por isso que o FPS mostrado
+  tem alguns segundos de defasagem — o preço de não injetar nada no jogo.
 
 Criar uma sessão de rastreamento **exige administrador** (a mesma exigência do PresentMon e do
 FrameView). Sem elevação o bloco ainda aparece com os sensores, e o FPS fica em branco com o
