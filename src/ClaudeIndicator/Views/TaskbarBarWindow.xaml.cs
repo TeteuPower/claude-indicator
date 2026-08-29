@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Runtime.InteropServices;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -56,7 +57,15 @@ public partial class TaskbarBarWindow : Window
             Reposition();
             _follow.Start();
         };
-        Closed += (_, _) => _follow.Stop();
+
+        // Toda ativação de janela refaz a ordem-Z. Escutar o aviso do sistema tira a espera pelo
+        // próximo tique: o painel volta para cima em milissegundos, e não em quase um segundo.
+        ForegroundWatcher.Changed += OnForegroundChanged;
+        Closed += (_, _) =>
+        {
+            _follow.Stop();
+            ForegroundWatcher.Changed -= OnForegroundChanged;
+        };
 
         // tooltip que fica aberto enquanto o mouse estiver ali, em vez dos 5 s padrão do WPF
         ToolTipService.SetShowDuration(this, 120000);
@@ -387,7 +396,7 @@ public partial class TaskbarBarWindow : Window
         {
             Child = icone,
             Background = System.Windows.Media.Brushes.Transparent,
-            Padding = new Thickness(6, 0, 4, 0),
+            Padding = new Thickness(6, 0, 2, 0),
             Cursor = Cursors.Hand,
             VerticalAlignment = VerticalAlignment.Center,
             ToolTip = $"Tema do Windows: {(claro ? "claro" : "escuro")}.\nClique para mudar para o {alvo}."
@@ -725,19 +734,89 @@ public partial class TaskbarBarWindow : Window
     }
 
     /// <summary>
-    /// A barra de tarefas também é topmost, então de tempos em tempos é preciso reafirmar a nossa
-    /// posição na ordem-Z. Fazer isso a cada tique piscava o tooltip, e fazer com o mouse em cima
-    /// o fecharia: só acontece de 10 em 10 segundos e nunca sob o cursor.
+    /// A barra de tarefas também é topmost, e fechar ou ativar qualquer janela remexe a ordem-Z:
+    /// o painel acaba atrás da barra e some.
+    ///
+    /// Reafirmar o topo a cada tique resolveria, mas mexer em Topmost derruba o tooltip aberto —
+    /// era por isso que existia um intervalo de 10 segundos, e era por isso que fechar a janela do
+    /// app fazia os indicadores sumirem por vários segundos até o próximo reforço.
+    ///
+    /// Agora a pergunta é outra: em vez de reafirmar de tempos em tempos, ele checa se está
+    /// coberto e só age quando está. Coberto, volta na hora — e nem precisa poupar o tooltip,
+    /// porque janela coberta não tem cursor em cima.
     /// </summary>
     private void ReassertTopmost()
     {
+        // Com o cursor em cima não se mexe em nada: mexer em Topmost fecha o tooltip aberto, e o
+        // balão do tooltip pode até cair sobre o painel e ser confundido com "estou coberto" — o
+        // que viraria um ciclo de fechar e reabrir. E não se perde nada: janela coberta não tem
+        // cursor em cima, por definição.
         if (IsMouseOver) return;
-        if (DateTime.UtcNow - _lastTopmost < TimeSpan.FromSeconds(10)) return;
+
+        // rede de segurança, para o caso de a checagem não enxergar alguma sobreposição
+        if (!EstouCoberto() && DateTime.UtcNow - _lastTopmost < TimeSpan.FromSeconds(30)) return;
 
         _lastTopmost = DateTime.UtcNow;
         Topmost = false;
         Topmost = true;
     }
+
+    /// <summary>
+    /// Tem alguma janela na frente? Pergunta ao Windows quem atende no centro do painel: se a
+    /// resposta não somos nós, alguém passou por cima. Duas chamadas, e sem depender de cursor.
+    /// </summary>
+    private bool EstouCoberto()
+    {
+        try
+        {
+            var meu = new WindowInteropHelper(this).Handle;
+            if (meu == IntPtr.Zero) return false;
+            if (!GetWindowRect(meu, out var r)) return false;
+            if (r.Right - r.Left < 4 || r.Bottom - r.Top < 4) return false;
+
+            var quem = WindowFromPoint(new NativePoint
+            {
+                X = (r.Left + r.Right) / 2,
+                Y = (r.Top + r.Bottom) / 2
+            });
+            return quem != meu;
+        }
+        catch
+        {
+            return false; // sem resposta, deixa a rede de segurança cuidar
+        }
+    }
+
+    /// <summary>
+    /// Alguém foi para a frente: confere na hora se isso nos cobriu. O <see cref="ReassertTopmost"/>
+    /// só age se cobriu de verdade, então este caminho não custa nada quando não houve problema.
+    /// </summary>
+    private void OnForegroundChanged()
+    {
+        if (_hidden || Visibility != Visibility.Visible) return;
+        ReassertTopmost();
+    }
+
+    /// <summary>Volta para cima agora, sem esperar o próximo tique. Usado quando uma janela do app fecha.</summary>
+    public void BringToFront() => OnForegroundChanged();
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeRect
+    {
+        public int Left, Top, Right, Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativePoint
+    {
+        public int X, Y;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern bool GetWindowRect(IntPtr hWnd, out NativeRect rect);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr WindowFromPoint(NativePoint point);
 
     /// <summary>Não rouba o foco ao aparecer: continua sendo um indicador, não uma janela.</summary>
     protected override void OnSourceInitialized(EventArgs e)

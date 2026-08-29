@@ -29,7 +29,9 @@
     </Window.ContextMenu>
 
     <!-- fundo levemente destacado para separar da barra sem brigar com ela -->
-    <Border x:Name="Root" Background="#00000000" Padding="10,0" MouseLeftButtonUp="OnClick"
+    <!-- Folga pequena de propósito: a distância até os ícones do Windows é para ser ajustada no
+         "Deslocamento" das configurações, e não ficar embutida aqui num valor que ninguém alcança. -->
+    <Border x:Name="Root" Background="#00000000" Padding="4,0" MouseLeftButtonUp="OnClick"
             Cursor="Hand">
         <StackPanel x:Name="ContentRow" Orientation="Horizontal" VerticalAlignment="Center">
             <StackPanel x:Name="CellsPanel" Orientation="Horizontal" VerticalAlignment="Center"/>

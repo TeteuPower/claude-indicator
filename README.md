@@ -76,8 +76,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.9.6
-git push origin v1.9.6
+git tag v1.9.7
+git push origin v1.9.7
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -98,7 +98,7 @@ Dois detalhes do GitHub que o app precisa contornar:
   pré-release. Por isso o app lista as releases e escolhe a maior versão, com uma opção para
   considerar ou não as pré-releases.
 - A pré-release usa a tag fixa `latest`, que não é uma versão. A versão sai então do **nome do
-  instalador anexado** (`ClaudeIndicator-Setup-1.9.6.exe`) — de propósito antes do título da
+  instalador anexado** (`ClaudeIndicator-Setup-1.9.7.exe`) — de propósito antes do título da
   release, porque o instalador é o arquivo que será realmente instalado e o título é texto que
   pode ficar defasado se a chamada que o atualiza falhar.
 
@@ -123,7 +123,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~63 MB)
-- `dist\ClaudeIndicator-Setup-1.9.6.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-1.9.7.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -501,6 +501,11 @@ antigas barras de ferramentas que podiam ser embutidas na barra de tarefas. Não
 colocar um componente lá dentro. O que o app faz é posicionar uma janela sem borda sobre o espaço
 livre da barra (à esquerda do botão Iniciar, ou entre os ícones e o relógio), acompanhando mudanças
 de tamanho, posição e DPI, e se escondendo quando um aplicativo em tela cheia está na frente.
+
+Manter-se por cima exige atenção: a barra de tarefas também é topmost, e fechar ou ativar qualquer
+janela remexe a ordem-Z. Em vez de reafirmar a posição de tempos em tempos — o que derruba o
+tooltip aberto —, o painel pergunta ao Windows quem atende no seu ponto central; se a resposta não
+for ele mesmo, alguém passou na frente e ele volta na hora.
 
 ```
 src/ClaudeIndicator/

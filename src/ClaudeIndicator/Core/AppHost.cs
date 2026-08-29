@@ -93,6 +93,8 @@ public sealed class AppHost
 
         var idadeDoRetrato = RestoreSession();
 
+        ForegroundWatcher.Start();
+
         BuildTray();
         ApplyDisplayMode();
 
@@ -459,7 +461,14 @@ public sealed class AppHost
         }
 
         _main = new MainWindow(this, section);
-        _main.Closed += (_, _) => _main = null;
+        _main.Closed += (_, _) =>
+        {
+            _main = null;
+            // fechar uma janela remexe a ordem-Z: sem isto os painéis ficam atrás da barra de
+            // tarefas até a próxima checagem, e o usuário vê os indicadores sumirem
+            _taskbarBar?.BringToFront();
+            _pcPanel?.BringToFront();
+        };
         _main.Show();
         _main.Activate();
     }
@@ -774,6 +783,7 @@ public sealed class AppHost
     public void Exit()
     {
         SessionState.Save(_lastGood, _calls.Recent());
+        ForegroundWatcher.Stop();
         _timer.Stop();
         _overlayClock.Stop();
         _overlay?.Close();
