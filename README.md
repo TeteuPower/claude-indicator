@@ -76,8 +76,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.9.8
-git push origin v1.9.8
+git tag v1.9.9
+git push origin v1.9.9
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -98,7 +98,7 @@ Dois detalhes do GitHub que o app precisa contornar:
   pré-release. Por isso o app lista as releases e escolhe a maior versão, com uma opção para
   considerar ou não as pré-releases.
 - A pré-release usa a tag fixa `latest`, que não é uma versão. A versão sai então do **nome do
-  instalador anexado** (`ClaudeIndicator-Setup-1.9.8.exe`) — de propósito antes do título da
+  instalador anexado** (`ClaudeIndicator-Setup-1.9.9.exe`) — de propósito antes do título da
   release, porque o instalador é o arquivo que será realmente instalado e o título é texto que
   pode ficar defasado se a chamada que o atualiza falhar.
 
@@ -123,7 +123,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~63 MB)
-- `dist\ClaudeIndicator-Setup-1.9.8.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-1.9.9.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -365,6 +365,10 @@ Três detalhes desse caminho custaram caro para descobrir, e valem estar escrito
   responde só a uma pergunta, se o processo ainda está apresentando. É por isso que o FPS mostrado
   tem alguns segundos de defasagem — o preço de não injetar nada no jogo.
 
+Sem FPS, o bloco diz por quê ali mesmo — "precisa de administrador" ou "este jogo não passa pelo
+DirectX" —, em vez de mostrar um traço mudo. Quem está no meio de uma partida não vai abrir as
+configurações para descobrir o motivo.
+
 Criar uma sessão de rastreamento **exige administrador** (a mesma exigência do PresentMon e do
 FrameView). Sem elevação o bloco ainda aparece com os sensores, e o FPS fica em branco com o
 motivo explicado nas configurações. Duas saídas: usar *Reiniciar como administrador*, ou — uma vez
@@ -428,6 +432,25 @@ os dois painéis da barra e para o indicador no jogo:
 
 Sem contorno o texto volta a ser desenhado pelo caminho normal do WPF, e não como forma
 preenchida — é o que devolve a nitidez de subpixel que o desenho por geometria não tem.
+
+### Atalhos, para usar dentro da partida
+
+Durante uma partida não dá para alternar até as configurações — e é justamente ali que se quer
+tirar o bloco da frente ou mudá-lo de canto. Dois atalhos globais resolvem, e funcionam com o jogo
+em primeiro plano:
+
+| Padrão | O que faz |
+|---|---|
+| `Ctrl+Alt+O` | liga e desliga o bloco |
+| `Ctrl+Alt+M` | passa para o próximo dos nove cantos, em volta |
+
+Ambos são configuráveis em *Configurações › Indicadores por cima do jogo*: clique no botão e
+pressione a combinação que quiser (Esc cancela, Backspace desliga o atalho). Quando o Windows
+recusa uma combinação — porque outro programa já a tomou —, a tela avisa em vez de deixar o atalho
+mudo.
+
+A escolha fica guardada: desligar o bloco pelo atalho é uma decisão, não um sumiço temporário, e
+ela continua valendo na próxima vez que o app abrir.
 
 | Modo do jogo | Aparece? |
 |---|---|
@@ -538,6 +561,8 @@ src/ClaudeIndicator/
     WindowScanner.cs     lista as janelas abertas para você apontar qual é o jogo
     StartupManager.cs    inicialização automática (HKCU\...\Run)
     WindowsTheme.cs      lê e troca o tema claro/escuro do Windows
+    Hotkey.cs            uma combinação de teclas, em texto legível
+    HotkeyManager.cs     atalhos globais, que funcionam com o jogo em foco
     AppInfo.cs           versão exibida na interface
   Views/
     MainWindow.xaml      painel: navegação lateral + página escolhida

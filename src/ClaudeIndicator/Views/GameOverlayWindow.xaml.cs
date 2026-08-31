@@ -101,6 +101,21 @@ public partial class GameOverlayWindow : Window
                 Foreground = BarRenderer.Swatch("MutedBrush"),
                 VerticalAlignment = VerticalAlignment.Center
             });
+
+            // Um traço sozinho não diz nada, e quem está no jogo não vai abrir as configurações
+            // para descobrir o motivo. A explicação vai junto, onde a falta está sendo vista.
+            var motivo = MotivoSemFps();
+            if (motivo != null)
+            {
+                linha.Children.Add(new OutlinedText
+                {
+                    Text = motivo,
+                    FontSize = 11,
+                    Margin = new Thickness(8, 0, 0, 3),
+                    Foreground = BarRenderer.Swatch("WarnBrush"),
+                    VerticalAlignment = VerticalAlignment.Bottom
+                });
+            }
             return linha;
         }
 
@@ -142,6 +157,19 @@ public partial class GameOverlayWindow : Window
         }
 
         return linha;
+    }
+
+    /// <summary>
+    /// Por que não há FPS. Só duas respostas importam aqui: falta elevação — de longe o caso comum,
+    /// porque criar uma sessão de rastreamento é privilégio de sistema — ou a medição está de pé e
+    /// este jogo simplesmente não passa pelos provedores que ela escuta.
+    /// </summary>
+    private static string? MotivoSemFps()
+    {
+        var host = AppHost.Current;
+        if (host == null) return null;
+        if (!host.FrameMonitorRunning) return "precisa de administrador";
+        return "este jogo não passa pelo DirectX";
     }
 
     private static UIElement HardwareRow(string rotulo, ComponentReading c, bool mostrarMemoria)

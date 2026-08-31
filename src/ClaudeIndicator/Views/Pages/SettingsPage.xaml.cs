@@ -5,6 +5,7 @@ using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using ClaudeIndicator.Core;
 using ClaudeIndicator.Views;
 
@@ -66,6 +67,9 @@ public partial class SettingsPage : UserControl
 
         ChkOverlay.IsChecked = s.ShowGameOverlay;
         ChkOverlayNoFocus.IsChecked = s.OverlayWithoutFocus;
+        _hotkeyToggle = s.OverlayToggleHotkey ?? "";
+        _hotkeyCycle = s.OverlayCycleHotkey ?? "";
+        UpdateHotkeyUi();
         _gameTarget = s.OverlayGameProcess ?? "";
         _excecoes = new List<string>(s.OverlayExcluded ?? new List<string>());
         UpdateGameTargetUi();
@@ -171,6 +175,8 @@ public partial class SettingsPage : UserControl
         s.ShowGameOverlay = ChkOverlay.IsChecked == true;
         s.OverlayGameProcess = _gameTarget;
         s.OverlayWithoutFocus = ChkOverlayNoFocus.IsChecked == true;
+        s.OverlayToggleHotkey = _hotkeyToggle;
+        s.OverlayCycleHotkey = _hotkeyCycle;
         s.OverlayExcluded = new List<string>(_excecoes);
         s.OverlayAnchor = _overlayAnchor;
         s.OverlayMargin = Math.Round(SldOverlayMargin.Value);
@@ -287,6 +293,75 @@ public partial class SettingsPage : UserControl
     }
 
     private string _gameTarget = "";
+    private string _hotkeyToggle = "";
+    private string _hotkeyCycle = "";
+    private Button? _capturando;
+
+    /// <summary>
+    /// Entra em modo de captura: o próximo conjunto de teclas vira o atalho. É o caminho mais
+    /// direto — digitar "Ctrl+Alt+O" numa caixa de texto convida a erro de grafia, e uma lista de
+    /// teclas para escolher seria uma lista enorme.
+    /// </summary>
+    private void OnCaptureHotkeyClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button botao) return;
+
+        _capturando = botao;
+        botao.Content = "pressione a combinação…";
+        botao.Focus();
+    }
+
+    private void OnHotkeyKeyDown(object sender, KeyEventArgs e)
+    {
+        if (_capturando == null || sender is not Button botao || botao != _capturando) return;
+
+        e.Handled = true;
+
+        // com Alt segurado o WPF põe a tecla de verdade em SystemKey
+        var tecla = e.Key == Key.System ? e.SystemKey : e.Key;
+
+        if (tecla == Key.Escape)
+        {
+            _capturando = null;
+            UpdateHotkeyUi();
+            return;
+        }
+
+        if (tecla is Key.Back or Key.Delete)
+        {
+            Definir(botao, "");
+            return;
+        }
+
+        var atalho = Hotkey.FromKeyPress(tecla, Keyboard.Modifiers);
+        if (!atalho.IsValid) return;   // ainda só modificadores: continua esperando
+
+        Definir(botao, atalho.ToString());
+    }
+
+    private void Definir(Button botao, string valor)
+    {
+        if (Equals(botao.Tag, "toggle")) _hotkeyToggle = valor;
+        else _hotkeyCycle = valor;
+
+        _capturando = null;
+        UpdateHotkeyUi();
+        MarkDirty();
+    }
+
+    private void UpdateHotkeyUi()
+    {
+        if (BtnHotkeyToggle == null) return;
+
+        BtnHotkeyToggle.Content = _hotkeyToggle.Length > 0 ? _hotkeyToggle : "sem atalho";
+        BtnHotkeyCycle.Content = _hotkeyCycle.Length > 0 ? _hotkeyCycle : "sem atalho";
+
+        var recusados = _host.HotkeyFailures;
+        HotkeyStatus.Text = recusados.Count > 0
+            ? "O Windows recusou " + string.Join(" e ", recusados)
+              + ": outro programa já usa essa combinação. Escolha outra."
+            : "";
+    }
     private List<string> _excecoes = new();
 
     private void OnAddExceptionClick(object sender, RoutedEventArgs e)

@@ -58,6 +58,7 @@ public sealed class AppHost
     private GameDetector? _detector;
     private GameOverlayWindow? _overlay;
     private readonly DispatcherTimer _overlayClock = new() { Interval = TimeSpan.FromMilliseconds(250) };
+    private readonly HotkeyManager _atalhos = new();
     private MainWindow? _main;
     private bool _busy;
 
@@ -217,6 +218,42 @@ public sealed class AppHost
 
         ApplyPcPanel();
         ApplyOverlay();
+        ApplyHotkeys();
+    }
+
+    /// <summary>
+    /// (Re)registra os atalhos globais. Solta tudo antes: mudar a combinação sem soltar a anterior
+    /// deixaria a antiga presa até o app fechar, e o Windows recusaria a nova se fosse a mesma.
+    /// </summary>
+    private void ApplyHotkeys()
+    {
+        _atalhos.UnregisterAll();
+
+        _atalhos.Register(Hotkey.Parse(Settings.OverlayToggleHotkey), ToggleGameOverlay);
+        _atalhos.Register(Hotkey.Parse(Settings.OverlayCycleHotkey), CycleOverlayAnchor);
+    }
+
+    /// <summary>Combinações que o Windows recusou, para a tela de configurações avisar.</summary>
+    public IReadOnlyList<string> HotkeyFailures => _atalhos.Failures;
+
+    /// <summary>Liga ou desliga o indicador no jogo. Fica guardado: desligar é uma decisão.</summary>
+    public void ToggleGameOverlay()
+    {
+        Settings.ShowGameOverlay = !Settings.ShowGameOverlay;
+        Settings.Save();
+        ApplyOverlay();
+    }
+
+    /// <summary>Passa o indicador para o próximo dos nove cantos, em volta.</summary>
+    public void CycleOverlayAnchor()
+    {
+        var cantos = Enum.GetValues<OverlayAnchor>();
+        var atual = Array.IndexOf(cantos, Settings.OverlayAnchor);
+        Settings.OverlayAnchor = cantos[(atual + 1) % cantos.Length];
+        Settings.Save();
+
+        _overlay?.ApplySettings(Settings);
+        OverlayTick();   // move na hora, sem esperar o próximo quarto de segundo
     }
 
     /// <summary>
@@ -784,6 +821,7 @@ public sealed class AppHost
     {
         SessionState.Save(_lastGood, _calls.Recent());
         ForegroundWatcher.Stop();
+        _atalhos.Dispose();
         _timer.Stop();
         _overlayClock.Stop();
         _overlay?.Close();

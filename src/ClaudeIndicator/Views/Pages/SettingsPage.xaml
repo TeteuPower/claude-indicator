@@ -195,6 +195,32 @@
                                 </StackPanel>
                             </Border>
 
+                            <TextBlock Text="Atalhos, para usar dentro da partida" Style="{StaticResource FieldLabel}" Margin="0,16,0,5"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,6" TextWrapping="Wrap"
+                                       Text="Funcionam com o jogo em primeiro plano. Clique no botão e pressione a combinação; Esc cancela e Backspace desliga o atalho."/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="170"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Ligar/desligar o bloco" VerticalAlignment="Center" FontSize="12.5"/>
+                                <Button x:Name="BtnHotkeyToggle" Grid.Column="1" MinWidth="150"
+                                        Click="OnCaptureHotkeyClick" PreviewKeyDown="OnHotkeyKeyDown"
+                                        Tag="toggle"/>
+                            </Grid>
+                            <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="170"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Próximo canto da tela" VerticalAlignment="Center" FontSize="12.5"/>
+                                <Button x:Name="BtnHotkeyCycle" Grid.Column="1" MinWidth="150"
+                                        Click="OnCaptureHotkeyClick" PreviewKeyDown="OnHotkeyKeyDown"
+                                        Tag="cycle"/>
+                            </Grid>
+                            <TextBlock x:Name="HotkeyStatus" Style="{StaticResource Hint}" Margin="0,8,0,0"
+                                       TextWrapping="Wrap"/>
+
                             <TextBlock Text="Onde na tela" Style="{StaticResource FieldLabel}" Margin="0,14,0,5"/>
                             <UniformGrid x:Name="AnchorGrid" Rows="3" Columns="3" Width="180"
                                          HorizontalAlignment="Left"/>

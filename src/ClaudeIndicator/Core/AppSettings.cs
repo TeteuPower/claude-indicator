@@ -114,6 +114,15 @@ public class AppSettings
     public bool OverlayWithoutFocus { get; set; }
 
     /// <summary>
+    /// Atalho global que liga e desliga o indicador no jogo. Global porque durante uma partida não
+    /// dá para alternar até as configurações — é ali que se quer tirar o bloco da frente.
+    /// </summary>
+    public string OverlayToggleHotkey { get; set; } = "Ctrl+Alt+O";
+
+    /// <summary>Atalho global que passa o indicador para o próximo canto da tela.</summary>
+    public string OverlayCycleHotkey { get; set; } = "Ctrl+Alt+M";
+
+    /// <summary>
     /// Processos que nunca recebem o indicador, por nome do executável. A lista embutida cobre o
     /// óbvio, mas "o que é jogo" depende de quem usa: uma planilha maximizada cobre o monitor
     /// igualzinho a um jogo, e só você sabe que ali não deve aparecer nada.
