@@ -84,6 +84,7 @@ public partial class SettingsPage : UserControl
         ChkOvGpu.IsChecked = s.OverlayShowGpu;
         ChkOvRam.IsChecked = s.OverlayShowRam;
         ChkOvClaude.IsChecked = s.OverlayShowClaude;
+        ChkOvHotkeys.IsChecked = s.OverlayShowHotkeys;
         BuildAnchorGrid(s.OverlayAnchor);
 
         OrientVertical.IsChecked = s.TrayOrientation == BarOrientation.Vertical;
@@ -190,6 +191,7 @@ public partial class SettingsPage : UserControl
         s.OverlayShowGpu = ChkOvGpu.IsChecked == true;
         s.OverlayShowRam = ChkOvRam.IsChecked == true;
         s.OverlayShowClaude = ChkOvClaude.IsChecked == true;
+        s.OverlayShowHotkeys = ChkOvHotkeys.IsChecked == true;
 
         s.TrayOrientation = OrientHorizontal.IsChecked == true ? BarOrientation.Horizontal : BarOrientation.Vertical;
 
@@ -287,7 +289,7 @@ public partial class SettingsPage : UserControl
                      ChkRateTaskbar, ChkRateGadget, RateWeekly, RateSession, RateFable,
                      Win5, Win20, Win60, Win1440, ChkTimeProgress, ChkCallTimeline,
                      ChkOverlay, ChkOvFps, ChkOvFrameTime, ChkOvCpu, ChkOvGpu, ChkOvRam, ChkOvClaude,
-                     ChkOverlayNoFocus, EstiloContorno, EstiloLeve, ChkOvGraphs
+                     ChkOverlayNoFocus, EstiloContorno, EstiloLeve, ChkOvGraphs, ChkOvHotkeys
                  })
         {
             Hook(c);

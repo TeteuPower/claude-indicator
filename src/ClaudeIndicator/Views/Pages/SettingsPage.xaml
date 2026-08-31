@@ -281,6 +281,10 @@
                             <CheckBox x:Name="ChkOvGpu" Style="{StaticResource Switch}" Content="GPU"/>
                             <CheckBox x:Name="ChkOvRam" Style="{StaticResource Switch}" Content="Memória"/>
                             <CheckBox x:Name="ChkOvClaude" Style="{StaticResource Switch}" Content="Limites da assinatura Claude"/>
+                            <CheckBox x:Name="ChkOvHotkeys" Style="{StaticResource Switch}"
+                                      Content="Rodapé com os atalhos"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="27,2,0,0" TextWrapping="Wrap"
+                                       Text="Uma vez oculto, o bloco não tem como lembrar a combinação que o traz de volta — por isso ela fica à vista antes. Combinação recusada pelo Windows não é anunciada."/>
 
                             <TextBlock Style="{StaticResource Hint}" Margin="0,14,0,0" TextWrapping="Wrap"
                                        Text="Em janela sem bordas e em tela cheia com as otimizações do Windows ligadas (o padrão no Windows 11) o bloco aparece normalmente. Em tela cheia exclusiva de verdade o jogo é dono da tela e nenhuma janela sobrepõe — nesse caso, alternar o jogo para “tela cheia em janela” resolve."/>

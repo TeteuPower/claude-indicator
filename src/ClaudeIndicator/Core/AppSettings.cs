@@ -147,6 +147,12 @@ public class AppSettings
     /// <summary>Traçado das últimas leituras ao lado de cada sensor no jogo.</summary>
     public bool OverlayShowGraphs { get; set; } = true;
 
+    /// <summary>
+    /// Rodapé com os atalhos, dentro do próprio bloco. Atalho que não se lembra não existe, e o
+    /// lugar de lembrar é onde ele age.
+    /// </summary>
+    public bool OverlayShowHotkeys { get; set; } = true;
+
     public bool OverlayShowCpu { get; set; } = true;
     public bool OverlayShowGpu { get; set; } = true;
     public bool OverlayShowRam { get; set; }

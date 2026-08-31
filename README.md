@@ -473,6 +473,11 @@ pressione a combinação que quiser (Esc cancela, Backspace desliga o atalho). Q
 recusa uma combinação — porque outro programa já a tomou —, a tela avisa em vez de deixar o atalho
 mudo.
 
+O próprio bloco mostra os atalhos num rodapé discreto, e isso resolve um problema concreto: **uma
+vez oculto, ele não tem como lembrar a combinação que o traz de volta**. Ela precisa estar à vista
+antes. Combinação recusada pelo Windows não aparece ali — anunciar um atalho que não funciona é
+pior que não anunciar nada. O rodapé se desliga como todo o resto da caixa.
+
 A escolha fica guardada: desligar o bloco pelo atalho é uma decisão, não um sumiço temporário, e
 ela continua valendo na próxima vez que o app abrir.
 

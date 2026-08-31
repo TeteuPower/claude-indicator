@@ -68,6 +68,7 @@ public partial class GameOverlayWindow : Window
         if (s.OverlayShowGpu) Rows.Children.Add(HardwareRow("GPU", hw.Gpu, trilha.Gpu, mostrarMemoria: false));
         if (s.OverlayShowRam) Rows.Children.Add(HardwareRow("RAM", hw.Ram, trilha.Ram, mostrarMemoria: true));
         if (s.OverlayShowClaude) AddClaudeRows(usage, s);
+        if (s.OverlayShowHotkeys) AddHotkeyRow();
 
         if (Rows.Children.Count == 0)
         {
@@ -233,6 +234,56 @@ public partial class GameOverlayWindow : Window
             linha.Children.Add(Secundario(c.Load.Format("%", 0)));
 
         return linha;
+    }
+
+    /// <summary>
+    /// Rodapé com os atalhos que estão valendo. Discreto de propósito: é uma lembrança, não um
+    /// dado — e ele resolve um problema concreto, que é o atalho de ocultar. Uma vez oculto, o
+    /// bloco não tem como lembrar a combinação que o traz de volta, então ela precisa estar à
+    /// vista antes.
+    /// </summary>
+    private void AddHotkeyRow()
+    {
+        var atalhos = AppHost.Current?.ActiveHotkeys();
+        if (atalhos == null || atalhos.Count == 0) return;
+
+        var linha = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 6, 0, 0) };
+
+        for (var i = 0; i < atalhos.Count; i++)
+        {
+            var (combo, acao) = atalhos[i];
+
+            if (i > 0)
+            {
+                linha.Children.Add(new OutlinedText
+                {
+                    Text = "·",
+                    FontSize = 10,
+                    Margin = new Thickness(7, 0, 7, 0),
+                    Foreground = BarRenderer.Swatch("MutedBrush"),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+            }
+
+            linha.Children.Add(new OutlinedText
+            {
+                Text = combo,
+                FontSize = 10,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = BarRenderer.Swatch("TextBrush"),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            linha.Children.Add(new OutlinedText
+            {
+                Text = acao,
+                FontSize = 10,
+                Margin = new Thickness(4, 0, 0, 0),
+                Foreground = BarRenderer.Swatch("MutedBrush"),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+        }
+
+        Rows.Children.Add(linha);
     }
 
     private void AddClaudeRows(UsageSnapshot? usage, AppSettings s)

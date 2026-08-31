@@ -236,6 +236,32 @@ public sealed class AppHost
     /// <summary>Combinações que o Windows recusou, para a tela de configurações avisar.</summary>
     public IReadOnlyList<string> HotkeyFailures => _atalhos.Failures;
 
+    /// <summary>
+    /// Os atalhos que estão de fato valendo agora, cada um com o que faz. Combinação recusada pelo
+    /// Windows fica de fora: anunciar um atalho que não funciona é pior que não anunciar nada.
+    /// </summary>
+    public List<(string Combo, string Acao)> ActiveHotkeys()
+    {
+        var lista = new List<(string, string)>();
+        var recusados = _atalhos.Failures;
+
+        void Somar(string? combo, string acao)
+        {
+            if (string.IsNullOrWhiteSpace(combo)) return;
+
+            foreach (var recusado in recusados)
+            {
+                if (string.Equals(recusado, combo, StringComparison.OrdinalIgnoreCase)) return;
+            }
+
+            lista.Add((combo!, acao));
+        }
+
+        Somar(Settings.OverlayToggleHotkey, "ocultar");
+        Somar(Settings.OverlayCycleHotkey, "mover");
+        return lista;
+    }
+
     /// <summary>Liga ou desliga o indicador no jogo. Fica guardado: desligar é uma decisão.</summary>
     public void ToggleGameOverlay()
     {
