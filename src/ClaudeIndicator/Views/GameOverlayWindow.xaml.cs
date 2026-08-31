@@ -63,10 +63,17 @@ public partial class GameOverlayWindow : Window
         Rows.Children.Clear();
 
         if (s.OverlayShowFps) Rows.Children.Add(FpsRow(game.Frames));
-        var trilha = AppHost.Current?.HardwareTrail ?? HardwareTrail.Empty;
-        if (s.OverlayShowCpu) Rows.Children.Add(HardwareRow("CPU", hw.Cpu, trilha.Cpu, mostrarMemoria: false));
-        if (s.OverlayShowGpu) Rows.Children.Add(HardwareRow("GPU", hw.Gpu, trilha.Gpu, mostrarMemoria: false));
-        if (s.OverlayShowRam) Rows.Children.Add(HardwareRow("RAM", hw.Ram, trilha.Ram, mostrarMemoria: true));
+        if (s.OverlayLayout == OverlayLayout.Gauges)
+        {
+            AddGaugeRow(hw, s);
+        }
+        else
+        {
+            var trilha = AppHost.Current?.HardwareTrail ?? HardwareTrail.Empty;
+            if (s.OverlayShowCpu) Rows.Children.Add(HardwareRow("CPU", hw.Cpu, trilha.Cpu, mostrarMemoria: false));
+            if (s.OverlayShowGpu) Rows.Children.Add(HardwareRow("GPU", hw.Gpu, trilha.Gpu, mostrarMemoria: false));
+            if (s.OverlayShowRam) Rows.Children.Add(HardwareRow("RAM", hw.Ram, trilha.Ram, mostrarMemoria: true));
+        }
         if (s.OverlayShowClaude) AddClaudeRows(usage, s);
         if (s.OverlayShowHotkeys) AddHotkeyRow();
 
@@ -234,6 +241,42 @@ public partial class GameOverlayWindow : Window
             linha.Children.Add(Secundario(c.Load.Format("%", 0)));
 
         return linha;
+    }
+
+    /// <summary>
+    /// O layout "medidores": anéis de porcentagem lado a lado e o termômetro da CPU, com o
+    /// limite em 100 °C. Maior que o compacto de propósito — é o layout de ler de relance, no
+    /// canto do olho, sem parar de jogar.
+    /// </summary>
+    private void AddGaugeRow(HardwareSnapshot hw, AppSettings s)
+    {
+        var linha = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 5, 0, 2) };
+        var contorno = s.PanelOutline;
+        const double diametro = 52;
+
+        if (s.OverlayShowCpu)
+        {
+            linha.Children.Add(MeterRenderer.Ring("CPU", hw.Cpu.Load.Value ?? 0,
+                hw.Cpu.Load.Format("%"), diametro, contorno,
+                hw.Cpu.Power.HasValue ? hw.Cpu.Power.Format(" W") : null));
+            linha.Children.Add(MeterRenderer.Thermometer("temp", hw.Cpu.Temperature.Value, diametro + 14, contorno));
+        }
+
+        if (s.OverlayShowGpu)
+        {
+            linha.Children.Add(MeterRenderer.Ring("GPU", hw.Gpu.Load.Value ?? 0,
+                hw.Gpu.Load.Format("%"), diametro, contorno,
+                hw.Gpu.Temperature.HasValue ? hw.Gpu.Temperature.Format("°") : null));
+        }
+
+        if (s.OverlayShowRam)
+        {
+            linha.Children.Add(MeterRenderer.Ring("RAM", hw.Ram.Load.Value ?? 0,
+                hw.Ram.Load.Format("%"), diametro, contorno,
+                hw.Ram.MemoryUsed.HasValue ? hw.Ram.MemoryUsed.Format(" GB", 1) : null));
+        }
+
+        if (linha.Children.Count > 0) Rows.Children.Add(linha);
     }
 
     /// <summary>

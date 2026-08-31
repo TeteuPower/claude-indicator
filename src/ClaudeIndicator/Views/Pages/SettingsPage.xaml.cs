@@ -69,7 +69,10 @@ public partial class SettingsPage : UserControl
         ChkOverlayNoFocus.IsChecked = s.OverlayWithoutFocus;
         _hotkeyToggle = s.OverlayToggleHotkey ?? "";
         _hotkeyCycle = s.OverlayCycleHotkey ?? "";
+        _hotkeyLayout = s.OverlayLayoutHotkey ?? "";
         UpdateHotkeyUi();
+        LayoutCompact.IsChecked = s.OverlayLayout == OverlayLayout.Compact;
+        LayoutGauges.IsChecked = s.OverlayLayout == OverlayLayout.Gauges;
         _gameTarget = s.OverlayGameProcess ?? "";
         _excecoes = new List<string>(s.OverlayExcluded ?? new List<string>());
         UpdateGameTargetUi();
@@ -179,6 +182,8 @@ public partial class SettingsPage : UserControl
         s.OverlayWithoutFocus = ChkOverlayNoFocus.IsChecked == true;
         s.OverlayToggleHotkey = _hotkeyToggle;
         s.OverlayCycleHotkey = _hotkeyCycle;
+        s.OverlayLayoutHotkey = _hotkeyLayout;
+        s.OverlayLayout = LayoutGauges.IsChecked == true ? OverlayLayout.Gauges : OverlayLayout.Compact;
         s.OverlayExcluded = new List<string>(_excecoes);
         s.OverlayAnchor = _overlayAnchor;
         s.OverlayMargin = Math.Round(SldOverlayMargin.Value);
@@ -289,7 +294,8 @@ public partial class SettingsPage : UserControl
                      ChkRateTaskbar, ChkRateGadget, RateWeekly, RateSession, RateFable,
                      Win5, Win20, Win60, Win1440, ChkTimeProgress, ChkCallTimeline,
                      ChkOverlay, ChkOvFps, ChkOvFrameTime, ChkOvCpu, ChkOvGpu, ChkOvRam, ChkOvClaude,
-                     ChkOverlayNoFocus, EstiloContorno, EstiloLeve, ChkOvGraphs, ChkOvHotkeys
+                     ChkOverlayNoFocus, EstiloContorno, EstiloLeve, ChkOvGraphs, ChkOvHotkeys,
+                     LayoutCompact, LayoutGauges
                  })
         {
             Hook(c);
@@ -299,6 +305,7 @@ public partial class SettingsPage : UserControl
     private string _gameTarget = "";
     private string _hotkeyToggle = "";
     private string _hotkeyCycle = "";
+    private string _hotkeyLayout = "";
     private Button? _capturando;
 
     /// <summary>
@@ -346,6 +353,7 @@ public partial class SettingsPage : UserControl
     private void Definir(Button botao, string valor)
     {
         if (Equals(botao.Tag, "toggle")) _hotkeyToggle = valor;
+        else if (Equals(botao.Tag, "layout")) _hotkeyLayout = valor;
         else _hotkeyCycle = valor;
 
         _capturando = null;
@@ -359,6 +367,7 @@ public partial class SettingsPage : UserControl
 
         BtnHotkeyToggle.Content = _hotkeyToggle.Length > 0 ? _hotkeyToggle : "sem atalho";
         BtnHotkeyCycle.Content = _hotkeyCycle.Length > 0 ? _hotkeyCycle : "sem atalho";
+        BtnHotkeyLayout.Content = _hotkeyLayout.Length > 0 ? _hotkeyLayout : "sem atalho";
 
         var recusados = _host.HotkeyFailures;
         HotkeyStatus.Text = recusados.Count > 0

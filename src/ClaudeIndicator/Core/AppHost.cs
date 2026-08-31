@@ -231,6 +231,7 @@ public sealed class AppHost
 
         _atalhos.Register(Hotkey.Parse(Settings.OverlayToggleHotkey), ToggleGameOverlay);
         _atalhos.Register(Hotkey.Parse(Settings.OverlayCycleHotkey), CycleOverlayAnchor);
+        _atalhos.Register(Hotkey.Parse(Settings.OverlayLayoutHotkey), CycleOverlayLayout);
     }
 
     /// <summary>Combinações que o Windows recusou, para a tela de configurações avisar.</summary>
@@ -259,6 +260,7 @@ public sealed class AppHost
 
         Somar(Settings.OverlayToggleHotkey, "ocultar");
         Somar(Settings.OverlayCycleHotkey, "mover");
+        Somar(Settings.OverlayLayoutHotkey, "layout");
         return lista;
     }
 
@@ -268,6 +270,18 @@ public sealed class AppHost
         Settings.ShowGameOverlay = !Settings.ShowGameOverlay;
         Settings.Save();
         ApplyOverlay();
+    }
+
+    /// <summary>Alterna entre os layouts do indicador — compacto e medidores.</summary>
+    public void CycleOverlayLayout()
+    {
+        Settings.OverlayLayout = Settings.OverlayLayout == OverlayLayout.Compact
+            ? OverlayLayout.Gauges
+            : OverlayLayout.Compact;
+        Settings.Save();
+
+        _overlay?.ApplySettings(Settings);
+        OverlayTick();
     }
 
     /// <summary>Passa o indicador para o próximo dos nove cantos, em volta.</summary>

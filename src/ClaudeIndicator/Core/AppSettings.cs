@@ -24,6 +24,16 @@ public enum BarOrientation
     Horizontal
 }
 
+/// <summary>Como o indicador no jogo desenha os sensores.</summary>
+public enum OverlayLayout
+{
+    /// <summary>Linhas compactas: rótulo, número, traçado.</summary>
+    Compact,
+
+    /// <summary>Anéis de porcentagem e termômetro de CPU — maior, para ler de relance.</summary>
+    Gauges
+}
+
 /// <summary>Canto da tela do jogo onde o indicador se encosta.</summary>
 public enum OverlayAnchor
 {
@@ -121,6 +131,11 @@ public class AppSettings
 
     /// <summary>Atalho global que passa o indicador para o próximo canto da tela.</summary>
     public string OverlayCycleHotkey { get; set; } = "Ctrl+Alt+M";
+
+    /// <summary>Atalho global que alterna entre os layouts do indicador.</summary>
+    public string OverlayLayoutHotkey { get; set; } = "Ctrl+Alt+L";
+
+    public OverlayLayout OverlayLayout { get; set; } = OverlayLayout.Compact;
 
     /// <summary>
     /// Processos que nunca recebem o indicador, por nome do executável. A lista embutida cobre o

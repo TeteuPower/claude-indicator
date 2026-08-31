@@ -218,8 +218,30 @@
                                         Click="OnCaptureHotkeyClick" PreviewKeyDown="OnHotkeyKeyDown"
                                         Tag="cycle"/>
                             </Grid>
+                            <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="170"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Alternar o layout" VerticalAlignment="Center" FontSize="12.5"/>
+                                <Button x:Name="BtnHotkeyLayout" Grid.Column="1" MinWidth="150"
+                                        Click="OnCaptureHotkeyClick" PreviewKeyDown="OnHotkeyKeyDown"
+                                        Tag="layout"/>
+                            </Grid>
                             <TextBlock x:Name="HotkeyStatus" Style="{StaticResource Hint}" Margin="0,8,0,0"
                                        TextWrapping="Wrap"/>
+
+                            <TextBlock Text="Layout" Style="{StaticResource FieldLabel}" Margin="0,14,0,5"/>
+                            <Border Style="{StaticResource SegmentGroup}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton x:Name="LayoutCompact" GroupName="OvLayout" Style="{StaticResource Segment}"
+                                                 Content="Compacto"/>
+                                    <RadioButton x:Name="LayoutGauges" GroupName="OvLayout" Style="{StaticResource Segment}"
+                                                 Content="Medidores"/>
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                       Text="Compacto: linhas com número e traçado. Medidores: anéis de porcentagem e termômetro da CPU com o limite em 100 °C — maior, para ler de relance. O atalho de layout alterna entre os dois sem sair do jogo."/>
 
                             <TextBlock Text="Onde na tela" Style="{StaticResource FieldLabel}" Margin="0,14,0,5"/>
                             <UniformGrid x:Name="AnchorGrid" Rows="3" Columns="3" Width="180"
