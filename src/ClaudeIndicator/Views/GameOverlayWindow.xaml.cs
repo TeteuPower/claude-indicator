@@ -63,9 +63,10 @@ public partial class GameOverlayWindow : Window
         Rows.Children.Clear();
 
         if (s.OverlayShowFps) Rows.Children.Add(FpsRow(game.Frames));
-        if (s.OverlayShowCpu) Rows.Children.Add(HardwareRow("CPU", hw.Cpu, mostrarMemoria: false));
-        if (s.OverlayShowGpu) Rows.Children.Add(HardwareRow("GPU", hw.Gpu, mostrarMemoria: false));
-        if (s.OverlayShowRam) Rows.Children.Add(HardwareRow("RAM", hw.Ram, mostrarMemoria: true));
+        var trilha = AppHost.Current?.HardwareTrail ?? HardwareTrail.Empty;
+        if (s.OverlayShowCpu) Rows.Children.Add(HardwareRow("CPU", hw.Cpu, trilha.Cpu, mostrarMemoria: false));
+        if (s.OverlayShowGpu) Rows.Children.Add(HardwareRow("GPU", hw.Gpu, trilha.Gpu, mostrarMemoria: false));
+        if (s.OverlayShowRam) Rows.Children.Add(HardwareRow("RAM", hw.Ram, trilha.Ram, mostrarMemoria: true));
         if (s.OverlayShowClaude) AddClaudeRows(usage, s);
 
         if (Rows.Children.Count == 0)
@@ -172,7 +173,15 @@ public partial class GameOverlayWindow : Window
         return "este jogo não passa pelo DirectX";
     }
 
-    private static UIElement HardwareRow(string rotulo, ComponentReading c, bool mostrarMemoria)
+    /// <summary>
+    /// Uma linha de sensor: rótulo, valor grande na cor da carga, traçado das últimas leituras e
+    /// as medidas de apoio.
+    ///
+    /// A cor não é enfeite — é a mesma régua das barras do painel, então 80% tem o mesmo tom em
+    /// todo lugar. E o traçado responde ao que o número sozinho não responde: se aquele 78% é um
+    /// pico ou um platô.
+    /// </summary>
+    private UIElement HardwareRow(string rotulo, ComponentReading c, double[] trilha, bool mostrarMemoria)
     {
         var linha = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 3, 0, 0) };
 
@@ -185,6 +194,9 @@ public partial class GameOverlayWindow : Window
             VerticalAlignment = VerticalAlignment.Center
         });
 
+        var carga = c.Load.HasValue ? c.Load.Value!.Value : 0;
+        var cor = BarRenderer.LoadRamp(carga);
+
         var valor = mostrarMemoria && c.MemoryUsed.HasValue
             ? c.MemoryUsed.Format(" GB", 1)
             : c.Load.Format("%", 0);
@@ -195,9 +207,22 @@ public partial class GameOverlayWindow : Window
             FontSize = 13,
             MinWidth = 46,
             FontWeight = FontWeights.SemiBold,
-            Foreground = BarRenderer.Swatch("TextBrush"),
+            Foreground = c.Load.HasValue
+                ? new SolidColorBrush(cor)
+                : BarRenderer.Swatch("MutedBrush"),
             VerticalAlignment = VerticalAlignment.Center
         });
+
+        if (_settings.OverlayShowGraphs && trilha.Length >= 2)
+        {
+            var grafico = BarRenderer.Sparkline(trilha, 46, 15, cor, _settings.PanelOutline);
+            if (grafico is FrameworkElement fe)
+            {
+                fe.Margin = new Thickness(4, 0, 2, 0);
+                fe.VerticalAlignment = VerticalAlignment.Center;
+            }
+            linha.Children.Add(grafico);
+        }
 
         // temperatura e watts só entram quando existem: espaço reservado para nada é ruído
         if (c.Temperature.HasValue)

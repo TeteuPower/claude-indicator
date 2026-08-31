@@ -142,6 +142,87 @@ public static class BarRenderer
         return grade;
     }
 
+    /// <summary>
+    /// A cor de uma carga de 0 a 100: verde no começo, amarela na metade, vermelha no fim.
+    /// É a mesma régua das barras do painel — se o mesmo 70% aparecesse laranja num lugar e
+    /// amarelo no outro, a cor deixaria de ser informação e viraria decoração.
+    /// </summary>
+    public static Color LoadRamp(double percent)
+    {
+        var f = Math.Clamp(percent / 100.0, 0, 1);
+        return f <= 0.5
+            ? Misturar(RampaVerde, RampaAmarelo, f / 0.5)
+            : Misturar(RampaAmarelo, RampaVermelho, (f - 0.5) / 0.5);
+    }
+
+    private static readonly Color RampaVerde = Color.FromArgb(255, 76, 195, 138);
+    private static readonly Color RampaAmarelo = Color.FromArgb(255, 232, 176, 75);
+    private static readonly Color RampaVermelho = Color.FromArgb(255, 240, 92, 92);
+
+    private static Color Misturar(Color a, Color b, double t)
+    {
+        t = Math.Clamp(t, 0, 1);
+        return Color.FromArgb(255,
+            (byte)(a.R + (b.R - a.R) * t),
+            (byte)(a.G + (b.G - a.G) * t),
+            (byte)(a.B + (b.B - a.B) * t));
+    }
+
+    /// <summary>
+    /// Traçado das últimas leituras: linha com área preenchida por baixo, na escala fixa de 0 a
+    /// 100%.
+    ///
+    /// Escala fixa, e não ajustada ao maior valor da amostra: com escala automática uma variação
+    /// de 3% ocuparia a altura toda e pareceria drama. O que se quer saber é se está perto do
+    /// teto, então o teto tem que ser sempre o mesmo.
+    ///
+    /// Com contorno, uma cópia escura e mais grossa vai por baixo — sobre cena de jogo clara a
+    /// linha sozinha desaparece.
+    /// </summary>
+    public static UIElement Sparkline(double[] valores, double largura, double altura,
+                                      Color cor, bool contorno)
+    {
+        var caixa = new Grid { Width = largura, Height = altura, ClipToBounds = true };
+        if (valores.Length < 2) return caixa;
+
+        var pontos = new PointCollection(valores.Length);
+        for (var i = 0; i < valores.Length; i++)
+        {
+            var x = largura * i / (valores.Length - 1);
+            var y = altura - altura * Math.Clamp(valores[i] / 100.0, 0, 1);
+            pontos.Add(new Point(x, y));
+        }
+
+        // área por baixo: fecha a linha nos dois cantos de baixo
+        var area = new PointCollection(pontos) { new(largura, altura), new(0, altura) };
+        caixa.Children.Add(new Polygon
+        {
+            Points = area,
+            Fill = Freeze(Color.FromArgb(0x38, cor.R, cor.G, cor.B))
+        });
+
+        if (contorno)
+        {
+            caixa.Children.Add(new Polyline
+            {
+                Points = pontos,
+                Stroke = Freeze(Color.FromArgb(0xCC, 0, 0, 0)),
+                StrokeThickness = 3,
+                StrokeLineJoin = PenLineJoin.Round
+            });
+        }
+
+        caixa.Children.Add(new Polyline
+        {
+            Points = pontos,
+            Stroke = Freeze(cor),
+            StrokeThickness = 1.5,
+            StrokeLineJoin = PenLineJoin.Round
+        });
+
+        return caixa;
+    }
+
     private static readonly Brush MarcaClara = Freeze(Color.FromArgb(0xF2, 0xFF, 0xFF, 0xFF));
     private static readonly Brush MarcaEscura = Freeze(Color.FromArgb(0xCC, 0x10, 0x10, 0x10));
 

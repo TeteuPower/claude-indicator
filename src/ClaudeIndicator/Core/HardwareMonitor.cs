@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Security.Principal;
@@ -177,8 +178,46 @@ public sealed class HardwareMonitor : IDisposable
         }
     }
 
+    /// <summary>Quantas leituras o traçado guarda. A 2 s por leitura, cobre uns dois minutos.</summary>
+    private const int TrailLength = 60;
+
+    private readonly Queue<double> _trilhaCpu = new(TrailLength);
+    private readonly Queue<double> _trilhaGpu = new(TrailLength);
+    private readonly Queue<double> _trilhaRam = new(TrailLength);
+    private readonly object _trilhaLock = new();
+
+    /// <summary>Cópia das últimas leituras, da mais antiga para a mais recente.</summary>
+    public HardwareTrail Trail()
+    {
+        lock (_trilhaLock)
+        {
+            return new HardwareTrail
+            {
+                Cpu = _trilhaCpu.ToArray(),
+                Gpu = _trilhaGpu.ToArray(),
+                Ram = _trilhaRam.ToArray()
+            };
+        }
+    }
+
+    private static void Empilhar(Queue<double> fila, Reading leitura)
+    {
+        // leitura ausente não vira zero: zero é um valor, e desenhar um vale que não aconteceu
+        // seria pior que não desenhar nada. Repete o último, ou começa em zero se não há nenhum.
+        var valor = leitura.HasValue ? leitura.Value!.Value : (fila.Count > 0 ? fila.ToArray()[^1] : 0);
+        fila.Enqueue(Math.Clamp(valor, 0, 100));
+        while (fila.Count > TrailLength) fila.Dequeue();
+    }
+
     private void Publish(HardwareSnapshot snap)
     {
+        lock (_trilhaLock)
+        {
+            Empilhar(_trilhaCpu, snap.Cpu.Load);
+            Empilhar(_trilhaGpu, snap.Gpu.Load);
+            Empilhar(_trilhaRam, snap.Ram.Load);
+        }
+
         Current = snap;
         Updated?.Invoke(snap);
     }

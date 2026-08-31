@@ -273,6 +273,10 @@
                                       Content="Tempo de quadro e 1% low" Margin="27,9,0,0"/>
                             <TextBlock Style="{StaticResource Hint}" Margin="27,2,0,0"
                                        Text="O 1% low é o ritmo nos 1% de quadros mais lentos — é ele que denuncia engasgo que a média esconde."/>
+                            <CheckBox x:Name="ChkOvGraphs" Style="{StaticResource Switch}"
+                                      Content="Traçado das últimas leituras nos sensores"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="27,2,0,0" TextWrapping="Wrap"
+                                       Text="Escala fixa de 0 a 100%, para que a altura signifique sempre a mesma coisa. A cor acompanha a carga, na mesma régua das barras do painel."/>
                             <CheckBox x:Name="ChkOvCpu" Style="{StaticResource Switch}" Content="CPU"/>
                             <CheckBox x:Name="ChkOvGpu" Style="{StaticResource Switch}" Content="GPU"/>
                             <CheckBox x:Name="ChkOvRam" Style="{StaticResource Switch}" Content="Memória"/>

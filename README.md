@@ -76,8 +76,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v1.9.9
-git push origin v1.9.9
+git tag v2.0.0
+git push origin v2.0.0
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -98,7 +98,7 @@ Dois detalhes do GitHub que o app precisa contornar:
   pré-release. Por isso o app lista as releases e escolhe a maior versão, com uma opção para
   considerar ou não as pré-releases.
 - A pré-release usa a tag fixa `latest`, que não é uma versão. A versão sai então do **nome do
-  instalador anexado** (`ClaudeIndicator-Setup-1.9.9.exe`) — de propósito antes do título da
+  instalador anexado** (`ClaudeIndicator-Setup-2.0.0.exe`) — de propósito antes do título da
   release, porque o instalador é o arquivo que será realmente instalado e o título é texto que
   pode ficar defasado se a chamada que o atualiza falhar.
 
@@ -123,7 +123,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~63 MB)
-- `dist\ClaudeIndicator-Setup-1.9.9.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-2.0.0.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -432,6 +432,30 @@ os dois painéis da barra e para o indicador no jogo:
 
 Sem contorno o texto volta a ser desenhado pelo caminho normal do WPF, e não como forma
 preenchida — é o que devolve a nitidez de subpixel que o desenho por geometria não tem.
+
+### O que aparece, e por quê
+
+Cada sensor mostra o valor, a cor da carga e o **traçado das últimas leituras** — cerca de dois
+minutos de história a 2 s por leitura:
+
+```
+ 48 FPS   21,1 ms   1% 20
+CPU  26%  ▁▁▂▁▁  66°
+GPU  48%  ▄▆▅▇▄  55°  15 W
+RAM  19,8 GB  ▃▃▃▃▃  62%
+```
+
+O traçado responde ao que o número sozinho não responde: aquele 78% é um pico ou um platô? A
+escala é **fixa de 0 a 100%**, e não ajustada ao maior valor da amostra — com escala automática uma
+variação de 3% ocuparia a altura toda e pareceria drama, quando o que se quer saber é a distância
+até o teto.
+
+A cor sai da **mesma régua das barras do painel** — verde no começo, amarela na metade, vermelha no
+fim. Se o mesmo 70% aparecesse laranja num lugar e amarelo no outro, a cor deixaria de ser
+informação e viraria decoração.
+
+Cada linha é opcional, incluindo o traçado e os limites da assinatura Claude — que vêm desligados,
+já que eles têm lugar próprio na barra de tarefas e no gadget.
 
 ### Atalhos, para usar dentro da partida
 

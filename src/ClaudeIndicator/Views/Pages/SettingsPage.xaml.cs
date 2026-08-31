@@ -79,6 +79,7 @@ public partial class SettingsPage : UserControl
         SldOverlayOpacity.Value = s.OverlayOpacity;
         ChkOvFps.IsChecked = s.OverlayShowFps;
         ChkOvFrameTime.IsChecked = s.OverlayShowFrameTime;
+        ChkOvGraphs.IsChecked = s.OverlayShowGraphs;
         ChkOvCpu.IsChecked = s.OverlayShowCpu;
         ChkOvGpu.IsChecked = s.OverlayShowGpu;
         ChkOvRam.IsChecked = s.OverlayShowRam;
@@ -184,6 +185,7 @@ public partial class SettingsPage : UserControl
         s.OverlayOpacity = Math.Round(SldOverlayOpacity.Value, 2);
         s.OverlayShowFps = ChkOvFps.IsChecked == true;
         s.OverlayShowFrameTime = ChkOvFrameTime.IsChecked == true;
+        s.OverlayShowGraphs = ChkOvGraphs.IsChecked == true;
         s.OverlayShowCpu = ChkOvCpu.IsChecked == true;
         s.OverlayShowGpu = ChkOvGpu.IsChecked == true;
         s.OverlayShowRam = ChkOvRam.IsChecked == true;
@@ -285,7 +287,7 @@ public partial class SettingsPage : UserControl
                      ChkRateTaskbar, ChkRateGadget, RateWeekly, RateSession, RateFable,
                      Win5, Win20, Win60, Win1440, ChkTimeProgress, ChkCallTimeline,
                      ChkOverlay, ChkOvFps, ChkOvFrameTime, ChkOvCpu, ChkOvGpu, ChkOvRam, ChkOvClaude,
-                     ChkOverlayNoFocus, EstiloContorno, EstiloLeve
+                     ChkOverlayNoFocus, EstiloContorno, EstiloLeve, ChkOvGraphs
                  })
         {
             Hook(c);

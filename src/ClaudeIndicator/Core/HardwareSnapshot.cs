@@ -23,6 +23,21 @@ public readonly struct Reading
     }
 }
 
+/// <summary>
+/// As últimas leituras de uso de cada componente, para desenhar o traçado.
+///
+/// Um número sozinho diz onde está; o traçado diz para onde vai. "GPU 78%" pode ser um pico
+/// passageiro ou um platô de dez minutos, e a diferença muda o que se faz a respeito.
+/// </summary>
+public sealed class HardwareTrail
+{
+    public static readonly HardwareTrail Empty = new();
+
+    public double[] Cpu { get; init; } = Array.Empty<double>();
+    public double[] Gpu { get; init; } = Array.Empty<double>();
+    public double[] Ram { get; init; } = Array.Empty<double>();
+}
+
 /// <summary>Leituras de um componente.</summary>
 public sealed class ComponentReading
 {

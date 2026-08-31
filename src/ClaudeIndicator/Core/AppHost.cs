@@ -402,6 +402,9 @@ public sealed class AppHost
     /// <summary>Retrato mais recente dos sensores, para a tela de configurações.</summary>
     public HardwareSnapshot Hardware => _hardware.Current;
 
+    /// <summary>Últimas leituras de uso, para o traçado do indicador no jogo.</summary>
+    public HardwareTrail HardwareTrail => _hardware.Trail();
+
     /// <summary>
     /// Reabre o app pedindo elevação. É o caminho para temperatura e watts da CPU: eles vêm de
     /// registradores do processador, que só um driver de kernel alcança.

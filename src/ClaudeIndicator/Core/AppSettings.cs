@@ -144,6 +144,9 @@ public class AppSettings
     /// <summary>Tempo de quadro e 1% low ao lado do FPS.</summary>
     public bool OverlayShowFrameTime { get; set; } = true;
 
+    /// <summary>Traçado das últimas leituras ao lado de cada sensor no jogo.</summary>
+    public bool OverlayShowGraphs { get; set; } = true;
+
     public bool OverlayShowCpu { get; set; } = true;
     public bool OverlayShowGpu { get; set; } = true;
     public bool OverlayShowRam { get; set; }
