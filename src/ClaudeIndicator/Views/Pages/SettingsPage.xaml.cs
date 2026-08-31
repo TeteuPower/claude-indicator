@@ -27,7 +27,7 @@ public partial class SettingsPage : UserControl
         _host = host;
         InitializeComponent();
 
-        TabDisplay.IsChecked = true;
+        TabBars.IsChecked = true;
         LoadUi(host.Settings);
         _ready = true;
 
@@ -582,8 +582,9 @@ public partial class SettingsPage : UserControl
 
     private void OnTabChanged(object sender, RoutedEventArgs e)
     {
-        if (PanelDisplay == null) return;
+        if (PanelDisplay == null || PanelGame == null) return;
         PanelDisplay.Visibility = Vis(TabDisplay);
+        PanelGame.Visibility = Vis(TabGame);
         PanelBars.Visibility = Vis(TabBars);
         PanelRate.Visibility = Vis(TabRate);
         PanelAccount.Visibility = Vis(TabAccount);
@@ -595,7 +596,48 @@ public partial class SettingsPage : UserControl
         if (TabBars.IsChecked == true) RenderPreview();
         if (TabRate.IsChecked == true) RenderRatePreview();
         if (TabAdvanced.IsChecked == true) UpdateUpdateUi();
+        if (TabGame.IsChecked == true) { UpdateGameTargetUi(); UpdateHotkeyUi(); }
+
+        AnimateIn();
     }
+
+    /// <summary>
+    /// Entrada suave do painel escolhido: some e desliza 10 px para o lugar, em 180 ms. Curto o
+    /// bastante para não atrasar ninguém; presente o bastante para a troca não parecer um corte
+    /// seco. A rolagem volta ao topo porque cada painel é um assunto novo.
+    /// </summary>
+    private void AnimateIn()
+    {
+        PanelScroll?.ScrollToTop();
+
+        var painel = PainelVisivel();
+        if (painel == null) return;
+
+        var desloca = new System.Windows.Media.TranslateTransform(0, 10);
+        painel.RenderTransform = desloca;
+        painel.Opacity = 0;
+
+        var duracao = TimeSpan.FromMilliseconds(180);
+        var suave = new System.Windows.Media.Animation.CubicEase
+        {
+            EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut
+        };
+
+        painel.BeginAnimation(OpacityProperty,
+            new System.Windows.Media.Animation.DoubleAnimation(0, 1, duracao));
+        desloca.BeginAnimation(System.Windows.Media.TranslateTransform.YProperty,
+            new System.Windows.Media.Animation.DoubleAnimation(10, 0, duracao) { EasingFunction = suave });
+    }
+
+    private StackPanel? PainelVisivel() =>
+        TabGame.IsChecked == true ? PanelGame :
+        TabBars.IsChecked == true ? PanelBars :
+        TabRate.IsChecked == true ? PanelRate :
+        TabAccount.IsChecked == true ? PanelAccount :
+        TabSystem.IsChecked == true ? PanelSystem :
+        TabData.IsChecked == true ? PanelData :
+        TabAdvanced.IsChecked == true ? PanelAdvanced :
+        TabDisplay.IsChecked == true ? PanelDisplay : null;
 
     private static Visibility Vis(RadioButton rb) => rb.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
 

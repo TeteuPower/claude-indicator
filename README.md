@@ -76,8 +76,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v2.0.1
-git push origin v2.0.1
+git tag v2.1.0
+git push origin v2.1.0
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -98,7 +98,7 @@ Dois detalhes do GitHub que o app precisa contornar:
   pré-release. Por isso o app lista as releases e escolhe a maior versão, com uma opção para
   considerar ou não as pré-releases.
 - A pré-release usa a tag fixa `latest`, que não é uma versão. A versão sai então do **nome do
-  instalador anexado** (`ClaudeIndicator-Setup-2.0.1.exe`) — de propósito antes do título da
+  instalador anexado** (`ClaudeIndicator-Setup-2.1.0.exe`) — de propósito antes do título da
   release, porque o instalador é o arquivo que será realmente instalado e o título é texto que
   pode ficar defasado se a chamada que o atualiza falhar.
 
@@ -123,7 +123,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~63 MB)
-- `dist\ClaudeIndicator-Setup-2.0.1.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-2.1.0.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -235,6 +235,17 @@ O que continua sendo reação e não escolha:
   botão para baixar e instalar sem sair do app
 - **Conta**: login do Claude Code ou token manual, com botão "Testar conexão"
 - **Sistema**: iniciar com o Windows, iniciar sem abrir a janela e intervalo mínimo entre consultas
+
+As configurações são navegadas por um trilho lateral agrupado por assunto — **Claude** (barras,
+ritmo, conta), **Computador** (painéis, no jogo) e **Aplicativo** (sistema, dados, avançado) — em
+vez de uma fileira de abas genéricas. A troca de painel desliza suavemente e volta ao topo, porque
+cada painel é um assunto novo.
+
+O painel **Desempenho do PC**, na navegação principal, mostra uso, temperatura e watts ao longo do
+tempo (30 min a 7 dias), com resumo mín/média/máx por componente. O histórico é gravado num ponto
+a cada dez segundos enquanto os sensores estiverem ligados, com retenção de 14 dias. Escalas
+honestas: uso sempre 0–100%, temperatura sempre até 100 °C; lacunas na coleta quebram a linha em
+vez de atravessar o buraco.
   (60 s a 15 min — veja a seção sobre HTTP 429)
 - **Barras**: limites de atenção/alerta, notificação ao atingir o alerta e prévia ao vivo
 
