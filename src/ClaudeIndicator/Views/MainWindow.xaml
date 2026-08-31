@@ -43,6 +43,8 @@
                                  Tag="&#xE81C;" Content="Histórico" Checked="OnNavChanged"/>
                     <RadioButton x:Name="NavProjects" GroupName="Nav" Style="{StaticResource NavItem}"
                                  Tag="&#xE8B7;" Content="Projetos" Checked="OnNavChanged"/>
+                    <RadioButton x:Name="NavPerformance" GroupName="Nav" Style="{StaticResource NavItem}"
+                                 Tag="&#xE9D9;" Content="Desempenho do PC" Checked="OnNavChanged"/>
                     <RadioButton x:Name="NavSettings" GroupName="Nav" Style="{StaticResource NavItem}"
                                  Tag="&#xE713;" Content="Configurações" Checked="OnNavChanged"/>
                 </StackPanel>

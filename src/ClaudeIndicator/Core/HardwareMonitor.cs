@@ -220,6 +220,7 @@ public sealed class HardwareMonitor : IDisposable
 
         Current = snap;
         Updated?.Invoke(snap);
+        HardwareHistory.Append(snap);
     }
 
     private HardwareSnapshot Read(bool elevado)

@@ -12,6 +12,7 @@ public enum MainSection
     Overview,
     History,
     Projects,
+    Performance,
     Settings
 }
 
@@ -27,6 +28,7 @@ public partial class MainWindow : Window
     private OverviewPage? _overview;
     private HistoryPage? _history;
     private ProjectsPage? _projects;
+    private PerformancePage? _performance;
     private SettingsPage? _settings;
 
     private bool _ready;
@@ -58,6 +60,7 @@ public partial class MainWindow : Window
         NavOverview.IsChecked = section == MainSection.Overview;
         NavHistory.IsChecked = section == MainSection.History;
         NavProjects.IsChecked = section == MainSection.Projects;
+        NavPerformance.IsChecked = section == MainSection.Performance;
         NavSettings.IsChecked = section == MainSection.Settings;
         _ready = true;
 
@@ -73,6 +76,7 @@ public partial class MainWindow : Window
     private MainSection Current =>
         NavHistory.IsChecked == true ? MainSection.History :
         NavProjects.IsChecked == true ? MainSection.Projects :
+        NavPerformance.IsChecked == true ? MainSection.Performance :
         NavSettings.IsChecked == true ? MainSection.Settings : MainSection.Overview;
 
     private void Show(MainSection section)
@@ -90,6 +94,12 @@ public partial class MainWindow : Window
                 _projects ??= new ProjectsPage(_host);
                 PageHost.Content = _projects;
                 SetHeader("Projetos", "Onde o limite foi gasto, segundo as transcrições do Claude Code.");
+                break;
+
+            case MainSection.Performance:
+                _performance ??= new PerformancePage();
+                PageHost.Content = _performance;
+                SetHeader("Desempenho do PC", "Uso, temperatura e energia ao longo do tempo, dos sensores do computador.");
                 break;
 
             case MainSection.Settings:

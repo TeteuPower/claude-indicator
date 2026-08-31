@@ -1,0 +1,77 @@
+<UserControl x:Class="ClaudeIndicator.Views.Pages.PerformancePage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,6,0">
+        <StackPanel>
+
+            <!-- filtros: janela de tempo e o que mostrar -->
+            <Grid Margin="0,0,0,14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Border Style="{StaticResource SegmentGroup}">
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton x:Name="Win30m" GroupName="PerfWin" Style="{StaticResource Segment}"
+                                     Content="30 min" Checked="OnFilterChanged"/>
+                        <RadioButton x:Name="Win3h" GroupName="PerfWin" Style="{StaticResource Segment}"
+                                     Content="3 h" Checked="OnFilterChanged"/>
+                        <RadioButton x:Name="Win24h" GroupName="PerfWin" Style="{StaticResource Segment}"
+                                     Content="24 h" Checked="OnFilterChanged"/>
+                        <RadioButton x:Name="Win7d" GroupName="PerfWin" Style="{StaticResource Segment}"
+                                     Content="7 dias" Checked="OnFilterChanged"/>
+                    </StackPanel>
+                </Border>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <CheckBox x:Name="ChkCpu" Style="{StaticResource Switch}" Content="CPU" IsChecked="True"
+                              Checked="OnFilterChanged" Unchecked="OnFilterChanged" Margin="0,0,12,0"/>
+                    <CheckBox x:Name="ChkGpu" Style="{StaticResource Switch}" Content="GPU" IsChecked="True"
+                              Checked="OnFilterChanged" Unchecked="OnFilterChanged" Margin="0,0,12,0"/>
+                    <CheckBox x:Name="ChkRam" Style="{StaticResource Switch}" Content="RAM" IsChecked="True"
+                              Checked="OnFilterChanged" Unchecked="OnFilterChanged"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- resumo da janela: minimo / media / maximo -->
+            <UniformGrid x:Name="SummaryGrid" Columns="3" Margin="0,0,0,14"/>
+
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="Uso" Style="{StaticResource Title}"/>
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,8"
+                               Text="Porcentagem de uso de cada componente, na janela escolhida. Escala fixa de 0 a 100%."/>
+                    <Grid x:Name="LoadChartHost" Height="190"/>
+                    <StackPanel x:Name="LoadLegend" Orientation="Horizontal" Margin="0,8,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="Temperatura" Style="{StaticResource Title}"/>
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,8"
+                               Text="Graus Celsius, com o teto da escala em 100 °C — o limite térmico de referência."/>
+                    <Grid x:Name="TempChartHost" Height="190"/>
+                    <StackPanel x:Name="TempLegend" Orientation="Horizontal" Margin="0,8,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="Consumo de energia" Style="{StaticResource Title}"/>
+                    <TextBlock x:Name="WattsHint" Style="{StaticResource Hint}" Margin="0,0,0,8"
+                               Text="Watts informados pelos sensores. A escala se ajusta ao maior valor da janela."/>
+                    <Grid x:Name="WattsChartHost" Height="150"/>
+                    <StackPanel x:Name="WattsLegend" Orientation="Horizontal" Margin="0,8,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <TextBlock x:Name="EmptyText" Style="{StaticResource Hint}" Margin="4,10,0,0"
+                       TextWrapping="Wrap" Visibility="Collapsed"
+                       Text="Ainda não há histórico nesta janela. Ele é gravado enquanto o painel do computador ou o indicador no jogo estiverem ligados — um ponto a cada dez segundos."/>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
