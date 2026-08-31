@@ -92,7 +92,13 @@ public sealed class GameDetector
     /// </summary>
     public string? TargetProcess { get; set; }
 
-    /// <summary>Mostrar mesmo quando o jogo não está em primeiro plano.</summary>
+    /// <summary>
+    /// Mostrar mesmo quando o jogo não está em primeiro plano.
+    ///
+    /// Vale nos dois modos. Na adivinhação isso exige lembrar qual era o jogo: sem foco não há o
+    /// que olhar em primeiro plano, e sem memória a opção simplesmente não faria efeito — que foi
+    /// exatamente como ela nasceu, funcionando só para quem escolhia o processo à mão.
+    /// </summary>
     public bool ShowWithoutFocus { get; set; }
 
     /// <summary>
@@ -143,14 +149,57 @@ public sealed class GameDetector
     }
 
     /// <summary>
-    /// O jogo em primeiro plano agora, ou null. Só devolve algo enquanto o jogo está em foco: um
-    /// indicador por cima de um jogo que o usuário deixou para trás só atrapalharia.
+    /// O jogo que deve receber o indicador agora, ou null.
+    ///
+    /// Três caminhos, nesta ordem: o processo escolhido à mão; o que está em primeiro plano; e,
+    /// com "mostrar sem foco" ligado, o último jogo reconhecido, enquanto a janela dele existir.
     /// </summary>
     public GameInfo? Detect()
     {
         if (!string.IsNullOrWhiteSpace(TargetProcess)) return DetectTarget(TargetProcess!);
 
         TargetStatus = null;
+
+        var naFrente = DetectForeground();
+        if (naFrente != null)
+        {
+            _ultimoJogo = naFrente.ProcessId;
+            return naFrente;
+        }
+
+        return ShowWithoutFocus ? DetectUltimo() : null;
+    }
+
+    /// <summary>O último jogo reconhecido, se a janela dele ainda estiver aberta.</summary>
+    private GameInfo? DetectUltimo()
+    {
+        if (_ultimoJogo == 0) return null;
+
+        var janela = WindowScanner.MainWindowOf(_ultimoJogo);
+        if (janela == null)
+        {
+            _ultimoJogo = 0;   // fechou: esquece, senão o bloco ficaria preso a um fantasma
+            return null;
+        }
+
+        return new GameInfo
+        {
+            ProcessId = janela.ProcessId,
+            ProcessName = janela.ProcessName,
+            Title = janela.Title,
+            Window = janela.Handle,
+            Bounds = janela.Bounds,
+            Monitor = janela.Monitor,
+            Mode = janela.CoversMonitor ? GameWindowMode.Fullscreen : GameWindowMode.Windowed,
+            Frames = _frames.StatsFor(janela.ProcessId)
+        };
+    }
+
+    private int _ultimoJogo;
+
+    /// <summary>O que está em primeiro plano, se parecer um jogo.</summary>
+    private GameInfo? DetectForeground()
+    {
         var hwnd = GetForegroundWindow();
         if (hwnd == IntPtr.Zero) return null;
 

@@ -76,8 +76,8 @@ Versões estáveis são marcadas com tag `v*`: o workflow cria a release numerad
 anexado e a promove a "Latest" na página.
 
 ```powershell
-git tag v2.0.0
-git push origin v2.0.0
+git tag v2.0.1
+git push origin v2.0.1
 ```
 
 Cada run também guarda o instalador e o exe portátil como artefatos (**Actions › run › Artifacts**),
@@ -98,7 +98,7 @@ Dois detalhes do GitHub que o app precisa contornar:
   pré-release. Por isso o app lista as releases e escolhe a maior versão, com uma opção para
   considerar ou não as pré-releases.
 - A pré-release usa a tag fixa `latest`, que não é uma versão. A versão sai então do **nome do
-  instalador anexado** (`ClaudeIndicator-Setup-2.0.0.exe`) — de propósito antes do título da
+  instalador anexado** (`ClaudeIndicator-Setup-2.0.1.exe`) — de propósito antes do título da
   release, porque o instalador é o arquivo que será realmente instalado e o título é texto que
   pode ficar defasado se a chamada que o atualiza falhar.
 
@@ -123,7 +123,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Resultado:
 
 - `publish\ClaudeIndicator.exe` — executável único, roda sozinho (portátil, ~63 MB)
-- `dist\ClaudeIndicator-Setup-2.0.0.exe` — instalador (só se o Inno Setup estiver instalado)
+- `dist\ClaudeIndicator-Setup-2.0.1.exe` — instalador (só se o Inno Setup estiver instalado)
 
 Variações:
 
@@ -410,6 +410,12 @@ A exceção só vale para a adivinhação. Um processo apontado à mão é uma d
 seria desobedecer.
 
 ### Onde ele aparece
+
+Por padrão o bloco só aparece com o jogo em primeiro plano — alt-tabou, ele some. A opção
+*"Mostrar mesmo quando o jogo não está em primeiro plano"* muda isso, e vale nos dois modos: com o
+jogo escolhido à mão, ele é seguido pelo nome do processo; na adivinhação, o app lembra qual foi o
+último jogo reconhecido e continua nele enquanto a janela existir. Sem essa memória a opção não
+teria efeito no modo automático — sem foco não há o que olhar em primeiro plano.
 
 A posição é escolhida numa grade de nove cantos, com distância da borda, tamanho e opacidade
 ajustáveis. O bloco se ancora na **janela do jogo**, não no monitor, para continuar certo quando o
