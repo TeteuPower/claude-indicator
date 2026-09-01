@@ -80,6 +80,17 @@ public partial class App : System.Windows.Application
         DispatcherUnhandledException += (_, args) =>
         {
             args.Handled = true;
+
+            // no arquivo vai a exceção inteira; na tela, só a mensagem — diagnóstico de verdade
+            // precisa da pilha, e ninguém copia pilha de um MessageBox
+            try
+            {
+                System.IO.File.AppendAllText(
+                    System.IO.Path.Combine(Core.AppSettings.DataDir, "errors.log"),
+                    $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {args.Exception}\n\n");
+            }
+            catch { }
+
             MessageBox.Show("Ocorreu um erro inesperado:\n\n" + args.Exception.Message,
                 "Claude Indicator", MessageBoxButton.OK, MessageBoxImage.Warning);
         };
