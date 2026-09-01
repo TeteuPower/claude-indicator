@@ -16,6 +16,9 @@ public partial class GadgetWindow : Window
     private bool _canHide = true;
     private bool _timelinePending;
 
+    /// <summary>Últimas preferências aplicadas, para redesenhar sem depender de quem chamou.</summary>
+    private AppSettings _settings = new();
+
     public GadgetWindow()
     {
         InitializeComponent();
@@ -30,12 +33,18 @@ public partial class GadgetWindow : Window
         {
             if (_timelinePending) DrawCallTimeline();
         };
+
+        HardwarePanel.MouseLeave += (_, _) =>
+        {
+            if (_hardwarePendente) RenderHardware(_hardware, _settings);
+        };
     }
 
     // ------------------------------------------------------------------
 
     public void ApplySettings(AppSettings s)
     {
+        _settings = s;
         Topmost = s.GadgetTopmost;
         Opacity = s.GadgetOpacity;
 
@@ -74,6 +83,7 @@ public partial class GadgetWindow : Window
 
     public void Render(UsageSnapshot? snap, AppSettings s)
     {
+        _settings = s;
         BarsPanel.Children.Clear();
 
         if (snap == null)
@@ -305,6 +315,89 @@ public partial class GadgetWindow : Window
     /// </summary>
     /// <summary>Redesenha só a linha do tempo — chamado a cada batimento, sem tocar nas barras.</summary>
     public void RefreshTimeline() => DrawCallTimeline();
+
+    // ------------------------------------------------------------------
+    // Sensores do computador
+    // ------------------------------------------------------------------
+
+    private HardwareSnapshot _hardware = HardwareSnapshot.Empty;
+    private bool _hardwarePendente;
+
+    /// <summary>
+    /// Bloco de CPU, GPU e memória embaixo dos limites, quando ligado nas configurações. Quais
+    /// componentes aparecem são os mesmos escolhidos para o painel do computador — assim não
+    /// existem duas listas dizendo coisas diferentes sobre os mesmos três sensores.
+    /// </summary>
+    public void RenderHardware(HardwareSnapshot hw, AppSettings s)
+    {
+        _hardware = hw;
+        _settings = s;
+
+        // a leitura chega a cada dois segundos e trocar os elementos fecha o tooltip aberto:
+        // com o mouse em cima, espera ele sair
+        if (HardwarePanel.IsMouseOver)
+        {
+            _hardwarePendente = true;
+            return;
+        }
+        _hardwarePendente = false;
+
+        HardwarePanel.Children.Clear();
+        if (!s.GadgetShowHardware) return;
+
+        var quais = new List<(string Rotulo, ComponentReading Leitura)>();
+        if (s.PcShowCpu) quais.Add(("CPU", hw.Cpu));
+        if (s.PcShowGpu) quais.Add(("GPU", hw.Gpu));
+        if (s.PcShowRam) quais.Add(("RAM", hw.Ram));
+        if (quais.Count == 0) return;
+
+        var bloco = new Border
+        {
+            BorderBrush = Swatch("LineBrush"),
+            BorderThickness = new Thickness(0, 1, 0, 0),
+            Padding = new Thickness(0, 9, 0, 0),
+            Margin = new Thickness(0, 2, 0, 0)
+        };
+
+        var lendo = !hw.Ok && !hw.Cpu.HasAnything && !hw.Gpu.HasAnything;
+        if (lendo)
+        {
+            bloco.Child = new TextBlock
+            {
+                Text = hw.Error != null ? "sensores sem leitura" : "lendo sensores…",
+                FontSize = 11,
+                Foreground = Swatch("MutedBrush"),
+                ToolTip = hw.Error
+            };
+        }
+        else if (s.GadgetOrientation == BarOrientation.Horizontal)
+        {
+            var row = new StackPanel { Orientation = Orientation.Horizontal };
+            for (var i = 0; i < quais.Count; i++)
+            {
+                if (i > 0) row.Children.Add(BarRenderer.BuildCellSeparator());
+                row.Children.Add(HardwareRenderer.Cell(quais[i].Rotulo, quais[i].Leitura, hw));
+            }
+            bloco.Child = row;
+        }
+        else
+        {
+            var col = new StackPanel();
+            foreach (var (rotulo, leitura) in quais)
+                col.Children.Add(HardwareRenderer.Row(rotulo, leitura, hw));
+
+            // a última linha não precisa da folga de baixo: ela empurraria o rodapé sem motivo
+            if (col.Children.Count > 0 && col.Children[^1] is Border ultima && ultima.Child is StackPanel sp)
+                sp.Margin = new Thickness(0);
+
+            bloco.Child = col;
+        }
+
+        HardwarePanel.Children.Add(bloco);
+
+        // o bloco muda a altura do gadget: reencaixa na tela depois do layout
+        Dispatcher.BeginInvoke(new Action(ClampToScreen), DispatcherPriority.Loaded);
+    }
 
     private void DrawCallTimeline()
     {

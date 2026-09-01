@@ -40,6 +40,8 @@ public partial class SettingsPage : UserControl
         {
             _host.Updated -= OnUsageUpdated;
             _host.Updated += OnUsageUpdated;
+            // relista as telas: plugar ou tirar um monitor com o app aberto muda as opções
+            BuildMonitorChoices(_tbMonitor, _pcMonitor);
             RenderPreview();
         };
         Unloaded += (_, _) => _host.Updated -= OnUsageUpdated;
@@ -95,6 +97,7 @@ public partial class SettingsPage : UserControl
 
         TbLeft.IsChecked = s.TaskbarBarAnchor == TaskbarAnchor.Left;
         TbRight.IsChecked = s.TaskbarBarAnchor == TaskbarAnchor.Right;
+        BuildMonitorChoices(s.TaskbarBarMonitor, s.PcPanelMonitor);
         SldTbOffset.Value = s.TaskbarBarOffset;
         SldTbScale.Value = s.TaskbarBarScale;
         SldTbOpacity.Value = s.TaskbarBarOpacity;
@@ -108,6 +111,7 @@ public partial class SettingsPage : UserControl
         ChkTopmost.IsChecked = s.GadgetTopmost;
         ChkLocked.IsChecked = s.GadgetLocked;
         ChkShowReset.IsChecked = s.GadgetShowReset;
+        ChkGadgetHardware.IsChecked = s.GadgetShowHardware;
 
         ChkSession.IsChecked = s.ShowSession;
         ChkWeekly.IsChecked = s.ShowWeekly;
@@ -127,6 +131,7 @@ public partial class SettingsPage : UserControl
 
         ChkRateTaskbar.IsChecked = s.ShowRateTaskbar;
         ChkRateGadget.IsChecked = s.ShowRateGadget;
+        ChkGadgetRate.IsChecked = s.ShowRateGadget;
         RateWeekly.IsChecked = s.RateKind == BarKind.Weekly;
         RateSession.IsChecked = s.RateKind == BarKind.Session;
         RateFable.IsChecked = s.RateKind == BarKind.Fable;
@@ -170,6 +175,7 @@ public partial class SettingsPage : UserControl
 
         s.ShowPcPanel = ChkPcPanel.IsChecked == true;
         s.PcPanelAnchor = PcLeft.IsChecked == true ? TaskbarAnchor.Left : TaskbarAnchor.Right;
+        s.PcPanelMonitor = _pcMonitor;
         s.PcShowCpu = ChkPcCpu.IsChecked == true;
         s.PcCpuSensors = ChkPcCpuSensors.IsChecked == true;
         s.PcShowGpu = ChkPcGpu.IsChecked == true;
@@ -201,6 +207,7 @@ public partial class SettingsPage : UserControl
         s.TrayOrientation = OrientHorizontal.IsChecked == true ? BarOrientation.Horizontal : BarOrientation.Vertical;
 
         s.TaskbarBarAnchor = TbRight.IsChecked == true ? TaskbarAnchor.Right : TaskbarAnchor.Left;
+        s.TaskbarBarMonitor = _tbMonitor;
         s.TaskbarBarOffset = Math.Round(SldTbOffset.Value);
         s.TaskbarBarScale = Math.Round(SldTbScale.Value, 2);
         s.TaskbarBarOpacity = Math.Round(SldTbOpacity.Value, 2);
@@ -212,6 +219,7 @@ public partial class SettingsPage : UserControl
         s.GadgetTopmost = ChkTopmost.IsChecked == true;
         s.GadgetLocked = ChkLocked.IsChecked == true;
         s.GadgetShowReset = ChkShowReset.IsChecked == true;
+        s.GadgetShowHardware = ChkGadgetHardware.IsChecked == true;
         if (_resetPosition)
         {
             s.GadgetLeft = null;
@@ -275,8 +283,28 @@ public partial class SettingsPage : UserControl
     // ------------------------------------------------------------------
 
     /// <summary>Liga todos os interruptores e opções ao aviso de alteração pendente.</summary>
+    /// <summary>
+    /// O velocímetro do gadget tem interruptor em dois lugares: no cartão do gadget, junto do que
+    /// mais aparece nele, e no cartão do velocímetro, junto da escala e do limite acompanhado. É a
+    /// mesma preferência, então os dois andam juntos — dois controles mostrando estados diferentes
+    /// para o mesmo valor seria pior que não ter o atalho.
+    /// </summary>
+    private void WireRateGadgetSync()
+    {
+        void Espelha(CheckBox origem, CheckBox destino)
+        {
+            origem.Checked += (_, _) => { if (destino.IsChecked != true) destino.IsChecked = true; };
+            origem.Unchecked += (_, _) => { if (destino.IsChecked != false) destino.IsChecked = false; };
+        }
+
+        Espelha(ChkRateGadget, ChkGadgetRate);
+        Espelha(ChkGadgetRate, ChkRateGadget);
+    }
+
     private void WireDirtyTracking()
     {
+        WireRateGadgetSync();
+
         void Hook(ToggleButton t)
         {
             t.Checked += (_, _) => { MarkDirty(); RenderPreview(); };
@@ -291,7 +319,8 @@ public partial class SettingsPage : UserControl
                      GadgetVertical, GadgetHorizontal, ChkCheckUpdates,
                      ChkPcPanel, PcLeft, PcRight, ChkPcCpu, ChkPcCpuSensors, ChkPcGpu, ChkPcRam,
                      ChkThemeToggle,
-                     ChkRateTaskbar, ChkRateGadget, RateWeekly, RateSession, RateFable,
+                     ChkRateTaskbar, ChkRateGadget, ChkGadgetRate, ChkGadgetHardware,
+                     RateWeekly, RateSession, RateFable,
                      Win5, Win20, Win60, Win1440, ChkTimeProgress, ChkCallTimeline,
                      ChkOverlay, ChkOvFps, ChkOvFrameTime, ChkOvCpu, ChkOvGpu, ChkOvRam, ChkOvClaude,
                      ChkOverlayNoFocus, EstiloContorno, EstiloLeve, ChkOvGraphs, ChkOvHotkeys,
@@ -469,6 +498,101 @@ public partial class SettingsPage : UserControl
             : $"{_gameTarget}.exe — não está aberto no momento";
         GameTargetText.Foreground = BarRenderer.Swatch(aberto != null ? "TextBrush" : "MutedBrush");
         BtnClearGame.IsEnabled = true;
+    }
+
+    private string _tbMonitor = "";
+    private string _pcMonitor = "";
+
+    /// <summary>
+    /// Um botão por tela, para cada um dos dois painéis. Com três monitores os painéis iam sempre
+    /// para o principal, sem alternativa: a escolha da tela é o que permite mover cada bloco para
+    /// a barra de tarefas do monitor que se quiser.
+    ///
+    /// A lista é montada na hora, a partir dos monitores que o Windows enxerga agora — e não de
+    /// uma lista fixa —, então plugar ou tirar uma tela e reabrir as configurações já reflete.
+    /// </summary>
+    private void BuildMonitorChoices(string? aiDevice, string? pcDevice)
+    {
+        _tbMonitor = aiDevice ?? "";
+        _pcMonitor = pcDevice ?? "";
+
+        var opcoes = TaskbarInfo.MonitorOptions(_tbMonitor, _pcMonitor);
+
+        Fill(TbMonitors, "TbMonitor", _tbMonitor, escolhida =>
+        {
+            _tbMonitor = escolhida;
+            UpdateMonitorHints(opcoes);
+        });
+        Fill(PcMonitors, "PcMonitor", _pcMonitor, escolhida =>
+        {
+            _pcMonitor = escolhida;
+            UpdateMonitorHints(opcoes);
+        });
+
+        UpdateMonitorHints(opcoes);
+
+        void Fill(Panel destino, string grupo, string atual, Action<string> escolher)
+        {
+            destino.Children.Clear();
+
+            // um nome guardado que não bate com nenhuma opção só acontece com tela desconectada, e
+            // nesse caso a própria lista traz a entrada "Tela desconectada"
+            var conhecida = opcoes.Exists(o => string.Equals(o.Device, atual, StringComparison.OrdinalIgnoreCase));
+
+            foreach (var o in opcoes)
+            {
+                var botao = new RadioButton
+                {
+                    GroupName = grupo,
+                    Content = o.Label,
+                    IsChecked = conhecida
+                        ? string.Equals(o.Device, atual, StringComparison.OrdinalIgnoreCase)
+                        : o.Device.Length == 0,
+                    Style = (Style)FindResource("Segment"),
+                    ToolTip = o.Detail,
+                    Tag = o.Device
+                };
+                botao.Checked += (sender, _) =>
+                {
+                    if (!_ready) return;
+                    if (sender is RadioButton r && r.Tag is string dev)
+                    {
+                        escolher(dev);
+                        MarkDirty();
+                    }
+                };
+                destino.Children.Add(botao);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Diz o que esperar da tela escolhida: sem barra de tarefas naquele monitor não há espaço
+    /// livre para ocupar, e o painel não apareceria — melhor avisar aqui que deixar o usuário
+    /// procurando um bloco que nunca vem.
+    /// </summary>
+    private void UpdateMonitorHints(List<MonitorOption> opcoes)
+    {
+        if (TbMonitorHint == null || PcMonitorHint == null) return;
+
+        TbMonitorHint.Text = HintFor(_tbMonitor);
+        PcMonitorHint.Text = HintFor(_pcMonitor);
+
+        string HintFor(string device)
+        {
+            var o = opcoes.Find(x => string.Equals(x.Device, device, StringComparison.OrdinalIgnoreCase));
+            if (o == null || o.Device.Length == 0)
+                return "Segue a barra de tarefas da tela principal do Windows.";
+
+            if (!o.Present)
+                return $"{o.Label}: essa tela não está ligada agora, então o painel fica na principal até ela voltar.";
+
+            if (!o.HasTaskbar)
+                return $"{o.Detail}. Ligue \"Mostrar minha barra de tarefas em todos os monitores\" "
+                     + "em Configurações do Windows › Personalização › Barra de tarefas para o painel caber ali.";
+
+            return o.Detail + ".";
+        }
     }
 
     private OverlayAnchor _overlayAnchor = OverlayAnchor.TopLeft;

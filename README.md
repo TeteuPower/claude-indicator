@@ -222,12 +222,16 @@ O que continua sendo reação e não escolha:
 - **Onde exibir**: bandeja, painel na barra de tarefas e gadget — cada um liga e desliga sozinho
 - **Ícone da bandeja**: barras verticais (colunas lado a lado) ou horizontais (linhas empilhadas) —
   a horizontal costuma ser mais legível com duas ou três barras
-- **Painel na barra de tarefas**: posição (à esquerda ou junto ao relógio), distância da borda,
-  tamanho e opacidade do fundo
+- **Painel na barra de tarefas**: tela (automático ou um monitor específico), posição (à esquerda ou
+  junto ao relógio), distância da borda, tamanho e opacidade do fundo
 - **Quais barras** mostrar e o rótulo de cada uma
 - **Gadget**: disposição das barras (vertical, uma por linha; ou horizontal, lado a lado com
   separador), opacidade, tamanho, sempre por cima, travar posição, mostrar horário de renovação,
-  reposicionar no canto inferior direito
+  reposicionar no canto inferior direito, e o que mais aparece nele — **CPU, GPU e memória** e o
+  **velocímetro do ritmo**, cada um com seu interruptor
+  - o bloco de sensores usa os mesmos componentes escolhidos para o painel do computador, e ligá-lo
+    liga a leitura de sensores mesmo com aquele painel desligado
+  - o interruptor do velocímetro é o mesmo que existe em *Ritmo*: mexer em um mexe no outro
 - **Ritmo**: velocímetro no painel da barra e/ou no gadget, de qual limite ele acompanha, a janela
   da média (5 min a 24 h) e a marca do tempo decorrido nas barras
 - **Histórico de consumo**: guardar tudo (padrão) ou apagar registros com mais de N dias
@@ -291,7 +295,8 @@ gráfico começa vazio e enche a partir do primeiro uso.
 
 Um segundo painel na barra de tarefas mostra **CPU, GPU e memória**, com uso, temperatura, watts e
 memória usada. Ele fica no lado oposto ao painel da IA: a ideia é que cada bloco tenha lugar fixo,
-em vez de ícones que trocam de posição e não se identificam.
+em vez de ícones que trocam de posição e não se identificam. A tela dele também é escolhida à
+parte — dá para deixar a IA num monitor e os sensores em outro.
 
 A leitura usa a [LibreHardwareMonitorLib](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor),
 numa thread própria — abrir os sensores leva alguns segundos e cada leitura, dezenas de
@@ -583,6 +588,20 @@ colocar um componente lá dentro. O que o app faz é posicionar uma janela sem b
 livre da barra (à esquerda do botão Iniciar, ou entre os ícones e o relógio), acompanhando mudanças
 de tamanho, posição e DPI, e se escondendo quando um aplicativo em tela cheia está na frente.
 
+**Com várias telas**, cada painel escolhe em qual monitor se encaixa. O Windows desenha uma barra
+por tela — a principal é a janela `Shell_TrayWnd`, as outras são `Shell_SecondaryTrayWnd` —, e é a
+barra da tela escolhida que define o espaço livre, o rodapé e o teste de tela cheia. Nas secundárias
+do Windows 11 o relógio não tem janela própria para medir, então uma faixa proporcional à altura da
+barra fica reservada para ele.
+
+O posicionamento é feito em **pixels de tela**, com `SetWindowPos`, e não pelas propriedades
+`Left`/`Top` do WPF: com telas em escalas diferentes (100% e 175% ao mesmo tempo, por exemplo) o WPF
+converte essas propriedades por um DPI que não é necessariamente o do monitor de destino, e o painel
+parava longe do lugar — às vezes na tela errada, sem nunca convergir. Uma trava em
+`WM_WINDOWPOSCHANGING` devolve qualquer movimento ao alvo, inclusive os que o próprio WPF faz quando
+o conteúdo muda de largura ou o Topmost é reafirmado. Ancorado à direita, a borda fixa é a direita,
+para o painel não invadir o relógio quando o texto cresce.
+
 Manter-se por cima exige atenção: a barra de tarefas também é topmost, e fechar ou ativar qualquer
 janela remexe a ordem-Z. Em vez de reafirmar a posição de tempos em tempos — o que derruba o
 tooltip aberto —, o painel pergunta ao Windows quem atende no seu ponto central; se a resposta não
@@ -618,6 +637,7 @@ src/ClaudeIndicator/
     GamePickerWindow.xaml  lista de janelas abertas para escolher o jogo
     OutlinedText.cs        texto com contorno, legível sobre qualquer fundo
     BarRenderer.cs       desenho das barras (gadget e prévia)
+    HardwareRenderer.cs  linhas e células de CPU/GPU/memória no gadget, e os textos dos balões
     Pages/
       OverviewPage.xaml  visão geral: restante, ritmo, projeção e top projetos
       HistoryPage.xaml   gráficos do histórico (nível e consumo por hora/dia)

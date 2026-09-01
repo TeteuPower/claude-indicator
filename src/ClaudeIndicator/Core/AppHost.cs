@@ -197,6 +197,7 @@ public sealed class AppHost
             EnsureGadget();
             _gadget!.ApplySettings(Settings);
             _gadget.Render(Last, Settings);
+            _gadget.RenderHardware(_hardware.Current, Settings);
             _gadget.Show();
         }
         else
@@ -298,7 +299,8 @@ public sealed class AppHost
 
     /// <summary>
     /// Liga ou desliga o painel do PC junto com a leitura dos sensores. Ler hardware custa CPU e
-    /// mantém um driver aberto, então nada disso roda com o painel desligado.
+    /// mantém um driver aberto, então nada disso roda sem alguém pedindo — painel do computador,
+    /// indicador no jogo ou o bloco de sensores do gadget.
     /// </summary>
     private void ApplyPcPanel()
     {
@@ -331,8 +333,9 @@ public sealed class AppHost
     {
         var overlayQuerSensores = Settings.ShowGameOverlay
             && (Settings.OverlayShowCpu || Settings.OverlayShowGpu || Settings.OverlayShowRam);
+        var gadgetQuerSensores = Settings.GadgetEnabled && Settings.GadgetShowHardware;
 
-        if (Settings.ShowPcPanel || overlayQuerSensores)
+        if (Settings.ShowPcPanel || overlayQuerSensores || gadgetQuerSensores)
         {
             if (!_assinouSensores)
             {
@@ -436,6 +439,7 @@ public sealed class AppHost
         dispatcher.BeginInvoke(new Action(() =>
         {
             if (Settings.ShowPcPanel) _pcPanel?.RenderHardware(snap, Settings);
+            if (Settings.GadgetEnabled && Settings.GadgetShowHardware) _gadget?.RenderHardware(snap, Settings);
         }));
     }
 
@@ -513,6 +517,7 @@ public sealed class AppHost
         EnsureGadget();
         _gadget!.ApplySettings(Settings);
         _gadget.Render(Last, Settings);
+        _gadget.RenderHardware(_hardware.Current, Settings);
         _gadget.Show();
         _gadget.Activate();
     }

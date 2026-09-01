@@ -99,6 +99,12 @@
                                 </StackPanel>
                             </Border>
 
+                            <TextBlock Text="Tela" Style="{StaticResource FieldLabel}" Margin="0,14,0,5"/>
+                            <Border Style="{StaticResource SegmentGroup}">
+                                <WrapPanel x:Name="TbMonitors" Orientation="Horizontal" MaxWidth="420"/>
+                            </Border>
+                            <TextBlock x:Name="TbMonitorHint" Style="{StaticResource Hint}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+
                             <Grid Margin="0,14,0,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="120"/>
@@ -171,6 +177,12 @@
                                     <RadioButton x:Name="PcRight" GroupName="PcAnchor" Style="{StaticResource Segment}" Content="Junto ao relógio"/>
                                 </StackPanel>
                             </Border>
+
+                            <TextBlock Text="Tela" Style="{StaticResource FieldLabel}" Margin="0,14,0,5"/>
+                            <Border Style="{StaticResource SegmentGroup}">
+                                <WrapPanel x:Name="PcMonitors" Orientation="Horizontal" MaxWidth="420"/>
+                            </Border>
+                            <TextBlock x:Name="PcMonitorHint" Style="{StaticResource Hint}" Margin="0,6,0,0" TextWrapping="Wrap"/>
 
                             <TextBlock Text="O que mostrar" Style="{StaticResource FieldLabel}" Margin="0,14,0,0"/>
                             <CheckBox x:Name="ChkPcCpu" Style="{StaticResource Switch}" Content="CPU"/>
@@ -252,6 +264,18 @@
                             <CheckBox x:Name="ChkTopmost" Style="{StaticResource Switch}" Content="Sempre por cima"/>
                             <CheckBox x:Name="ChkLocked" Style="{StaticResource Switch}" Content="Travar posição"/>
                             <CheckBox x:Name="ChkShowReset" Style="{StaticResource Switch}" Content="Mostrar horário de renovação"/>
+
+                            <TextBlock Text="O que mais mostrar" Style="{StaticResource FieldLabel}" Margin="0,16,0,0"/>
+                            <CheckBox x:Name="ChkGadgetHardware" Style="{StaticResource Switch}"
+                                      Content="CPU, GPU e memória"/>
+                            <TextBlock x:Name="GadgetHardwareHint" Style="{StaticResource Hint}" Margin="27,2,0,0"
+                                       TextWrapping="Wrap"
+                                       Text="Um bloco de sensores abaixo dos limites. Quais componentes aparecem são os mesmos escolhidos em “Painel do computador”, e ligar isto liga a leitura de sensores mesmo com aquele painel desligado."/>
+
+                            <CheckBox x:Name="ChkGadgetRate" Style="{StaticResource Switch}"
+                                      Content="Velocímetro do ritmo de consumo"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="27,2,0,0" TextWrapping="Wrap"
+                                       Text="O mesmo interruptor que existe em Ritmo — a escala, o limite acompanhado e a janela da média ficam lá."/>
 
                             <Button Content="Reposicionar no canto inferior direito" Click="OnResetPositionClick"
                                     HorizontalAlignment="Left" Margin="0,14,0,0"/>

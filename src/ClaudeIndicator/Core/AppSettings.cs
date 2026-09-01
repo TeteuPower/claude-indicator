@@ -69,6 +69,14 @@ public class AppSettings
 
     // ---- Painel da barra de tarefas ----
     public TaskbarAnchor TaskbarBarAnchor { get; set; } = TaskbarAnchor.Left;
+
+    /// <summary>
+    /// Monitor onde o painel da IA se encaixa, pelo nome de dispositivo do Windows (\\.\DISPLAY2).
+    /// Vazio segue a tela principal, que é o comportamento de sempre. Com várias telas, é isto que
+    /// permite deixar o painel na barra de tarefas do monitor lateral em vez do principal.
+    /// </summary>
+    public string TaskbarBarMonitor { get; set; } = "";
+
     public double TaskbarBarOpacity { get; set; } = 0.0;
     public double TaskbarBarScale { get; set; } = 1.0;
     public double TaskbarBarOffset { get; set; } = 8;
@@ -95,6 +103,13 @@ public class AppSettings
     /// bloco de cada lado, para nunca haver dúvida sobre qual indicador é qual.
     /// </summary>
     public TaskbarAnchor PcPanelAnchor { get; set; } = TaskbarAnchor.Right;
+
+    /// <summary>
+    /// Monitor do painel do PC, no mesmo formato do <see cref="TaskbarBarMonitor"/>. É separado de
+    /// propósito: dá para deixar a IA numa tela e os sensores em outra.
+    /// </summary>
+    public string PcPanelMonitor { get; set; } = "";
+
 
     public bool PcShowCpu { get; set; } = true;
     public bool PcShowGpu { get; set; } = true;
@@ -203,6 +218,15 @@ public class AppSettings
     public bool GadgetTopmost { get; set; } = true;
     public bool GadgetLocked { get; set; } = false;
     public bool GadgetShowReset { get; set; } = true;
+
+    /// <summary>
+    /// Mostrar CPU, GPU e memória no gadget, abaixo dos limites da IA. Quais componentes aparecem
+    /// são os mesmos escolhidos para o painel do computador (<see cref="PcShowCpu"/> e companhia):
+    /// duas listas separadas para os mesmos três sensores só criariam dúvida sobre qual vale.
+    ///
+    /// Desligado por padrão porque ligar isso liga a leitura de sensores, que custa CPU.
+    /// </summary>
+    public bool GadgetShowHardware { get; set; }
     public BarOrientation GadgetOrientation { get; set; } = BarOrientation.Vertical;
 
     // ---- Histórico ----
@@ -366,6 +390,10 @@ public class AppSettings
         if (TaskbarBarScale > 1.6) TaskbarBarScale = 1.6;
         if (TaskbarBarOffset < 0) TaskbarBarOffset = 0;
         if (TaskbarBarOffset > 600) TaskbarBarOffset = 600;
+
+        // nome de monitor nulo é tratado como "automático", e não como exceção na hora de posicionar
+        TaskbarBarMonitor = (TaskbarBarMonitor ?? "").Trim();
+        PcPanelMonitor = (PcPanelMonitor ?? "").Trim();
 
         // piso de 60s: o limite de consultas é da conta e cada sessão do Claude Code
         // aberta consulta o mesmo endpoint — abaixo disso o HTTP 429 é questão de tempo

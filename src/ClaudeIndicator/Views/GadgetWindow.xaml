@@ -64,6 +64,11 @@
 
                 <StackPanel x:Name="BarsPanel"/>
 
+                <!-- Sensores do computador. Painel próprio, e não dentro do BarsPanel, para a
+                     leitura de dois em dois segundos redesenhar só esta parte: refazer os limites
+                     junto fecharia o tooltip que estivesse aberto neles. -->
+                <StackPanel x:Name="HardwarePanel"/>
+
                 <!-- rodape: texto a esquerda, linha do tempo das ultimas consultas a direita -->
                 <Grid Margin="0,5,0,0">
                     <TextBlock x:Name="FooterText" Style="{StaticResource Hint}" FontSize="10.5"

@@ -296,7 +296,7 @@ public partial class TaskbarBarWindow : Window
             Foreground = BarRenderer.Swatch("MutedBrush")
         });
 
-        var apoio = Support(c, rotulo);
+        var apoio = HardwareRenderer.Support(c, rotulo);
         if (apoio.Length > 0)
         {
             head.Children.Add(new OutlinedText
@@ -355,7 +355,7 @@ public partial class TaskbarBarWindow : Window
             Child = cell,
             Background = System.Windows.Media.Brushes.Transparent,
             Padding = new Thickness(2, 0, 2, 0),
-            ToolTip = DescribeHardware(rotulo, c, hw)
+            ToolTip = HardwareRenderer.Describe(rotulo, c, hw)
         };
     }
 
@@ -412,16 +412,6 @@ public partial class TaskbarBarWindow : Window
 
     private static readonly Brush Contorno = Congelado(Color.FromArgb(0xE6, 0, 0, 0));
 
-    /// <summary>Medidas de apoio da célula: temperatura, watts ou memória, conforme o componente.</summary>
-    private static string Support(ComponentReading c, string rotulo)
-    {
-        var partes = new List<string>();
-        if (c.Temperature.HasValue) partes.Add(c.Temperature.Format("°"));
-        if (c.Power.HasValue) partes.Add(c.Power.Format(" W"));
-        if (rotulo == "RAM" && c.MemoryUsed.HasValue) partes.Add(c.MemoryUsed.Format(" GB", 1));
-        return string.Join(" · ", partes);
-    }
-
     private static readonly Color Verde = Color.FromArgb(255, 76, 195, 138);
     private static readonly Color Amarelo = Color.FromArgb(255, 232, 176, 75);
     private static readonly Color Vermelho = Color.FromArgb(255, 240, 92, 92);
@@ -470,16 +460,14 @@ public partial class TaskbarBarWindow : Window
     }
 
     /// <summary>Temperatura manda na cor de apoio; sem ela, os watts não têm faixa universal.</summary>
-    /// <summary>
-    /// A trilha vazia da barra precisa aparecer tanto sobre a barra escura quanto sobre um papel de
-    /// parede claro. Um preenchimento escuro resolve o segundo caso e a borda clara o primeiro —
-    /// isolados, cada um sumiria justamente no outro. É o par que acompanha o texto com contorno.
-    /// </summary>
-    private static readonly Brush TrilhaEscura = Congelado(Color.FromArgb(0x73, 0, 0, 0));
-    private static readonly Brush TrilhaBorda = Congelado(Color.FromArgb(0x59, 0xFF, 0xFF, 0xFF));
-
-    /// <summary>Preenchimento da trilha no estilo escolhido.</summary>
-    private Brush FundoDaTrilha => _settings.PanelOutline ? TrilhaEscura : BarRenderer.Swatch("TrackBrush");
+    private static Color HardwareColor(ComponentReading c)
+    {
+        if (!c.Temperature.HasValue) return Cinza;
+        var t = c.Temperature.Value!.Value;
+        if (t >= 90) return Vermelho;
+        if (t >= 80) return Amarelo;
+        return Cinza;
+    }
 
     /// <summary>Borda da trilha; sem contorno não há borda, como era antes.</summary>
     private Thickness EsperaDaTrilha => new(_settings.PanelOutline ? 1 : 0);
@@ -491,45 +479,16 @@ public partial class TaskbarBarWindow : Window
         return b;
     }
 
-    private static Color HardwareColor(ComponentReading c)
-    {
-        if (!c.Temperature.HasValue) return Cinza;
-        var t = c.Temperature.Value!.Value;
-        if (t >= 90) return Vermelho;
-        if (t >= 80) return Amarelo;
-        return Cinza;
-    }
+    /// <summary>
+    /// A trilha vazia da barra precisa aparecer tanto sobre a barra escura quanto sobre um papel de
+    /// parede claro. Um preenchimento escuro resolve o segundo caso e a borda clara o primeiro —
+    /// isolados, cada um sumiria justamente no outro. É o par que acompanha o texto com contorno.
+    /// </summary>
+    private static readonly Brush TrilhaEscura = Congelado(Color.FromArgb(0x73, 0, 0, 0));
+    private static readonly Brush TrilhaBorda = Congelado(Color.FromArgb(0x59, 0xFF, 0xFF, 0xFF));
 
-    private static string DescribeHardware(string rotulo, ComponentReading c, HardwareSnapshot hw)
-    {
-        var sb = new System.Text.StringBuilder();
-        sb.Append(rotulo);
-        if (c.Name.Length > 0) sb.Append(" — ").Append(c.Name);
-
-        if (c.Load.HasValue) sb.Append("\nUso: ").Append(c.Load.Format("%"));
-        if (c.Temperature.HasValue) sb.Append("\nTemperatura: ").Append(c.Temperature.Format(" °C"));
-        if (c.Power.HasValue) sb.Append("\nConsumo: ").Append(c.Power.Format(" W", 1));
-        if (c.MemoryUsed.HasValue)
-        {
-            sb.Append("\nMemória: ").Append(c.MemoryUsed.Format(" GB", 1));
-            if (c.MemoryTotal.HasValue) sb.Append(" de ").Append(c.MemoryTotal.Format(" GB", 1));
-        }
-
-        if (rotulo == "CPU" && c.Temperature.HasValue && hw.CpuTemperatureFromThermalZone)
-        {
-            sb.Append("\n\nA temperatura vem da zona térmica ACPI — o conjunto ao redor do ")
-              .Append("processador, não o sensor interno dele. Acompanha o aquecimento de perto, ")
-              .Append("mas pode diferir alguns graus do que o Afterburner mostra.");
-        }
-
-        if (rotulo == "CPU" && !c.Power.HasValue)
-        {
-            sb.Append("\n\nOs watts da CPU só existem nos registradores do processador, que ")
-              .Append("precisam de um driver de kernel — é a única medida daqui que depende disso.");
-        }
-
-        return sb.ToString();
-    }
+    /// <summary>Preenchimento da trilha no estilo escolhido.</summary>
+    private Brush FundoDaTrilha => _settings.PanelOutline ? TrilhaEscura : BarRenderer.Swatch("TrackBrush");
 
     private static UIElement Divider() => new Border
     {
@@ -687,51 +646,130 @@ public partial class TaskbarBarWindow : Window
     private TaskbarAnchor Anchor =>
         Kind == PanelKind.Pc ? _settings.PcPanelAnchor : _settings.TaskbarBarAnchor;
 
+    /// <summary>
+    /// Monitor escolhido para este painel. Vazio é "onde estiver a barra principal" — que era o
+    /// único comportamento possível antes.
+    /// </summary>
+    private string MonitorDevice =>
+        Kind == PanelKind.Pc ? _settings.PcPanelMonitor : _settings.TaskbarBarMonitor;
+
+    /// <summary>
+    /// Onde o painel tem de estar, em pixels de tela. Uma das bordas é fixa — a esquerda ou a
+    /// direita, conforme a âncora — e é ela que manda quando o conteúdo muda de largura.
+    /// </summary>
+    private sealed record Alvo(int? Esquerda, int? Direita, int Topo, int Altura);
+
+    private Alvo? _alvo;
+
+    /// <summary>
+    /// Posiciona em pixels de tela, e não pelas propriedades Left/Top do WPF.
+    ///
+    /// O motivo é a mistura de escalas: com telas em 100% e 175% ao mesmo tempo, o WPF converte
+    /// Left/Top usando um DPI que não é necessariamente o do monitor de destino, e o painel
+    /// parava a centenas de pixels do lugar — às vezes no monitor errado, sem nunca convergir.
+    /// Em pixels não há conversão nenhuma para dar errado: a barra é medida em pixels e a janela
+    /// é colocada em pixels.
+    /// </summary>
     private void Reposition()
     {
         if (_hidden) return;
 
-        var span = TaskbarInfo.FreeSpan(Anchor);
-        var bounds = TaskbarInfo.Bounds();
-        if (span == null || bounds == null || !TaskbarInfo.IsHorizontal())
+        var taskbar = TaskbarInfo.Resolve(MonitorDevice);
+        var span = TaskbarInfo.FreeSpan(taskbar, Anchor);
+        if (taskbar == null || span == null || !taskbar.IsHorizontal)
         {
             // barra na vertical ou não encontrada: não há espaço previsível para ocupar
+            _alvo = null;
             Visibility = Visibility.Collapsed;
             return;
         }
 
-        var source = PresentationSource.FromVisual(this);
-        var m = source?.CompositionTarget?.TransformFromDevice ?? Matrix.Identity;
-        var scaleX = m.M11 == 0 ? 1 : m.M11;
-        var scaleY = m.M22 == 0 ? 1 : m.M22;
-
-        var bar = bounds.Value;
-        if (TaskbarInfo.FullscreenAppInFront())
+        if (TaskbarInfo.FullscreenAppInFront(taskbar))
         {
+            _alvo = null;
             Visibility = Visibility.Collapsed;
             return;
         }
 
         Visibility = Visibility.Visible;
 
-        var height = bar.Height * scaleY;
-        var width = ActualWidth > 0 ? ActualWidth : 260;
-        var availableDip = (span.Value.To - span.Value.From) * scaleX;
-        if (width > availableDip) width = availableDip;
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero || !GetWindowRect(hwnd, out var atual)) return;
 
-        var left = Anchor == TaskbarAnchor.Left
-            ? span.Value.From * scaleX + _settings.TaskbarBarOffset
-            : span.Value.To * scaleX - width - _settings.TaskbarBarOffset;
-        var top = bar.Top * scaleY;
+        var bar = taskbar.Bar;
+        var larguraPx = Math.Max(atual.Right - atual.Left, 1);
+        var disponivelPx = Math.Max(span.Value.To - span.Value.From, 1);
+        var usadaPx = Math.Min(larguraPx, disponivelPx);
+
+        // a distância da borda é escolhida em unidades de tela; convertida pela escala do monitor
+        // de destino, ela vale o mesmo tanto no monitor de 100% quanto no de 175%
+        var recuoPx = (int)Math.Round(_settings.TaskbarBarOffset * TaskbarInfo.ScaleOf(taskbar));
+
+        _alvo = Anchor == TaskbarAnchor.Left
+            ? new Alvo(span.Value.From + recuoPx, null, bar.Top, bar.Height)
+            : new Alvo(null, span.Value.To - recuoPx, bar.Top, bar.Height);
+
+        var esquerdaPx = _alvo.Esquerda ?? _alvo.Direita!.Value - usadaPx;
 
         // Só escrever quando muda de verdade: reposicionar a cada tique fazia o tooltip fechar e
-        // reabrir sem parar, porque mexer em Left/Top/Topmost derruba o balão aberto.
-        if (Math.Abs(Height - height) > 0.5) Height = height;
-        if (Math.Abs(Left - left) > 0.5) Left = left;
-        if (Math.Abs(Top - top) > 0.5) Top = top;
+        // reabrir sem parar, porque mexer em posição ou Topmost derruba o balão aberto.
+        if (atual.Left != esquerdaPx || atual.Top != bar.Top || atual.Bottom - atual.Top != bar.Height)
+        {
+            SetWindowPos(hwnd, IntPtr.Zero, esquerdaPx, bar.Top, larguraPx, bar.Height,
+                SWP_NOZORDER | SWP_NOACTIVATE);
+        }
 
         ReassertTopmost();
     }
+
+    /// <summary>
+    /// Todo movimento passa por aqui e é corrigido para o alvo — inclusive os que o próprio WPF
+    /// faz, e são muitos: o conteúdo muda de largura a cada leitura (SizeToContent), reafirmar o
+    /// Topmost reposiciona, e a mudança de DPI ao entrar noutra tela também. Sem esta trava, cada
+    /// um desses eventos devolvia a janela para a posição antiga em unidades do WPF, e o painel
+    /// ficava indo e voltando.
+    ///
+    /// Ancorado à direita, a borda fixa é a direita: quando a largura muda, o x acompanha, e o
+    /// painel não invade o relógio nem descola dele até o próximo tique.
+    /// </summary>
+    private IntPtr OnWindowPosChanging(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg != WM_WINDOWPOSCHANGING || _alvo == null || lParam == IntPtr.Zero) return IntPtr.Zero;
+
+        var pos = Marshal.PtrToStructure<WINDOWPOS>(lParam);
+        var mantemTamanho = (pos.flags & SWP_NOSIZE) != 0;
+
+        var largura = mantemTamanho
+            ? (GetWindowRect(hwnd, out var r) ? r.Right - r.Left : pos.cx)
+            : pos.cx;
+
+        pos.x = _alvo.Esquerda ?? _alvo.Direita!.Value - Math.Max(largura, 1);
+        pos.y = _alvo.Topo;
+        pos.flags &= ~SWP_NOMOVE;
+
+        if (!mantemTamanho) pos.cy = _alvo.Altura;
+
+        Marshal.StructureToPtr(pos, lParam, false);
+        return IntPtr.Zero;
+    }
+
+    private const int WM_WINDOWPOSCHANGING = 0x0046;
+    private const uint SWP_NOSIZE = 0x0001;
+    private const uint SWP_NOMOVE = 0x0002;
+    private const uint SWP_NOZORDER = 0x0004;
+    private const uint SWP_NOACTIVATE = 0x0010;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WINDOWPOS
+    {
+        public IntPtr hwnd;
+        public IntPtr hwndInsertAfter;
+        public int x, y, cx, cy;
+        public uint flags;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
 
     /// <summary>
     /// A barra de tarefas também é topmost, e fechar ou ativar qualquer janela remexe a ordem-Z:
@@ -824,6 +862,11 @@ public partial class TaskbarBarWindow : Window
         base.OnSourceInitialized(e);
         var helper = new WindowInteropHelper(this);
         NativeMethods.MakeNoActivate(helper.Handle);
+
+        var source = HwndSource.FromHwnd(helper.Handle);
+        source?.AddHook(OnWindowPosChanging);
+        if (source != null) Closed += (_, _) => source.RemoveHook(OnWindowPosChanging);
+
         Reposition();
     }
 
