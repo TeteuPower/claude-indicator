@@ -85,6 +85,13 @@ public sealed class HardwareSnapshot
     /// <summary>Os sensores profundos da CPU foram pedidos nesta execução?</summary>
     public bool CpuSensorsEnabled { get; init; }
 
+    /// <summary>
+    /// Quem está consumindo mais agora, por componente — o que os balões dos indicadores mostram
+    /// quando o mouse para sobre CPU, GPU ou memória. Vem junto do retrato porque é medido na
+    /// mesma passada, na thread de leitura, e não no meio do desenho.
+    /// </summary>
+    public ProcessTops Processes { get; init; } = ProcessTops.Empty;
+
     /// <summary>Mensagem de falha da abertura do monitor, se houve.</summary>
     public string? Error { get; init; }
 

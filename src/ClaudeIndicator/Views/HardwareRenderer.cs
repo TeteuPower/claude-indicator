@@ -52,6 +52,8 @@ public static class HardwareRenderer
               .Append("mas pode diferir alguns graus do que o Afterburner mostra.");
         }
 
+        Consumidores(sb, rotulo, hw.Processes);
+
         if (rotulo == "CPU" && !c.Power.HasValue)
         {
             sb.Append("\n\nOs watts da CPU só existem nos registradores do processador, que ")
@@ -59,6 +61,41 @@ public static class HardwareRenderer
         }
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Quem está consumindo mais este componente agora, do maior para o menor. É a pergunta que
+    /// vem depois de "está em 75%": foi o navegador, foi a compilação, foi o jogo? Os processos são
+    /// somados por nome, senão o Chrome ocuparia a lista inteira com as suas próprias abas.
+    /// </summary>
+    private static void Consumidores(StringBuilder sb, string rotulo, ProcessTops tops)
+    {
+        var lista = rotulo switch
+        {
+            "CPU" => tops.Cpu,
+            "GPU" => tops.Gpu,
+            "RAM" => tops.Ram,
+            _ => null
+        };
+
+        if (lista == null) return;
+
+        if (lista.Count == 0)
+        {
+            // só a GPU merece explicação: uso zero é comum ali, e lista vazia sem uma palavra
+            // pareceria falha do app. Em CPU e memória, lista vazia é só a primeira leitura.
+            if (rotulo == "GPU" && tops.GpuOk) sb.Append("\n\nNenhum programa usando a GPU agora.");
+            return;
+        }
+
+        sb.Append("\n\nQuem está consumindo mais:");
+        foreach (var uso in lista)
+        {
+            var valor = rotulo == "RAM"
+                ? uso.Value.ToString("0.0") + " GB"
+                : uso.Value.ToString("0.#") + "%";
+            sb.Append("\n · ").Append(uso.Name).Append(" — ").Append(valor);
+        }
     }
 
     /// <summary>

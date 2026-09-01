@@ -29,6 +29,7 @@ public sealed class HardwareMonitor : IDisposable
     private volatile bool _cpuSensors;
     private PerformanceCounter? _cpuLoad;
     private PerformanceCounter? _thermalZone;
+    private readonly ProcessSampler _processos = new();
 
     public HardwareSnapshot Current { get; private set; } = HardwareSnapshot.Empty;
 
@@ -92,6 +93,7 @@ public sealed class HardwareMonitor : IDisposable
             }
             _computer = null;
         }
+        _processos.Dispose();
         Current = HardwareSnapshot.Empty;
     }
 
@@ -283,8 +285,26 @@ public sealed class HardwareMonitor : IDisposable
             Ram = ram,
             Elevated = elevado,
             CpuSensorsEnabled = _cpuSensors,
-            CpuTemperatureFromThermalZone = daZona.HasValue
+            CpuTemperatureFromThermalZone = daZona.HasValue,
+            Processes = LerProcessos()
         };
+    }
+
+    /// <summary>
+    /// Quem consome mais, por componente. Custa ~10 ms por leitura (uma chamada ao kernel e uma
+    /// coleta PDH), aqui na thread de leitura — a interface só formata o resultado. Falha não
+    /// interrompe o retrato: sem a lista, os balões voltam a mostrar apenas os totais.
+    /// </summary>
+    private ProcessTops LerProcessos()
+    {
+        try
+        {
+            return _processos.Sample();
+        }
+        catch
+        {
+            return ProcessTops.Empty;
+        }
     }
 
     /// <summary>Zona térmica ACPI, em Kelvin no contador.</summary>

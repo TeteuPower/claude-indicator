@@ -313,6 +313,27 @@ Quase tudo é lido **sem driver e sem elevação**:
 | CPU: temperatura | zona térmica ACPI, por contador de desempenho | não |
 | **CPU: watts** | registradores do processador | **sim** |
 
+### Quem está consumindo mais
+
+Passar o mouse sobre CPU, GPU ou memória — no painel da barra ou no gadget — mostra, além dos
+totais, os **cinco programas que mais consomem aquele componente agora**, do maior para o menor.
+Processos com o mesmo nome são somados: o Chrome abre dezenas deles, e vinte linhas de `chrome.exe`
+não responderiam à pergunta que se faz ao passar o mouse.
+
+De onde saem os números, e por que não pela via óbvia:
+
+| Lista | Fonte | Custo | Por que não o caminho comum |
+|---|---|---|---|
+| Memória e CPU | `NtQuerySystemInformation` | ~7 ms, todos os processos | `Process.TotalProcessorTime` abre um handle por processo; sem elevação, 187 de 377 negaram acesso aqui — e são justamente os do sistema, que às vezes lideram a lista |
+| GPU | contadores `GPU Engine`, por consulta PDH com curinga | ~2 ms por leitura | pela classe `PerformanceCounter` a mesma leitura levava **6,3 s** (773 instâncias, uma consulta cada) |
+
+Tudo isso roda na thread de leitura, junto dos sensores: **5–12 ms por leitura**, medidos, e nada
+na interface — o balão só formata o que já está pronto. Uso de CPU é diferença entre duas leituras,
+então a primeira amostra sai sem essa lista. Máquina sem os contadores de GPU por processo
+simplesmente não mostra a lista da GPU, e o resto segue igual. O balão é o retrato do momento em
+que ele abriu: com o mouse parado sobre o indicador, o app deixa de redesenhar de propósito, para
+não fechar o balão que está sendo lido.
+
 A temperatura da CPU vem da **zona térmica ACPI** (`Thermal Zone Information`), que custa ~2 ms
 por leitura e não exige nada. Ela mede o conjunto ao redor do processador, não o sensor interno
 dele: acompanha o aquecimento de perto, mas pode diferir alguns graus do número que o Afterburner
@@ -615,6 +636,7 @@ src/ClaudeIndicator/
     AppSettings.cs       preferências (JSON em %APPDATA%)
     CredentialStore.cs   leitura do login do Claude Code + refresh OAuth
     UsageService.cs      HTTP + parser tolerante do JSON de consumo
+    ProcessUsage.cs      quem consome mais CPU, GPU e memória (kernel + PDH)
     UsageHistory.cs      grava/lê o histórico de consumo (history.jsonl)
     SessionState.cs      retrato da última leitura e dos últimos ciclos, para reabrir sabendo
     TranscriptIndex.cs   índice incremental das transcrições do Claude Code
