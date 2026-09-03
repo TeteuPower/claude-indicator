@@ -7,15 +7,58 @@ using System.Windows.Shapes;
 namespace ClaudeIndicator.Views;
 
 /// <summary>
-/// Os desenhos do layout "medidores" do indicador no jogo: anel de porcentagem e termômetro.
+/// Os desenhos do layout "medidores" do indicador no jogo.
 ///
 /// Ficam separados do BarRenderer e do GaugeRenderer porque são outra família — lá moram barras,
-/// traçados e o velocímetro do consumo; aqui, formas de mostrador de hardware. O anel diz "quanto
-/// do total"; o termômetro diz "quão perto do limite físico", que é uma pergunta diferente e por
-/// isso ganha outra forma.
+/// traçados e o velocímetro do consumo; aqui, formas de mostrador de hardware.
+///
+/// A unidade daqui é o <see cref="SensorTile"/>: um componente inteiro num bloco só — o anel diz
+/// "quanto do total está em uso" e o termômetro ao lado diz "quão perto do limite físico". São
+/// duas perguntas diferentes, por isso duas formas diferentes; e ficam **juntas** porque a
+/// pergunta que se faz no meio da partida é sobre um componente ("como está a GPU?"), não sobre
+/// uma grandeza. Um termômetro solto entre dois anéis não tem dono: o olho não sabe se aquele
+/// 67° é da CPU à esquerda ou da GPU à direita.
 /// </summary>
 public static class MeterRenderer
 {
+    /// <summary>Cinza dos valores sem leitura — mesmo tom do MutedBrush do app.</summary>
+    private static readonly Color SemLeitura = Color.FromArgb(255, 156, 151, 145);
+
+    /// <summary>
+    /// Um componente inteiro: anel de uso, termômetro de temperatura e o rótulo embaixo.
+    ///
+    /// <paramref name="tempC"/> nulo tira o termômetro em vez de desenhar um vazio — sensor que
+    /// não existe não ganha espaço reservado, que é ruído. É o caso da CPU sem elevação, onde a
+    /// temperatura simplesmente não tem como ser lida.
+    /// </summary>
+    public static UIElement SensorTile(string rotulo, double? carga, string valorCarga,
+                                       double? tempC, string? apoio, double diametro, bool contorno)
+    {
+        var conteudo = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+
+        conteudo.Children.Add(Anel(carga, valorCarga, apoio, diametro, contorno));
+
+        if (tempC != null)
+            conteudo.Children.Add(Temperatura(tempC.Value, diametro, contorno));
+
+        var pilha = new StackPanel();
+        pilha.Children.Add(conteudo);
+        pilha.Children.Add(new OutlinedText
+        {
+            Text = rotulo,
+            FontSize = Math.Max(10.5, diametro * 0.19),
+            FontWeight = FontWeights.SemiBold,
+            Foreground = BarRenderer.Swatch("MutedBrush"),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(0, 3, 0, 0)
+        });
+        return pilha;
+    }
+
     /// <summary>
     /// Anel de porcentagem: um arco que cresce no sentido horário a partir do topo, com o valor
     /// no centro. A cor segue a régua de carga do app inteiro.
@@ -23,11 +66,10 @@ public static class MeterRenderer
     /// O arco começa no topo porque é onde o olho espera o zero de um relógio; o fundo do anel
     /// fica sempre desenhado, para 15% não parecer um risco solto no nada.
     /// </summary>
-    public static UIElement Ring(string rotulo, double percent, string valor, double diametro,
-                                 bool contorno, string? apoio = null)
+    private static UIElement Anel(double? carga, string valor, string? apoio, double diametro, bool contorno)
     {
-        var p = Math.Clamp(percent, 0, 100);
-        var cor = BarRenderer.LoadRamp(p);
+        var p = Math.Clamp(carga ?? 0, 0, 100);
+        var cor = carga == null ? SemLeitura : BarRenderer.LoadRamp(p);
         var espessura = Math.Max(3.5, diametro * 0.095);
         var raio = (diametro - espessura) / 2;
         var centro = diametro / 2;
@@ -57,7 +99,7 @@ public static class MeterRenderer
         });
 
         // o arco em si
-        if (p > 0.5)
+        if (carga != null && p > 0.5)
         {
             caixa.Children.Add(new Path
             {
@@ -77,7 +119,7 @@ public static class MeterRenderer
         texto.Children.Add(new OutlinedText
         {
             Text = valor,
-            FontSize = diametro * 0.26,
+            FontSize = diametro * 0.27,
             FontWeight = FontWeights.Bold,
             Foreground = Congelado(cor),
             HorizontalAlignment = HorizontalAlignment.Center
@@ -87,7 +129,7 @@ public static class MeterRenderer
             texto.Children.Add(new OutlinedText
             {
                 Text = apoio,
-                FontSize = diametro * 0.14,
+                FontSize = Math.Max(9, diametro * 0.155),
                 Foreground = BarRenderer.Swatch("MutedBrush"),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, 1, 0, 0)
@@ -95,17 +137,7 @@ public static class MeterRenderer
         }
         caixa.Children.Add(texto);
 
-        var pilha = new StackPanel { Margin = new Thickness(5, 0, 5, 0) };
-        pilha.Children.Add(caixa);
-        pilha.Children.Add(new OutlinedText
-        {
-            Text = rotulo,
-            FontSize = 10.5,
-            Foreground = BarRenderer.Swatch("MutedBrush"),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            Margin = new Thickness(0, 3, 0, 0)
-        });
-        return pilha;
+        return caixa;
     }
 
     /// <summary>
@@ -132,29 +164,60 @@ public static class MeterRenderer
     }
 
     /// <summary>
-    /// Termômetro vertical com o limite em 100 °C: tubo com bulbo, o mercúrio sobe e muda de cor
-    /// com a temperatura.
+    /// Termômetro com o número grande ao lado, na mesma altura do anel do componente.
+    ///
+    /// O número é o que se lê de canto de olho — por isso ele é o maior texto do bloco e sai na
+    /// cor da faixa térmica. O tubo fica ao lado dando a posição: o mesmo "76°" significa coisas
+    /// diferentes dependendo de quanto falta para o teto, e a altura do mercúrio responde isso
+    /// sem precisar ler número nenhum.
+    /// </summary>
+    private static UIElement Temperatura(double tempC, double altura, bool contorno)
+    {
+        var cor = TempRamp(tempC);
+
+        var linha = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(3, 0, 0, 0)
+        };
+        linha.Children.Add(Tubo(tempC, altura, cor, contorno));
+        linha.Children.Add(new OutlinedText
+        {
+            Text = $"{tempC:0}°",
+            FontSize = altura * 0.32,
+            FontWeight = FontWeights.Bold,
+            Foreground = Congelado(cor),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(3, 0, 0, 0)
+        });
+        return linha;
+    }
+
+    /// <summary>
+    /// O tubo com bulbo: o mercúrio sobe até a fração de 100 °C e muda de cor com a temperatura.
     ///
     /// A régua daqui NÃO é a de carga. 50% de uso é metade do caminho e é amarelo; 50 °C é
     /// temperatura confortável e tem que ser verde. O amarelo entra aos 70 °C e o vermelho aos
     /// 90 °C, que é onde processadores de verdade começam a reduzir clock.
     /// </summary>
-    public static UIElement Thermometer(string rotulo, double? tempC, double altura, bool contorno)
+    private static UIElement Tubo(double tempC, double altura, Color cor, bool contorno)
     {
-        var largura = altura * 0.42;
-        var tubo = altura * 0.16;
-        var bulbo = tubo * 1.9;
+        var tubo = altura * 0.17;
+        var bulbo = tubo * 1.85;
+        var largura = bulbo + 5;         // sobra para o contorno escuro do bulbo
         var util = altura - bulbo - 4;   // altura útil do mercúrio dentro do tubo
-
-        var temp = tempC ?? 0;
-        var fracao = Math.Clamp(temp / 100.0, 0, 1);
-        var cor = tempC == null ? Color.FromArgb(255, 156, 151, 145) : TempRamp(temp);
+        var fracao = Math.Clamp(tempC / 100.0, 0, 1);
 
         var caixa = new Grid { Width = largura, Height = altura };
 
-        UIElement Tubo(double engorda, Color c, bool preenchido)
+        UIElement Corpo(double engorda, Color c, bool preenchido)
         {
-            var g = new Grid { VerticalAlignment = VerticalAlignment.Top, HorizontalAlignment = HorizontalAlignment.Center };
+            var g = new Grid
+            {
+                VerticalAlignment = VerticalAlignment.Top,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
             g.Children.Add(new Border
             {
                 Width = tubo + engorda,
@@ -170,7 +233,7 @@ public static class MeterRenderer
         // contorno escuro do conjunto, mesmo papel do contorno do texto
         if (contorno)
         {
-            caixa.Children.Add(Tubo(4, Color.FromArgb(0xB3, 0, 0, 0), true));
+            caixa.Children.Add(Corpo(4, Color.FromArgb(0xB3, 0, 0, 0), true));
             caixa.Children.Add(new Ellipse
             {
                 Width = bulbo + 4,
@@ -183,10 +246,10 @@ public static class MeterRenderer
         }
 
         // tubo vazio
-        caixa.Children.Add(Tubo(0, Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF), false));
+        caixa.Children.Add(Corpo(0, Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF), false));
 
         // mercúrio: sobe do bulbo até a fração da temperatura
-        if (tempC != null && fracao > 0.02)
+        if (fracao > 0.02)
         {
             caixa.Children.Add(new Border
             {
@@ -210,25 +273,7 @@ public static class MeterRenderer
             HorizontalAlignment = HorizontalAlignment.Center
         });
 
-        var pilha = new StackPanel { Margin = new Thickness(5, 0, 5, 0), VerticalAlignment = VerticalAlignment.Bottom };
-        pilha.Children.Add(caixa);
-        pilha.Children.Add(new OutlinedText
-        {
-            Text = tempC != null ? $"{temp:0}°" : "—",
-            FontSize = 11,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = Congelado(cor),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            Margin = new Thickness(0, 2, 0, 0)
-        });
-        pilha.Children.Add(new OutlinedText
-        {
-            Text = rotulo,
-            FontSize = 10.5,
-            Foreground = BarRenderer.Swatch("MutedBrush"),
-            HorizontalAlignment = HorizontalAlignment.Center
-        });
-        return pilha;
+        return caixa;
     }
 
     /// <summary>Verde até 70 °C, amarelo até 90, vermelho dali até o limite de 100.</summary>

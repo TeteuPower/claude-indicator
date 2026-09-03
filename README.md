@@ -500,16 +500,48 @@ informação e viraria decoração.
 Cada linha é opcional, incluindo o traçado e os limites da assinatura Claude — que vêm desligados,
 já que eles têm lugar próprio na barra de tarefas e no gadget.
 
+### Dois layouts: compacto e medidores
+
+O bloco tem dois desenhos, e `Ctrl+Alt+L` alterna entre eles sem sair do jogo. O **compacto** é o
+de cima: uma linha por sensor, com o traçado. Ocupa pouco e é o que mostra história.
+
+Os **medidores** trocam a história pela leitura de relance. Cada componente vira um bloco só, com o
+anel de uso e o **seu** termômetro ao lado:
+
+```
+   ╭─────╮   ▯                ╭─────╮   ▮                ╭─────╮
+  (  28% )   ▮  67°          (  63% )   ▮  54°          (  62% )
+   ╰─────╯   ●                ╰─────╯   ●                ╰─────╯
+     CPU                        GPU                        RAM
+```
+
+São duas perguntas diferentes, por isso duas formas diferentes: o anel responde *quanto do total
+está em uso*, o termômetro responde *quão perto do limite físico*. E o termômetro é de **cada**
+componente. Antes havia um só, o da CPU, plantado entre os dois primeiros anéis — de canto de olho
+o número tanto podia ser do anel da esquerda quanto do da direita, e a GPU, que é justamente a peça
+que esquenta em jogo, ficava sem o dela.
+
+A temperatura é o texto maior do bloco de propósito, e sai na cor da faixa térmica. Essa régua
+**não** é a da carga: 50% de uso é metade do caminho e sai amarelo, mas 50 °C é temperatura
+confortável e tem que sair verde. O amarelo entra aos 70 °C e o vermelho aos 90 °C, que é onde
+processadores de verdade começam a reduzir clock.
+
+Os blocos se espalham pela largura da caixa, e a linha do FPS encosta as medidas de apoio na borda
+direita: a sobra vira vão entre os medidores, e não faixa morta num canto. Sensor sem leitura não
+ganha lugar reservado — sem elevação a CPU não tem temperatura para ler, e o termômetro dela
+simplesmente não é desenhado.
+
 ### Atalhos, para usar dentro da partida
 
 Durante uma partida não dá para alternar até as configurações — e é justamente ali que se quer
-tirar o bloco da frente ou mudá-lo de canto. Dois atalhos globais resolvem, e funcionam com o jogo
+tirar o bloco da frente ou mudá-lo de canto. Três atalhos globais resolvem, e funcionam com o jogo
 em primeiro plano:
 
 | Padrão | O que faz |
 |---|---|
 | `Ctrl+Alt+O` | liga e desliga o bloco |
 | `Ctrl+Alt+M` | passa para o próximo dos nove cantos, em volta |
+| `Ctrl+Alt+L` | alterna entre os dois layouts, compacto e medidores |
 
 Ambos são configuráveis em *Configurações › Indicadores por cima do jogo*: clique no botão e
 pressione a combinação que quiser (Esc cancela, Backspace desliga o atalho). Quando o Windows

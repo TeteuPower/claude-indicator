@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
@@ -96,13 +97,18 @@ public partial class GameOverlayWindow : Window
     // Conteúdo
     // ------------------------------------------------------------------
 
+    /// <summary>
+    /// A linha do ritmo de quadros: o número grande à esquerda e as medidas de apoio encostadas na
+    /// borda direita, ocupando a largura toda em vez de deixar uma faixa morta ali.
+    /// </summary>
     private UIElement FpsRow(FrameStats frames)
     {
-        var linha = new StackPanel { Orientation = Orientation.Horizontal };
+        var esquerda = new StackPanel { Orientation = Orientation.Horizontal };
+        var direita = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Bottom };
 
         if (!frames.HasValue)
         {
-            linha.Children.Add(new OutlinedText
+            esquerda.Children.Add(new OutlinedText
             {
                 Text = "FPS —",
                 FontSize = 20,
@@ -116,7 +122,7 @@ public partial class GameOverlayWindow : Window
             var motivo = MotivoSemFps();
             if (motivo != null)
             {
-                linha.Children.Add(new OutlinedText
+                esquerda.Children.Add(new OutlinedText
                 {
                     Text = motivo,
                     FontSize = 11,
@@ -125,10 +131,10 @@ public partial class GameOverlayWindow : Window
                     VerticalAlignment = VerticalAlignment.Bottom
                 });
             }
-            return linha;
+            return Espalhar(esquerda, direita);
         }
 
-        linha.Children.Add(new OutlinedText
+        esquerda.Children.Add(new OutlinedText
         {
             Text = $"{frames.Fps:0}",
             FontSize = 22,
@@ -136,7 +142,7 @@ public partial class GameOverlayWindow : Window
             Foreground = new SolidColorBrush(FpsColor(frames.Fps)),
             VerticalAlignment = VerticalAlignment.Center
         });
-        linha.Children.Add(new OutlinedText
+        esquerda.Children.Add(new OutlinedText
         {
             Text = "FPS",
             FontSize = 11,
@@ -147,7 +153,7 @@ public partial class GameOverlayWindow : Window
 
         if (_settings.OverlayShowFrameTime)
         {
-            linha.Children.Add(new OutlinedText
+            direita.Children.Add(new OutlinedText
             {
                 Text = $"{frames.FrameTimeMs:0.0} ms",
                 FontSize = 12,
@@ -155,17 +161,32 @@ public partial class GameOverlayWindow : Window
                 Foreground = BarRenderer.Swatch("TextBrush"),
                 VerticalAlignment = VerticalAlignment.Bottom
             });
-            linha.Children.Add(new OutlinedText
+            direita.Children.Add(new OutlinedText
             {
                 Text = $"1% {frames.OnePercentLowFps:0}",
                 FontSize = 12,
-                Margin = new Thickness(8, 0, 0, 2),
+                Margin = new Thickness(10, 0, 0, 2),
                 Foreground = BarRenderer.Swatch("MutedBrush"),
                 VerticalAlignment = VerticalAlignment.Bottom
             });
         }
 
-        return linha;
+        return Espalhar(esquerda, direita);
+    }
+
+    /// <summary>Dois grupos numa linha só: um na borda esquerda, outro na direita.</summary>
+    private static UIElement Espalhar(UIElement esquerda, UIElement direita)
+    {
+        var grade = new Grid { HorizontalAlignment = HorizontalAlignment.Stretch };
+        grade.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grade.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 12 });
+        grade.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        Grid.SetColumn(esquerda, 0);
+        Grid.SetColumn(direita, 2);
+        grade.Children.Add(esquerda);
+        grade.Children.Add(direita);
+        return grade;
     }
 
     /// <summary>
@@ -244,39 +265,82 @@ public partial class GameOverlayWindow : Window
     }
 
     /// <summary>
-    /// O layout "medidores": anéis de porcentagem lado a lado e o termômetro da CPU, com o
-    /// limite em 100 °C. Maior que o compacto de propósito — é o layout de ler de relance, no
-    /// canto do olho, sem parar de jogar.
+    /// O layout "medidores": cada componente vira um bloco com o anel de uso e o **seu** termômetro
+    /// ao lado, com o limite em 100 °C. Maior que o compacto de propósito — é o layout de ler de
+    /// relance, no canto do olho, sem parar de jogar.
+    ///
+    /// Antes havia um termômetro só, o da CPU, plantado entre os dois primeiros anéis: ele não
+    /// tinha dono visível — de canto de olho o número tanto podia ser do anel da esquerda quanto
+    /// do da direita — e a GPU, que é justamente a peça que esquenta em jogo, ficava sem o dela.
+    ///
+    /// Os blocos vão numa grade de colunas automáticas separadas por vãos elásticos. Assim o
+    /// espaço que sobra — quando a linha dos atalhos, embaixo, é mais larga que os medidores — vai
+    /// para os vãos em vez de virar uma faixa morta à direita. Vãos elásticos, e não colunas de
+    /// largura igual: o bloco da RAM não tem termômetro e é bem mais estreito, e colunas iguais
+    /// espremeriam CPU e GPU no tamanho dele.
     /// </summary>
     private void AddGaugeRow(HardwareSnapshot hw, AppSettings s)
     {
-        var linha = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 5, 0, 2) };
         var contorno = s.PanelOutline;
-        const double diametro = 52;
+        const double diametro = 58;
+
+        var blocos = new List<UIElement>();
 
         if (s.OverlayShowCpu)
         {
-            linha.Children.Add(MeterRenderer.Ring("CPU", hw.Cpu.Load.Value ?? 0,
-                hw.Cpu.Load.Format("%"), diametro, contorno,
-                hw.Cpu.Power.HasValue ? hw.Cpu.Power.Format(" W") : null));
-            linha.Children.Add(MeterRenderer.Thermometer("temp", hw.Cpu.Temperature.Value, diametro + 14, contorno));
+            blocos.Add(MeterRenderer.SensorTile("CPU", hw.Cpu.Load.Value, hw.Cpu.Load.Format("%"),
+                hw.Cpu.Temperature.Value,
+                hw.Cpu.Power.HasValue ? hw.Cpu.Power.Format(" W") : null,
+                diametro, contorno));
         }
 
         if (s.OverlayShowGpu)
         {
-            linha.Children.Add(MeterRenderer.Ring("GPU", hw.Gpu.Load.Value ?? 0,
-                hw.Gpu.Load.Format("%"), diametro, contorno,
-                hw.Gpu.Temperature.HasValue ? hw.Gpu.Temperature.Format("°") : null));
+            // a temperatura saiu do miolo do anel e foi para o termômetro; no lugar dela entra a
+            // VRAM, que é a outra pergunta que se faz da GPU dentro do jogo
+            blocos.Add(MeterRenderer.SensorTile("GPU", hw.Gpu.Load.Value, hw.Gpu.Load.Format("%"),
+                hw.Gpu.Temperature.Value,
+                hw.Gpu.MemoryUsed.HasValue ? hw.Gpu.MemoryUsed.Format(" GB", 1)
+                    : hw.Gpu.Power.HasValue ? hw.Gpu.Power.Format(" W") : null,
+                diametro, contorno));
         }
 
         if (s.OverlayShowRam)
         {
-            linha.Children.Add(MeterRenderer.Ring("RAM", hw.Ram.Load.Value ?? 0,
-                hw.Ram.Load.Format("%"), diametro, contorno,
-                hw.Ram.MemoryUsed.HasValue ? hw.Ram.MemoryUsed.Format(" GB", 1) : null));
+            blocos.Add(MeterRenderer.SensorTile("RAM", hw.Ram.Load.Value, hw.Ram.Load.Format("%"),
+                null,
+                hw.Ram.MemoryUsed.HasValue ? hw.Ram.MemoryUsed.Format(" GB", 1) : null,
+                diametro, contorno));
         }
 
-        if (linha.Children.Count > 0) Rows.Children.Add(linha);
+        if (blocos.Count == 0) return;
+
+        var grade = new Grid
+        {
+            Margin = new Thickness(0, 6, 0, 2),
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+
+        foreach (var bloco in blocos)
+        {
+            // O vão entre blocos: nunca menor que 24, e cresce com a sobra. Ele precisa ser
+            // visivelmente maior que o espaço interno do bloco — é a folga que diz de qual anel
+            // aquele termômetro é.
+            if (grade.Children.Count > 0)
+            {
+                grade.ColumnDefinitions.Add(new ColumnDefinition
+                {
+                    Width = new GridLength(1, GridUnitType.Star),
+                    MinWidth = 24
+                });
+            }
+
+            grade.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            Grid.SetColumn(bloco, grade.ColumnDefinitions.Count - 1);
+            grade.Children.Add(bloco);
+        }
+
+        Rows.Children.Add(grade);
     }
 
     /// <summary>
