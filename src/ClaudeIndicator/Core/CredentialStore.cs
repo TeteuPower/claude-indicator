@@ -73,6 +73,14 @@ public class CredentialStore
             return cred;
         }
 
+        // 1b) Login feito dentro do app (Configurações › Conta › Entrar com a conta Claude)
+        if (settings.CredentialSource == "AppLogin")
+        {
+            var cred = await AppLoginAsync(ct).ConfigureAwait(false);
+            if (cred != null) lock (_lock) _cache = cred;
+            return cred;
+        }
+
         // 2) Variável de ambiente (claude setup-token)
         var env = Environment.GetEnvironmentVariable("CLAUDE_CODE_OAUTH_TOKEN");
         if (!string.IsNullOrWhiteSpace(env))
@@ -84,7 +92,14 @@ public class CredentialStore
 
         // 3) Arquivo do Claude Code
         var file = ReadClaudeCodeFile();
-        if (file == null) return null;
+        if (file == null)
+        {
+            // Sem Claude Code neste PC: se o usuário já entrou pela interface, usa esse login em vez
+            // de dizer que não há credencial — a fonte escolhida virou impossível, não a única.
+            var login = await AppLoginAsync(ct).ConfigureAwait(false);
+            if (login != null) lock (_lock) _cache = login;
+            return login;
+        }
 
         if (!file.IsExpired && !string.IsNullOrEmpty(file.AccessToken))
         {
@@ -123,12 +138,32 @@ public class CredentialStore
         Invalidate();
         if (settings.CredentialSource == "Manual") return null;
 
+        if (settings.CredentialSource == "AppLogin" || !ClaudeCodeDetected)
+        {
+            var login = await ClaudeLogin.RefreshAsync(ct).ConfigureAwait(false);
+            if (login != null) lock (_lock) _cache = login;
+            if (login != null || settings.CredentialSource == "AppLogin") return login;
+        }
+
         var file = ReadClaudeCodeFile();
         if (file?.RefreshToken == null) return null;
 
         var refreshed = await RefreshAsync(file, ct);
         if (refreshed != null) lock (_lock) _cache = refreshed;
         return refreshed;
+    }
+
+    // ------------------------------------------------------------------
+
+    /// <summary>Login feito na interface do app, renovando o token quando já passou da validade.</summary>
+    private static async Task<ClaudeCredentials?> AppLoginAsync(CancellationToken ct)
+    {
+        var cred = ClaudeLogin.Load();
+        if (cred == null) return null;
+        if (!cred.IsExpired) return cred;
+
+        // Expirado: renova. Se a renovação falhar, manda o token velho e deixa o servidor decidir.
+        return await ClaudeLogin.RefreshAsync(ct).ConfigureAwait(false) ?? cred;
     }
 
     // ------------------------------------------------------------------

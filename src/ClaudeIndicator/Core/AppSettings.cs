@@ -279,7 +279,10 @@ public class AppSettings
     public bool StartHidden { get; set; } = true;
 
     // ---- Conta ----
-    /// <summary>"ClaudeCode" = lê %USERPROFILE%\.claude\.credentials.json | "Manual" = token colado</summary>
+    /// <summary>
+    /// "ClaudeCode" = lê %USERPROFILE%\.claude\.credentials.json | "AppLogin" = login OAuth feito
+    /// na própria interface (token em %APPDATA%\ClaudeIndicator\login.json) | "Manual" = token colado
+    /// </summary>
     public string CredentialSource { get; set; } = "ClaudeCode";
     public string ManualAccessToken { get; set; } = "";
 
@@ -440,7 +443,7 @@ public class AppSettings
         if (string.IsNullOrWhiteSpace(SessionLabel)) SessionLabel = "Sessão";
         if (string.IsNullOrWhiteSpace(WeeklyLabel)) WeeklyLabel = "Semanal";
         if (string.IsNullOrWhiteSpace(FableLabel)) FableLabel = "Fable 5";
-        if (CredentialSource != "Manual") CredentialSource = "ClaudeCode";
+        if (CredentialSource != "Manual" && CredentialSource != "AppLogin") CredentialSource = "ClaudeCode";
     }
 
     public IEnumerable<string> EndpointList()

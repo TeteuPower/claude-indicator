@@ -57,9 +57,12 @@ public class UsageService
 
         if (cred == null || string.IsNullOrWhiteSpace(cred.AccessToken))
         {
-            snap.Error = settings.CredentialSource == "Manual"
-                ? "Nenhum token informado. Abra Configurações › Conta."
-                : "Credenciais do Claude Code não encontradas. Faça login com `claude` no terminal ou informe um token em Configurações › Conta.";
+            snap.Error = settings.CredentialSource switch
+            {
+                "Manual" => "Nenhum token informado. Abra Configurações › Conta.",
+                "AppLogin" => "Login do app não encontrado ou expirado. Abra Configurações › Conta e entre com a sua conta Claude.",
+                _ => "Nenhuma credencial encontrada. Abra Configurações › Conta e entre com a sua conta Claude — ou faça login com `claude` no terminal."
+            };
             return snap;
         }
 
