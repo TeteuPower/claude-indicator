@@ -605,8 +605,45 @@
                             <TextBlock Style="{StaticResource Hint}" Margin="27,2,0,0"
                                        Text="Lê o token de %USERPROFILE%\.claude\.credentials.json. O arquivo do Claude Code nunca é alterado."/>
 
+                            <!--
+                                Login dentro do app: mesmo fluxo do `claude setup-token` (OAuth com PKCE).
+                                O redirect é a página de código do console, que exibe o código para colar —
+                                assim o app não precisa escutar porta nenhuma para receber o callback.
+                            -->
+                            <RadioButton x:Name="SrcAppLogin" GroupName="Src" Margin="0,14,0,0"
+                                         Content="Entrar com a minha conta Claude aqui no app" Checked="OnSourceChanged"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="27,2,0,0"
+                                       Text="Abre o site do Claude, você autoriza e cola o código de volta nesta tela. Serve para quem não tem o Claude Code neste computador. O token fica só aqui, em %APPDATA%\ClaudeIndicator\login.json."/>
+
+                            <StackPanel x:Name="LoginPanel" Margin="27,8,0,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <Button x:Name="BtnLogin" Content="Abrir o site do Claude"
+                                            Style="{StaticResource PrimaryButton}" Click="OnLoginClick"/>
+                                    <Button x:Name="BtnLogout" Content="Sair desta conta" Margin="8,0,0,0"
+                                            Visibility="Collapsed" Click="OnLogoutClick"/>
+                                </StackPanel>
+
+                                <StackPanel x:Name="CodePanel" Visibility="Collapsed" Margin="0,10,0,0">
+                                    <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,6"
+                                               Text="Autorize no site e cole aqui o código que ele mostrar (pode colar a URL inteira da página também)."/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox x:Name="TxtCode" FontFamily="Consolas" FontSize="11.5"
+                                                 KeyDown="OnCodeKeyDown"/>
+                                        <Button x:Name="BtnConnect" Grid.Column="1" Content="Conectar"
+                                                Margin="8,0,0,0" Click="OnConnectClick"/>
+                                    </Grid>
+                                </StackPanel>
+
+                                <TextBlock x:Name="LoginResult" Style="{StaticResource Hint}" Margin="0,8,0,0"
+                                           MaxWidth="470" Visibility="Collapsed"/>
+                            </StackPanel>
+
                             <RadioButton x:Name="SrcManual" GroupName="Src" Content="Informar um token manualmente"
-                                         Checked="OnSourceChanged"/>
+                                         Margin="0,14,0,0" Checked="OnSourceChanged"/>
                             <TextBlock Style="{StaticResource Hint}" Margin="27,2,0,6"
                                        Text="Gere com `claude setup-token` e cole abaixo."/>
                             <TextBox x:Name="TxtToken" Margin="27,0,0,0" FontFamily="Consolas" FontSize="11.5"

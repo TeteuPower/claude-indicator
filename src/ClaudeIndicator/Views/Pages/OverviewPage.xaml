@@ -13,7 +13,13 @@
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" FontSize="14"
                                Foreground="{StaticResource WarnBrush}" VerticalAlignment="Top" Margin="0,1,10,0"/>
-                    <TextBlock x:Name="AlertText" TextWrapping="Wrap" FontSize="12.5" MaxWidth="620"/>
+                    <StackPanel>
+                        <TextBlock x:Name="AlertText" TextWrapping="Wrap" FontSize="12.5" MaxWidth="620"/>
+                        <!-- Atalho para o login: sem credencial, o aviso vira caminho e nao so recado -->
+                        <Button x:Name="BtnFixLogin" Content="Entrar com a conta Claude" Margin="0,10,0,0"
+                                HorizontalAlignment="Left" Visibility="Collapsed"
+                                Style="{StaticResource PrimaryButton}" Click="OnFixLoginClick"/>
+                    </StackPanel>
                 </StackPanel>
             </Border>
 

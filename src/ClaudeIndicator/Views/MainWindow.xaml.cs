@@ -67,6 +67,13 @@ public partial class MainWindow : Window
         Show(section);
     }
 
+    /// <summary>Abre Configuracoes direto na aba Conta.</summary>
+    public void NavigateToAccount()
+    {
+        Navigate(MainSection.Settings);
+        _settings?.OpenAccountTab();
+    }
+
     private void OnNavChanged(object sender, RoutedEventArgs e)
     {
         if (!_ready) return;

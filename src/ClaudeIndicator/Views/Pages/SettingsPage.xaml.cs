@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using System.Windows;
@@ -124,10 +125,12 @@ public partial class SettingsPage : UserControl
         SldAlert.Value = s.AlertThreshold;
         ChkNotify.IsChecked = s.NotifyOnThreshold;
 
-        SrcClaudeCode.IsChecked = s.CredentialSource != "Manual";
         SrcManual.IsChecked = s.CredentialSource == "Manual";
+        SrcAppLogin.IsChecked = s.CredentialSource == "AppLogin";
+        SrcClaudeCode.IsChecked = s.CredentialSource != "Manual" && s.CredentialSource != "AppLogin";
         TxtToken.Text = s.ManualAccessToken;
         TxtToken.IsEnabled = SrcManual.IsChecked == true;
+        UpdateLoginUi();
 
         ChkRateTaskbar.IsChecked = s.ShowRateTaskbar;
         ChkRateGadget.IsChecked = s.ShowRateGadget;
@@ -237,7 +240,8 @@ public partial class SettingsPage : UserControl
         s.AlertThreshold = (int)Math.Round(SldAlert.Value);
         s.NotifyOnThreshold = ChkNotify.IsChecked == true;
 
-        s.CredentialSource = SrcManual.IsChecked == true ? "Manual" : "ClaudeCode";
+        s.CredentialSource = SrcManual.IsChecked == true ? "Manual"
+            : SrcAppLogin.IsChecked == true ? "AppLogin" : "ClaudeCode";
         s.ManualAccessToken = TxtToken.Text.Trim();
 
         s.ShowRateTaskbar = ChkRateTaskbar.IsChecked == true;
@@ -704,6 +708,14 @@ public partial class SettingsPage : UserControl
         RenderPreview();
     }
 
+    /// <summary>Abre esta tela já na aba Conta (usado pelo atalho do aviso na Visao geral).</summary>
+    public void OpenAccountTab()
+    {
+        TabAccount.IsChecked = true;
+        AccountStatus.Text = DescribeAccount();
+        UpdateLoginUi();
+    }
+
     private void OnTabChanged(object sender, RoutedEventArgs e)
     {
         if (PanelDisplay == null || PanelGame == null) return;
@@ -841,6 +853,7 @@ public partial class SettingsPage : UserControl
     {
         if (!_ready) return;
         TxtToken.IsEnabled = SrcManual.IsChecked == true;
+        UpdateLoginUi();
         MarkDirty();
     }
 
@@ -1140,20 +1153,186 @@ public partial class SettingsPage : UserControl
         }
     }
 
+    // ------------------------------------------------------------------
+    // Entrar com a conta Claude sem sair do app
+    // ------------------------------------------------------------------
+
+    /// <summary>Abre a autorização no navegador e revela o campo do código.</summary>
+    private void OnLoginClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var url = ClaudeLogin.Start();
+            Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+            CodePanel.Visibility = Visibility.Visible;
+            TxtCode.Clear();
+            TxtCode.Focus();
+            ShowLoginResult("Autorize no site do Claude e volte com o código.", null);
+        }
+        catch (Exception ex)
+        {
+            ClaudeLogin.CancelPending();
+            ShowLoginResult("Não deu para abrir o navegador: " + ex.Message, false);
+        }
+    }
+
+    private void OnCodeKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        e.Handled = true;
+        OnConnectClick(sender, e);
+    }
+
+    private async void OnConnectClick(object sender, RoutedEventArgs e)
+    {
+        var pasted = TxtCode.Text.Trim();
+        if (pasted.Length == 0)
+        {
+            ShowLoginResult("Cole o código que apareceu no site.", false);
+            return;
+        }
+
+        BtnConnect.IsEnabled = false;
+        BtnLogin.IsEnabled = false;
+        ShowLoginResult("Conectando…", null);
+        try
+        {
+            var cred = await ClaudeLogin.FinishAsync(pasted);
+            TxtCode.Clear();
+            CodePanel.Visibility = Visibility.Collapsed;
+            UseAppLoginNow();
+
+            var plano = cred.SubscriptionType is { Length: > 0 } ? " · plano " + cred.SubscriptionType : "";
+            ShowLoginResult("Conectado" + plano + ". O consumo já está sendo consultado com esta conta.", true);
+        }
+        catch (Exception ex)
+        {
+            ShowLoginResult(ex.Message, false);
+        }
+        finally
+        {
+            BtnConnect.IsEnabled = true;
+            BtnLogin.IsEnabled = true;
+            UpdateLoginUi();
+            AccountStatus.Text = DescribeAccount();
+        }
+    }
+
+    private void OnLogoutClick(object sender, RoutedEventArgs e)
+    {
+        var r = MessageBox.Show(Window.GetWindow(this),
+            "Esquecer o login feito aqui no app?" + Environment.NewLine + Environment.NewLine
+            + "O token guardado neste computador é apagado. A conta no site do Claude não é afetada.",
+            AppInfo.Name, MessageBoxButton.YesNo, MessageBoxImage.Question);
+        if (r != MessageBoxResult.Yes) return;
+
+        ClaudeLogin.Clear();
+        CodePanel.Visibility = Visibility.Collapsed;
+        ShowLoginResult("Login apagado deste computador.", null);
+
+        // Sem login do app, a fonte volta para o Claude Code — deixar "AppLogin" marcado só
+        // renderia "credencial não encontrada" na próxima consulta.
+        if (SrcAppLogin.IsChecked == true)
+        {
+            _ready = false;
+            SrcClaudeCode.IsChecked = true;
+            TxtToken.IsEnabled = false;
+            _ready = true;
+            ApplyCredentialSource("ClaudeCode");
+        }
+
+        UpdateLoginUi();
+        AccountStatus.Text = DescribeAccount();
+    }
+
+    /// <summary>
+    /// Passa a usar o login do app na hora. Credencial não é preferência: se ficasse esperando o
+    /// botão "Salvar", o usuário entraria na conta e o app continuaria dizendo que não achou token.
+    /// </summary>
+    private void UseAppLoginNow()
+    {
+        _ready = false;
+        SrcAppLogin.IsChecked = true;
+        TxtToken.IsEnabled = false;
+        _ready = true;
+        ApplyCredentialSource("AppLogin");
+    }
+
+    /// <summary>
+    /// Grava só a fonte da credencial, sem levar junto o que estiver pendente nas outras abas —
+    /// essas continuam com a barra de salvar aparecendo, como o usuário deixou.
+    /// </summary>
+    private void ApplyCredentialSource(string source)
+    {
+        var limpo = SaveBar.Visibility != Visibility.Visible;
+
+        var aplicado = _host.Settings.Clone();
+        aplicado.CredentialSource = source;
+        _host.ApplySettings(aplicado);
+
+        if (limpo)
+        {
+            _baseline = CollectDraft().Serialize();
+            SaveBar.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            MarkDirty();
+        }
+    }
+
+    /// <summary>Botões e textos do login conforme já existe (ou não) um token guardado.</summary>
+    private void UpdateLoginUi()
+    {
+        var conectado = ClaudeLogin.Connected;
+        BtnLogin.Content = conectado ? "Entrar de novo" : "Abrir o site do Claude";
+        BtnLogout.Visibility = conectado ? Visibility.Visible : Visibility.Collapsed;
+
+        // Autorização começada e ainda sem código (a janela pode ter sido fechada no meio):
+        // o campo continua à mão em vez de obrigar a abrir o site de novo.
+        if (ClaudeLogin.WaitingForCode) CodePanel.Visibility = Visibility.Visible;
+    }
+
+    private void ShowLoginResult(string text, bool? ok)
+    {
+        LoginResult.Text = text;
+        LoginResult.Visibility = Visibility.Visible;
+        LoginResult.Foreground = ok switch
+        {
+            true => BarRenderer.Swatch("OkBrush"),
+            false => BarRenderer.Swatch("DangerBrush"),
+            _ => BarRenderer.Swatch("MutedBrush")
+        };
+    }
+
     private string DescribeAccount()
     {
         var sb = new StringBuilder();
+
+        var login = ClaudeLogin.Load();
+        if (login != null)
+        {
+            sb.Append("Login feito aqui no app");
+            var email = ClaudeLogin.Email();
+            if (email is { Length: > 0 }) sb.Append(" · ").Append(email);
+            if (login.SubscriptionType is { Length: > 0 }) sb.Append(" · plano ").Append(login.SubscriptionType);
+            sb.Append('.');
+        }
+
         if (CredentialStore.ClaudeCodeDetected)
         {
+            if (sb.Length > 0) sb.Append(' ');
             sb.Append("Login do Claude Code encontrado em ").Append(CredentialStore.ClaudeCodeCredentialsPath);
             var cred = CredentialStore.ReadClaudeCodeFile();
             if (cred?.SubscriptionType is { Length: > 0 })
                 sb.Append(" · plano ").Append(cred.SubscriptionType);
         }
-        else
+        else if (sb.Length == 0)
         {
-            sb.Append("Login do Claude Code não encontrado. Rode `claude` no terminal e faça login, ou use um token manual.");
+            sb.Append("Nenhuma credencial neste computador. Entre com a sua conta Claude aqui embaixo, "
+                      + "ou rode `claude` no terminal e faça login por lá.");
         }
+
         return sb.ToString();
     }
 

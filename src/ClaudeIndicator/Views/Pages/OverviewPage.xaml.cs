@@ -79,7 +79,16 @@ public partial class OverviewPage : UserControl
             ? snap.Error + " Os valores abaixo são de " +
               (snap.DataAt ?? snap.FetchedAt).ToLocalTime().ToString("HH:mm") + "."
             : snap.Error ?? "Não foi possível consultar o consumo.";
+
+        // O botão só aparece quando o problema é falta de credencial: com o Claude Code presente
+        // ou o login do app já feito, o erro é outro e mandar para a tela de conta não resolveria.
+        var semCredencial = !CredentialStore.ClaudeCodeDetected && !ClaudeLogin.Connected
+                            && _host.Settings.CredentialSource != "Manual";
+        BtnFixLogin.Visibility = semCredencial ? Visibility.Visible : Visibility.Collapsed;
     }
+
+    private void OnFixLoginClick(object sender, RoutedEventArgs e)
+        => (Window.GetWindow(this) as MainWindow)?.NavigateToAccount();
 
     private void DrawBars(UsageSnapshot? snap)
     {
