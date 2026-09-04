@@ -143,16 +143,30 @@ desinstalar antes.
 
 ## Login / de onde vêm os dados
 
-Não existe API pública de consumo de assinatura. O app reutiliza o **login que o Claude Code já fez
-neste computador**, o mesmo que alimenta o comando `/usage`:
+Não existe API pública de consumo de assinatura. São três fontes possíveis, escolhidas em
+**Configurações › Conta**:
+
+**1. O login que o Claude Code já fez neste computador** (padrão), o mesmo que alimenta o `/usage`:
 
 1. Lê `%USERPROFILE%\.claude\.credentials.json` (arquivo do Claude Code — **nunca é alterado**).
 2. Se o token estiver expirado, renova via OAuth e guarda a renovação em
    `%APPDATA%\ClaudeIndicator\token-cache.json`.
 3. Consulta o endpoint de uso da conta e desenha as barras.
 
-Se você não usa o Claude Code, gere um token e cole em **Configurações › Conta › Informar um token
-manualmente**:
+**2. Entrar com a conta Claude pela própria interface**, para quem não tem o Claude Code aqui: o
+botão abre o site do Claude, você autoriza lá e cola o código de volta na tela.
+
+1. O app monta a URL de autorização com PKCE (S256) e o mesmo `client_id` público do
+   `claude setup-token`, pedindo os escopos `user:inference user:profile` — sem `user:profile` o
+   endpoint de uso responde 403.
+2. O redirect é a página oficial de código do console da Anthropic, que **exibe** o `code#state`.
+   É por isso que o app não precisa abrir porta nenhuma para receber callback.
+3. O que você colar (o código ou a URL inteira) é trocado pelo token, guardado em
+   `%APPDATA%\ClaudeIndicator\login.json` e renovado sozinho pelo `refresh_token`.
+
+O token fica só neste computador, e "Sair desta conta" apaga o arquivo.
+
+**3. Um token colado à mão**, em **Configurações › Conta › Informar um token manualmente**:
 
 ```powershell
 claude setup-token
@@ -237,7 +251,8 @@ O que continua sendo reação e não escolha:
 - **Histórico de consumo**: guardar tudo (padrão) ou apagar registros com mais de N dias
 - **Atualizações**: procurar versão nova no GitHub automaticamente, repositório consultado, e
   botão para baixar e instalar sem sair do app
-- **Conta**: login do Claude Code ou token manual, com botão "Testar conexão"
+- **Conta**: login do Claude Code, entrar com a conta Claude pela própria interface (abre o
+  site, você cola o código de volta) ou token manual, com botão "Testar conexão"
 - **Sistema**: iniciar com o Windows, iniciar sem abrir a janela e intervalo mínimo entre consultas
 
 As configurações são navegadas por um trilho lateral agrupado por assunto — **Claude** (barras,
