@@ -272,7 +272,7 @@ cada painel é um assunto novo.
 O painel **Desempenho do PC**, na navegação principal, mostra uso, temperatura e watts ao longo do
 tempo (30 min a 7 dias), com resumo mín/média/máx por componente. O histórico é gravado num ponto
 a cada dez segundos enquanto os sensores estiverem ligados, com retenção de 14 dias. Escalas
-honestas: uso sempre 0–100%, temperatura sempre até 100 °C; lacunas na coleta quebram a linha em
+honestas: uso sempre 0–100%, temperatura sempre até 105 °C; lacunas na coleta quebram a linha em
 vez de atravessar o buraco.
   (60 s a 15 min — veja a seção sobre HTTP 429)
 - **Barras**: limites de atenção/alerta, notificação ao atingir o alerta e prévia ao vivo
@@ -355,9 +355,9 @@ não tem sensor, e da CPU sem elevação.
 
 Uma **linha separa os dois painéis**: são assuntos diferentes — assinatura e computador — e sem ela
 as colunas viram uma lista só, onde a Fable 5 e a CPU parecem do mesmo grupo. E a espessura mínima
-da barra em pé caiu para **80 unidades**: com o termômetro dentro da coluna e as bolinhas na
-lateral, o conteúdo cabe em bem menos: o piso é onde a linha "27% 68°" ainda cabe inteira, porque
-barra que corta o próprio número não serve para nada.
+da barra em pé é de **72 unidades**: abaixo de 110 ela entra em modo compacto — fontes um degrau
+abaixo, vãos e bolinhas menores — e o piso passa a ser o rótulo, "Semanal", o elemento mais largo
+que sobra. Coluna sem nome não diz de que limite ela fala, então é aí que a barra para de encolher.
 
 A **linha do tempo das consultas desce pela lateral direita**, na altura das três colunas de limite,
 em vez de correr no rodapé. Aproveita a largura que sobra numa faixa alta, e mantém as bolinhas
