@@ -1271,7 +1271,7 @@ public partial class SettingsPage : UserControl
 
         _ready = false;
         LblDockSizeName.Text = deitada ? "Altura" : "Largura";
-        SldDockSize.Minimum = deitada ? 28 : 80;
+        SldDockSize.Minimum = deitada ? 28 : 72;
         SldDockSize.Maximum = deitada ? 160 : 420;
         SldDockSize.Value = deitada ? _dockHeight : _dockWidth;
         _ready = true;

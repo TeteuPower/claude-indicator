@@ -204,7 +204,15 @@ public partial class DockWindow : Window
         _pendingRender = false;
 
         var vertical = _settings.DockEdge != DockEdge.Top;
-        Layout.Margin = vertical ? new Thickness(9, 10, 9, 10) : new Thickness(12, 5, 12, 5);
+
+        // barra estreita aperta o conteúdo: fontes um degrau abaixo, vãos e bolinhas menores.
+        // O corte é em 110 unidades, onde a linha "32% 63°" no tamanho cheio começa a encostar
+        // na fila de bolinhas.
+        var compacto = vertical && _settings.DockWidth < 110;
+
+        Layout.Margin = vertical
+            ? new Thickness(compacto ? 5 : 9, compacto ? 8 : 10, compacto ? 5 : 9, compacto ? 8 : 10)
+            : new Thickness(12, 5, 12, 5);
         Layout.Children.Clear();
 
         // Deitada, a linha do tempo entra primeiro e fica na ponta direita: no DockPanel, quem
@@ -224,8 +232,8 @@ public partial class DockWindow : Window
             }
         }
 
-        var claude = BuildClaudeBlock(vertical);
-        var pc = BuildPcBlock(vertical);
+        var claude = BuildClaudeBlock(vertical, compacto);
+        var pc = BuildPcBlock(vertical, compacto);
 
         if (vertical)
         {
@@ -318,7 +326,7 @@ public partial class DockWindow : Window
     /// As células e as colunas vêm do <see cref="PanelStyle"/>, o mesmo desenho que o painel da
     /// barra de tarefas usa: o painel aparecendo aqui é o MESMO painel, não um parecido.
     /// </summary>
-    private UIElement? BuildClaudeBlock(bool vertical)
+    private UIElement? BuildClaudeBlock(bool vertical, bool compacto = false)
     {
         if (!_settings.DockShowBars && !_settings.DockShowRate) return null;
 
@@ -336,7 +344,7 @@ public partial class DockWindow : Window
                 colunas.Children.Add(Aviso(SemDados(), 160));
 
             foreach (var bar in bars)
-                colunas.Children.Add(PanelStyle.Column(bar, _settings, 1.0));
+                colunas.Children.Add(PanelStyle.Column(bar, _settings, 1.0, compacto));
 
             colunas.Rows = Math.Max(colunas.Children.Count, 1);
 
@@ -360,7 +368,7 @@ public partial class DockWindow : Window
                 comFila.Children.Add(colunas);
 
                 var fila = PanelStyle.VerticalTimeline(_settings,
-                    AppHost.Current?.Calls.Recent() ?? new List<ApiCall>());
+                    AppHost.Current?.Calls.Recent() ?? new List<ApiCall>(), compacto);
                 Grid.SetColumn(fila, 1);
                 comFila.Children.Add(fila);
 
@@ -390,7 +398,7 @@ public partial class DockWindow : Window
     }
 
     /// <summary>O painel do computador: os sensores escolhidos para ele, e o botão do tema.</summary>
-    private UIElement? BuildPcBlock(bool vertical)
+    private UIElement? BuildPcBlock(bool vertical, bool compacto = false)
     {
         if (!_settings.DockShowHardware) return null;
 
@@ -401,7 +409,7 @@ public partial class DockWindow : Window
         {
             var colunas = new UniformGrid { Columns = 1, Rows = sensores.Count };
             foreach (var (rotulo, leitura) in sensores)
-                colunas.Children.Add(PanelStyle.HardwareColumn(rotulo, leitura, _settings, _hardware, 1.0));
+                colunas.Children.Add(PanelStyle.HardwareColumn(rotulo, leitura, _settings, _hardware, 1.0, compacto));
 
             var extra = _settings.ShowThemeToggle
                 ? PanelStyle.ThemeCell(_settings, 1.0, Rebuild)

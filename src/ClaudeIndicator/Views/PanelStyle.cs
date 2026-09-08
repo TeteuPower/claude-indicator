@@ -293,7 +293,7 @@ public static class PanelStyle
     /// diz a mesma coisa sem ocupar linha nenhuma — e é a mesma marca das células deitadas. O
     /// número exato continua no balão.
     /// </summary>
-    public static UIElement Column(UsageBar bar, AppSettings s, double scale)
+    public static UIElement Column(UsageBar bar, AppSettings s, double scale, bool compacto = false)
     {
         var conteudo = ColunaBase(
             s.LabelFor(bar.Kind),
@@ -302,7 +302,7 @@ public static class PanelStyle
             BarRenderer.VerticalTrack(bar.Fraction, BarRenderer.BrushFor(bar.Percent, s),
                 10 * scale, double.NaN, s.ShowTimeProgress ? bar.TimeFraction() : null,
                 FundoDaTrilha(s), TrilhaBorda, BordaDaTrilha(s)),
-            scale);
+            scale, compacto: compacto);
 
         return Clicavel(conteudo, DescreverLimite(bar, s), () => AppHost.Current?.ShowDashboard());
     }
@@ -320,7 +320,7 @@ public static class PanelStyle
     /// da RAM, que não tem sensor, e da CPU sem elevação. Espaço reservado para nada é ruído.
     /// </summary>
     public static UIElement HardwareColumn(string rotulo, ComponentReading c, AppSettings s,
-        HardwareSnapshot hw, double scale)
+        HardwareSnapshot hw, double scale, bool compacto = false)
     {
         var temp = c.Temperature.HasValue ? c.Temperature.Value!.Value : (double?)null;
 
@@ -336,7 +336,8 @@ public static class PanelStyle
             // magro que o outro sugeria hierarquia que não existe
             temp != null ? MeterRenderer.Thermometer(temp.Value, 10 * scale, s.PanelOutline) : null,
             temp != null ? $"{temp.Value:0}°" : null,
-            temp != null ? new SolidColorBrush(MeterRenderer.TempRamp(temp.Value)) : null);
+            temp != null ? new SolidColorBrush(MeterRenderer.TempRamp(temp.Value)) : null,
+            compacto);
 
         return new Border
         {
@@ -385,9 +386,15 @@ public static class PanelStyle
     /// fica na linha elástica da grade — é o que faz as colunas ocuparem a altura que a barra tem
     /// para dar, em vez de uma altura fixa escolhida no escuro.
     /// </summary>
+    /// <summary>
+    /// Carcaça de uma coluna. No modo <paramref name="compacto"/> as fontes descem um degrau e os
+    /// vãos encurtam: é o que permite a barra em pé chegar a 72 unidades de largura sem cortar
+    /// número nenhum. Abaixo disso o rótulo é que não caberia mais, e coluna sem nome não diz de
+    /// que limite ela fala.
+    /// </summary>
     private static FrameworkElement ColunaBase(string rotulo, string valor, Brush corDoValor,
         UIElement trilho, double scale, UIElement? aoLado = null, string? valorAoLado = null,
-        Brush? corAoLado = null)
+        Brush? corAoLado = null, bool compacto = false)
     {
         var grade = new Grid { Margin = new Thickness(2, 3, 2, 3) };
         grade.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -397,7 +404,7 @@ public static class PanelStyle
         var titulo = new OutlinedText
         {
             Text = rotulo,
-            FontSize = 9.5 * scale,
+            FontSize = (compacto ? 9.0 : 9.5) * scale,
             Foreground = BarRenderer.Swatch("MutedBrush"),
             HorizontalAlignment = HorizontalAlignment.Center
         };
@@ -408,7 +415,7 @@ public static class PanelStyle
         {
             fe.HorizontalAlignment = HorizontalAlignment.Center;
             fe.VerticalAlignment = VerticalAlignment.Stretch;
-            fe.Margin = new Thickness(0, 4 * scale, 0, 4 * scale);
+            fe.Margin = new Thickness(0, (compacto ? 3 : 4) * scale, 0, (compacto ? 3 : 4) * scale);
         }
 
         // o miolo: só o trilho, ou o trilho e o vizinho lado a lado esticando juntos
@@ -425,7 +432,8 @@ public static class PanelStyle
             if (aoLado is FrameworkElement vizinho)
             {
                 vizinho.VerticalAlignment = VerticalAlignment.Stretch;
-                vizinho.Margin = new Thickness(4 * scale, 4 * scale, 0, 4 * scale);
+                var folga = (compacto ? 3 : 4) * scale;
+                vizinho.Margin = new Thickness(folga, folga, 0, folga);
             }
             par.Children.Add(aoLado);
             miolo = par;
@@ -442,7 +450,7 @@ public static class PanelStyle
         numeros.Children.Add(new OutlinedText
         {
             Text = valor,
-            FontSize = 12.5 * scale,
+            FontSize = (compacto ? 11.0 : 12.5) * scale,
             FontWeight = FontWeights.SemiBold,
             Foreground = corDoValor,
             VerticalAlignment = VerticalAlignment.Center
@@ -453,11 +461,11 @@ public static class PanelStyle
             numeros.Children.Add(new OutlinedText
             {
                 Text = valorAoLado,
-                FontSize = 10.5 * scale,
+                FontSize = (compacto ? 9.5 : 10.5) * scale,
                 FontWeight = FontWeights.SemiBold,
                 Foreground = corAoLado ?? BarRenderer.Swatch("MutedBrush"),
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(5 * scale, 0, 0, 0)
+                Margin = new Thickness((compacto ? 3 : 5) * scale, 0, 0, 0)
             });
         }
 
@@ -473,7 +481,7 @@ public static class PanelStyle
     /// Linha do tempo dos últimos ciclos: verde respondeu, âmbar não conseguiu falar por limite,
     /// vermelho falhou, e o ponto apagado é ciclo que fechou sem resposta.
     /// </summary>
-    public static UIElement Dot(ApiCall? call, AppSettings s, double height)
+    public static UIElement Dot(ApiCall? call, AppSettings s, double height, double width = 11)
     {
         var cor = call?.Outcome switch
         {
@@ -495,7 +503,7 @@ public static class PanelStyle
                 HorizontalAlignment = HorizontalAlignment.Center
             },
             Background = Brushes.Transparent,
-            Width = 11,
+            Width = width,
             Height = double.IsNaN(height) ? double.NaN : height,
             VerticalAlignment = double.IsNaN(height) ? VerticalAlignment.Stretch : VerticalAlignment.Center,
             ToolTip = call?.Describe() ?? "ciclo ainda não registrado"
@@ -511,22 +519,25 @@ public static class PanelStyle
     /// limites: cada bolinha é uma consulta que trouxe (ou não) os números que estão ali. No
     /// rodapé, no fim de um bloco de sensores, a faixa parecia falar da CPU.
     /// </summary>
-    public static UIElement VerticalTimeline(AppSettings s, System.Collections.Generic.List<ApiCall> calls)
+    public static UIElement VerticalTimeline(AppSettings s, System.Collections.Generic.List<ApiCall> calls,
+        bool compacto = false)
     {
         var coluna = new UniformGrid
         {
             Columns = 1,
             Rows = ApiCallLog.Capacity,
             VerticalAlignment = VerticalAlignment.Stretch,
-            Margin = new Thickness(2, 4, 0, 4)
+            Margin = new Thickness(compacto ? 1 : 2, 4, 0, 4)
         };
+
+        var largura = compacto ? 9.0 : 11.0;
 
         // a mais recente embaixo, como a mais recente fica à direita na deitada
         for (var i = 0; i < ApiCallLog.Capacity - calls.Count; i++)
-            coluna.Children.Add(Dot(null, s, double.NaN));
+            coluna.Children.Add(Dot(null, s, double.NaN, largura));
 
         foreach (var call in calls)
-            coluna.Children.Add(Dot(call, s, double.NaN));
+            coluna.Children.Add(Dot(call, s, double.NaN, largura));
 
         return coluna;
     }
