@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -103,7 +103,7 @@ public static class WindowScanner
                     ProcessName = nome,
                     Title = titulo,
                     Bounds = bounds,
-                    Monitor = MonitorBounds(h)
+                    Monitor = MonitorOf(h)
                 });
             }
             catch
@@ -151,7 +151,9 @@ public static class WindowScanner
         return sb.ToString().Trim();
     }
 
-    private static GameInfo.Rect MonitorBounds(IntPtr hwnd)
+    /// <summary>O retângulo do monitor em que esta janela está. Público porque a transparência de
+    /// janelas monta a mesma lista de candidatas com a régua dela.</summary>
+    public static GameInfo.Rect MonitorOf(IntPtr hwnd)
     {
         var h = MonitorFromWindow(hwnd, MonitorDefaultToNearest);
         var info = new MonitorInfo { cbSize = Marshal.SizeOf<MonitorInfo>() };

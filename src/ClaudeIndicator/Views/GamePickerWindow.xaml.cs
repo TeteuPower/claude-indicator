@@ -1,8 +1,21 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using ClaudeIndicator.Core;
 
 namespace ClaudeIndicator.Views;
+
+/// <summary>Para que serve a escolha — muda os textos e quais janelas a lista mostra.</summary>
+public enum PickerAlvo
+{
+    /// <summary>A janela que recebe os indicadores no jogo.</summary>
+    Jogo,
+
+    /// <summary>Um aplicativo em que o indicador nunca deve aparecer.</summary>
+    Excecao,
+
+    /// <summary>Um aplicativo cujas janelas ficam translúcidas.</summary>
+    Vidro
+}
 
 /// <summary>
 /// Lista as janelas abertas para o usuário apontar qual é o jogo.
@@ -16,15 +29,19 @@ public partial class GamePickerWindow : Window
     /// <summary>Nome do processo escolhido, ou null se a janela foi cancelada.</summary>
     public string? ChosenProcess { get; private set; }
 
-    /// <param name="paraExcecao">
-    /// A mesma lista serve para dois propósitos opostos — escolher onde o indicador aparece e
-    /// escolher onde ele nunca deve aparecer. Só muda o texto, então não vale duplicar a janela.
+    private readonly PickerAlvo _alvo;
+
+    /// <param name="alvo">
+    /// A mesma lista serve a três propósitos — escolher onde o indicador aparece, escolher onde ele
+    /// nunca deve aparecer, e escolher que aplicativo fica translúcido. Só muda o texto e a régua
+    /// de quais janelas entram, então não vale duplicar a janela.
     /// </param>
-    public GamePickerWindow(bool paraExcecao = false)
+    public GamePickerWindow(PickerAlvo alvo = PickerAlvo.Jogo)
     {
         InitializeComponent();
+        _alvo = alvo;
 
-        if (paraExcecao)
+        if (alvo == PickerAlvo.Excecao)
         {
             Janela.Title = "Escolher o aplicativo a ignorar";
             Titulo.Text = "Aplicativos abertos";
@@ -33,6 +50,16 @@ public partial class GamePickerWindow : Window
                             + "executável, então vale também nas próximas vezes que ele abrir.";
             BtnUse.Content = "Nunca mostrar neste";
         }
+        else if (alvo == PickerAlvo.Vidro)
+        {
+            Janela.Title = "Escolher o aplicativo a deixar translúcido";
+            Titulo.Text = "Janelas abertas";
+            Explicacao.Text = "Fica guardado pelo nome do executável: todas as janelas desse "
+                            + "aplicativo ficam translúcidas, agora e nas próximas vezes que ele "
+                            + "abrir. As janelas do Explorador de Arquivos aparecem aqui; a barra "
+                            + "de tarefas e a área de trabalho, não — elas têm ajuste próprio.";
+            BtnUse.Content = "Deixar translúcido";
+        }
 
         Carregar();
     }
@@ -40,12 +67,12 @@ public partial class GamePickerWindow : Window
     private void Carregar()
     {
         var frames = AppHost.Current;
-        var janelas = WindowScanner.Scan();
+        var janelas = _alvo == PickerAlvo.Vidro ? WindowGlass.Candidatas() : WindowScanner.Scan();
 
         Lista.Items.Clear();
         foreach (var j in janelas)
         {
-            if (frames?.FrameMonitorRunning == true)
+            if (_alvo != PickerAlvo.Vidro && frames?.FrameMonitorRunning == true)
                 j.Fps = frames.FpsOf(j.ProcessId);
 
             Lista.Items.Add(new ListBoxItem
