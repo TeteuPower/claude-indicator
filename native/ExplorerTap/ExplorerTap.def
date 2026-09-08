@@ -1,0 +1,8 @@
+; Exportacoes da DLL. DllGetClassObject e DllCanUnloadNow sao declaradas pelo SDK (combaseapi.h)
+; sem dllexport, e redeclarar com dllexport e erro de vinculo; a saida e exporta-las por aqui.
+; PRIVATE: aparecem na DLL mas nao na lib de importacao, como o COM espera.
+LIBRARY ExplorerTap
+EXPORTS
+    DllGetClassObject   PRIVATE
+    DllCanUnloadNow     PRIVATE
+    HookProc

@@ -30,6 +30,25 @@ if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
+# ---- DLL nativa do Explorer (native/ExplorerTap) -------------------------------------------
+# Compilada com o MSVC do Visual Studio (ou Build Tools), achado pelo vswhere. Sem ele o app
+# compila mesmo assim: a aparencia da barra do Windows fica indisponivel e a tela avisa.
+$vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+$msbuild = $null
+if (Test-Path $vswhere) {
+    $msbuild = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+        -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
+}
+
+if ($msbuild) {
+    Write-Host 'Compilando a DLL nativa do Explorer (ExplorerTap)...' -ForegroundColor Cyan
+    & $msbuild (Join-Path $root 'native\ExplorerTap\ExplorerTap.vcxproj') /p:Configuration=Release /p:Platform=x64 /nologo /v:minimal /restore
+    if ($LASTEXITCODE -ne 0) { Write-Host 'Falha ao compilar a DLL nativa.' -ForegroundColor Red; exit $LASTEXITCODE }
+} else {
+    Write-Host 'Compilador C++ (MSVC) nao encontrado: a DLL do Explorer nao sera embutida.' -ForegroundColor Yellow
+    Write-Host 'Para ter a aparencia da barra do Windows, instale "Desenvolvimento para desktop com C++" no Visual Studio.'
+}
+
 if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
 New-Item -ItemType Directory -Path $publishDir | Out-Null
 New-Item -ItemType Directory -Path $distDir -Force | Out-Null
