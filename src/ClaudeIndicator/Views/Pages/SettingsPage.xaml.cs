@@ -1260,12 +1260,26 @@ public partial class SettingsPage : UserControl
     /// Windows recusou tem que dizer que recusou: sem isso, "ficou preto" é um mistério em vez de
     /// uma frase que aponta o culpado.
     /// </summary>
-    private string EstadoDoFosco() => _host.DockFoscoAtivo switch
+    private string EstadoDoFosco()
     {
-        true => "\n\nAgora: fosco no ar.",
-        false => "\n\nAgora: o Windows recusou o efeito nesta barra, e o fundo voltou a ser opaco.",
-        _ => ""
-    };
+        var estado = _host.DockFoscoAtivo switch
+        {
+            true => "\n\nAgora: fosco no ar.",
+            false => "\n\nAgora: o Windows recusou o efeito nesta barra, e o fundo voltou a ser opaco.",
+            _ => ""
+        };
+
+        // Elevação é a causa conhecida de efeito aceito e não composto: o pedido volta com sucesso
+        // e nada aparece. Vale dizer junto, senão o "recusou" fica sem culpado.
+        if (HardwareMonitor.IsElevated && _host.DockFoscoAtivo != null)
+        {
+            estado += " O app está rodando como administrador, e foi nessa condição que o efeito "
+                      + "apareceu sendo aceito sem compor nada. Sem administrador o vidro funciona; "
+                      + "em troca, a temperatura e os watts da CPU deixam de ser lidos.";
+        }
+
+        return estado;
+    }
 
     private void OnTaskbarLookChanged(object sender, RoutedEventArgs e)
     {
@@ -1299,6 +1313,15 @@ public partial class SettingsPage : UserControl
 
         LblTbTint.Text = Math.Round(SldTbTint.Value * 100) + "%";
         SldTbTint.IsEnabled = look is TaskbarLook.Transparente or TaskbarLook.Desfocada or TaskbarLook.Fosca;
+
+        // Elevado + efeito pedido é a combinação que apareceu não funcionando: o aviso diz isso em
+        // vez de deixar o usuário concluir que a opção é quebrada.
+        if (TbElevadoAviso != null)
+        {
+            TbElevadoAviso.Visibility = HardwareMonitor.IsElevated && look != TaskbarLook.Sistema
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
 
         TbLookHint.Text = look switch
         {

@@ -838,6 +838,12 @@
                                 </WrapPanel>
                             </Border>
                             <TextBlock x:Name="TbLookHint" Style="{StaticResource Hint}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                            <Border x:Name="TbElevadoAviso" Visibility="Collapsed" Margin="0,10,0,0"
+                                    CornerRadius="8" Padding="12,10" Background="#22E8B04B"
+                                    BorderBrush="#55E8B04B" BorderThickness="1">
+                                <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
+                                           Text="O app está rodando como administrador. A barra de tarefas é janela do Explorer, que roda sem elevação, e o pedido do efeito pode não alcançá-la de um processo elevado — foi o que os testes indicaram. Se a barra do Windows não mudar, abra o app sem administrador; em troca, a temperatura e os watts da CPU deixam de ser lidos (eles exigem elevação)."/>
+                            </Border>
 
                             <Grid Margin="0,14,0,0">
                                 <Grid.ColumnDefinitions>
@@ -860,7 +866,7 @@
                                        Text="Ligado, as duas barras ficam com o mesmo vidro e o mesmo tom — e os controles de fundo em Barra própria passam a seguir daqui. Desligado, cada uma tem a sua aparência."/>
 
                             <TextBlock Style="{StaticResource Hint}" Margin="0,14,0,0" TextWrapping="Wrap"
-                                       Text="O efeito é reaplicado a cada três segundos: o Explorer recria as janelas da barra quando reinicia, e o efeito não sobrevive à janela antiga. Vale para as barras de TODAS as telas. Ao sair, o app devolve a barra ao desenho do sistema — efeito deixado para trás por um programa que já fechou só sai reiniciando o Explorer."/>
+                                       Text="O efeito é reaplicado quando o Windows avisa que recriou a barra (reinício do Explorer), quando as telas mudam e quando o compositor reinicia — por aviso, não por relógio. Vale para as barras de TODAS as telas. Ao sair, o app devolve a barra ao desenho do sistema, porque efeito deixado para trás por um programa que já fechou só sai reiniciando o Explorer."/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
