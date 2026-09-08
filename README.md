@@ -449,6 +449,21 @@ irrisório — achar três janelas e mandar um atributo — mas perguntar sem pa
 avisa é desperdício de princípio. O ciclo de consulta ao consumo, que já existe, reaplica também,
 como rede de segurança sem relógio novo.
 
+### Rodar como administrador atrapalha o vidro
+
+Vale para os dois lados — a barra do Windows e o fundo fosco da barra própria. Com o app **elevado**,
+o pedido do efeito volta com **sucesso** e o compositor não compõe nada: a barra do Windows fica
+igual e a barra própria fica **preta**, porque em janela não-*layered* o que não é composto é preto.
+O mesmo código, no mesmo computador, rodando sem elevação, entrega o vidro.
+
+Para a própria janela do app não há como contornar: ela pertence ao processo elevado. Então o app
+**diz** — o aviso aparece em *Barra do Windows* e no fundo fosco da barra própria — e a escolha fica
+explícita:
+
+- **Sem administrador**: vidro funciona, e a temperatura e os watts da CPU não são lidos (vêm de
+  registradores do processador, que só um driver de kernel alcança).
+- **Com administrador**: sensores completos, sem vidro.
+
 Deixar as **outras janelas** do sistema translúcidas, como o TranslucentTB também faz, ainda não está
 aqui.
 
