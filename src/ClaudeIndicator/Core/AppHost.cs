@@ -56,11 +56,21 @@ public sealed class AppHost
     private DockWindow? _dock;
 
     /// <summary>
-    /// Avisos do shell (barra recriada, tela que entra ou sai, compositor reiniciado). É o que
-    /// dispara a reaplicação da aparência da barra do Windows — antes isso era um relógio de três
-    /// segundos, que funcionava mas perguntava sem parar por algo que o Windows avisa.
+    /// Avisos do shell: barra recriada, tela que entra ou sai, compositor reiniciado. Reage na hora,
+    /// em vez de esperar o próximo tique do relógio abaixo.
     /// </summary>
     private ShellWatcher? _shell;
+
+    /// <summary>
+    /// Reaplica a aparência da barra do Windows enquanto ela estiver escolhida.
+    ///
+    /// Não é defesa contra imprevisto: é necessidade medida. Aplicando uma vez e deixando quieto, a
+    /// cor média da faixa volta ao original entre 10 e 20 segundos — o shell desfaz o efeito por
+    /// conta própria, e nenhum aviso é emitido quando isso acontece. Por isso o relógio existe, e é
+    /// por isso que programas como o TranslucentTB também reaplicam sem parar. O custo por tique é
+    /// achar três janelas e mandar um atributo em cada.
+    /// </summary>
+    private readonly DispatcherTimer _taskbarClock = new() { Interval = TimeSpan.FromSeconds(2) };
     private readonly HardwareMonitor _hardware = new();
 
     // Indicador por cima do jogo: medição de quadros, detecção e a janela em si.
@@ -110,11 +120,8 @@ public sealed class AppHost
         RestartClock();
 
         _shell = new ShellWatcher();
-        _shell.Changed += () =>
-        {
-            if (Settings.TaskbarLook != TaskbarLook.Sistema)
-                TaskbarStyler.Apply(Settings.TaskbarLook, Settings.TaskbarTint);
-        };
+        _shell.Changed += ReaplicarBarraDoWindows;
+        _taskbarClock.Tick += (_, _) => ReaplicarBarraDoWindows();
 
         _overlayClock.Tick += (_, _) => OverlayTick();
 
@@ -291,11 +298,19 @@ public sealed class AppHost
     {
         if (Settings.TaskbarLook == TaskbarLook.Sistema)
         {
+            _taskbarClock.Stop();
             if (TaskbarStyler.Ativo) TaskbarStyler.Restore();
             return;
         }
 
         TaskbarStyler.Apply(Settings.TaskbarLook, Settings.TaskbarTint);
+        _taskbarClock.Start();
+    }
+
+    private void ReaplicarBarraDoWindows()
+    {
+        if (Settings.TaskbarLook != TaskbarLook.Sistema)
+            TaskbarStyler.Apply(Settings.TaskbarLook, Settings.TaskbarTint);
     }
 
     /// <summary>Oculta a barra própria pelo menu dela. Fica guardado: esconder é uma decisão.</summary>
@@ -787,10 +802,6 @@ public sealed class AppHost
     /// </summary>
     private void Pulse()
     {
-        // Rede de segurança da aparência da barra do Windows, de graça: se algum aviso do shell
-        // escapou, o ciclo de consulta que já existe recoloca o efeito. Sem relógio novo.
-        if (Settings.TaskbarLook != TaskbarLook.Sistema)
-            TaskbarStyler.Apply(Settings.TaskbarLook, Settings.TaskbarTint);
 
         // o ciclo encurtado da abertura acabou: daqui em diante, a cadência cheia
         if (_cicloAdiantado)
@@ -984,6 +995,7 @@ public sealed class AppHost
         // e a barra do Windows volta ao desenho do sistema: efeito deixado para tras por um
         // programa que morreu so sai reiniciando o Explorer
         _shell?.Dispose();
+        _taskbarClock.Stop();
         if (TaskbarStyler.Ativo) TaskbarStyler.Restore();
         _main?.Close();
         System.Windows.Application.Current?.Shutdown();

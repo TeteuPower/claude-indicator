@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 
 namespace ClaudeIndicator.Core;
 
@@ -33,9 +34,9 @@ public enum TaskbarLook
 /// 2. <b>Reaplicar.</b> O Explorer recria as janelas da barra ao reiniciar (e ele reinicia sozinho
 ///    mais do que se imagina), e o efeito não sobrevive à janela antiga. Sem reaplicar, a barra
 ///    volta ao normal e parece que o app parou de funcionar.
-/// 3. <b>Devolver.</b> Sair do app tem que devolver a barra ao estado do sistema. Efeito deixado
-///    para trás por um programa que já morreu só sai reiniciando o Explorer — e a culpa fica com
-///    o Windows, não com quem deixou.
+/// 3. <b>Devolver.</b> Sair do app tem que devolver a barra ao estado do sistema — e tirar o efeito
+///    <b>não é suficiente</b>: medido, a barra fica escura e a translucidez nativa do Windows 11 não
+///    volta sozinha. Precisa de um empurrão para o shell se redesenhar.
 /// </summary>
 public static class TaskbarStyler
 {
@@ -79,12 +80,50 @@ public static class TaskbarStyler
         _aplicado = look;
     }
 
-    /// <summary>Devolve as barras ao desenho do sistema.</summary>
+    /// <summary>
+    /// Devolve as barras ao desenho do sistema.
+    ///
+    /// Tirar o acento sozinho não devolve nada: medindo a cor média da faixa, o nativo é #35303F, com
+    /// desfoque vira #323332, e ao remover o acento fica #313331 — escuro, sem a translucidez do
+    /// Windows. O que traz de volta é avisar o shell para se redesenhar: mensagem de tema na própria
+    /// barra e, principalmente, a difusão de "ImmersiveColorSet", que devolveu exatamente o #35303F
+    /// nativo. Sem isso, quem desligasse a opção ficaria com a barra pior do que antes de instalar o
+    /// app — e sem saber por quê.
+    /// </summary>
     public static void Restore()
     {
-        foreach (var bar in TaskbarInfo.Bars())
+        var bars = TaskbarInfo.Bars();
+
+        foreach (var bar in bars)
             WindowBackdrop.Apply(bar.Handle, WindowBackdrop.Efeito.Nenhum, 0, 0, 0, 0);
+
+        try
+        {
+            foreach (var bar in bars)
+            {
+                SendMessageTimeout(bar.Handle, WM_THEMECHANGED, IntPtr.Zero, null, SMTO_ABORTIFHUNG, 500, out _);
+                SendMessageTimeout(bar.Handle, WM_DWMCOMPOSITIONCHANGED, IntPtr.Zero, null, SMTO_ABORTIFHUNG, 500, out _);
+            }
+
+            SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, IntPtr.Zero, "ImmersiveColorSet",
+                SMTO_ABORTIFHUNG, 1000, out _);
+        }
+        catch
+        {
+            // sem o empurrão a barra fica escura até o próximo reinício do Explorer, mas o app não
+            // tem o que fazer a respeito
+        }
 
         _aplicado = TaskbarLook.Sistema;
     }
+
+    private const int WM_SETTINGCHANGE = 0x001A;
+    private const int WM_THEMECHANGED = 0x031A;
+    private const int WM_DWMCOMPOSITIONCHANGED = 0x031E;
+    private const uint SMTO_ABORTIFHUNG = 0x0002;
+    private static readonly IntPtr HWND_BROADCAST = new(0xFFFF);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr SendMessageTimeout(IntPtr hwnd, int msg, IntPtr wParam, string? lParam,
+        uint flags, uint timeout, out IntPtr result);
 }
