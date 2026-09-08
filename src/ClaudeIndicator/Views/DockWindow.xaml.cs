@@ -67,6 +67,13 @@ public partial class DockWindow : Window
     /// <summary>O Windows aceitou o fosco? Recusou, o fundo volta a ser opaco em vez de preto.</summary>
     private bool _foscoAtivo;
 
+    /// <summary>
+    /// Como está o fundo desta barra agora: <c>null</c> sem fosco pedido, <c>true</c> fosco no ar,
+    /// <c>false</c> fosco pedido e recusado pelo Windows. A tela de configuração mostra isso —
+    /// efeito que não entrou tem que dizer que não entrou, senão vira "não funcionou" sem pista.
+    /// </summary>
+    public bool? FoscoAtivo => _fosco ? _foscoAtivo : null;
+
     public DockWindow(bool fosco = false)
     {
         InitializeComponent();
@@ -93,6 +100,9 @@ public partial class DockWindow : Window
         {
             Reposition();
             _follow.Start();
+
+            // dá um instante para o compositor desenhar o primeiro quadro antes de conferir
+            if (_fosco) Dispatcher.BeginInvoke(new Action(ConferirFosco), DispatcherPriority.ApplicationIdle);
         };
 
         // Uma faixa reservada por uma janela que morreu fica presa até o Explorer reiniciar. Por
@@ -204,9 +214,10 @@ public partial class DockWindow : Window
             var hwnd = new WindowInteropHelper(this).Handle;
             if (hwnd != IntPtr.Zero)
             {
-                // O tom tem piso: em 0% a barra viraria vidro puro, sem contorno nenhum, e as
-                // colunas ficariam soltas sobre o que estivesse atrás.
-                var tom = (byte)Math.Clamp(Math.Round(s.DockOpacityEffective * 255), 30, 250);
+                // O tom tem piso alto de propósito. Vidro quase sem tom deixa as colunas soltas
+                // sobre o que estiver atrás e, pior, fica indistinguível de um fundo que não
+                // funcionou — foi o que apareceu quando o tom herdado da barra do Windows era 0.
+                var tom = (byte)Math.Clamp(Math.Round(s.DockOpacityEffective * 255), 90, 250);
                 _foscoAtivo = WindowBackdrop.ApplyFrosted(hwnd, tom);
             }
 
@@ -220,6 +231,70 @@ public partial class DockWindow : Window
 
         var alpha = (byte)Math.Clamp(Math.Round(s.DockOpacityEffective * 255), 1, 255);
         Root.Background = new SolidColorBrush(Color.FromArgb(alpha, 0x1B, 0x1A, 0x19));
+    }
+
+    /// <summary>
+    /// Confere se o fosco de fato apareceu, olhando os pixels da própria barra.
+    ///
+    /// Existe porque o Windows <b>aceita</b> o pedido e devolve sucesso mesmo quando não compõe
+    /// nada — foi o que aconteceu numa tela secundária: efeito aceito, nada composto, e a barra
+    /// ficou preta, porque em janela não-layered o que não é composto é preto. Não há como
+    /// perguntar isso à API, então o app olha o resultado: vidro sobre qualquer fundo produz pelo
+    /// menos o tom da barra, nunca preto puro. Preto puro em toda a amostra só acontece quando o
+    /// efeito não entrou.
+    ///
+    /// Concluindo que não entrou, o fundo volta a ser opaco e a tela de configurações passa a
+    /// dizer isso — uma barra escura com explicação é melhor que uma barra preta sem nenhuma.
+    /// </summary>
+    private void ConferirFosco()
+    {
+        if (_closed || !_fosco || !_foscoAtivo || _target == null) return;
+
+        var r = _target.Value;
+        var largura = Math.Min(6, Math.Max(r.Width - 2, 1));
+        var altura = Math.Min(60, Math.Max(r.Height - 2, 1));
+
+        // uma tira da borda de fora, onde não há conteúdo desenhado por cima
+        var x = _settings.DockEdge == DockEdge.Right ? r.Right - largura - 1 : r.Left + 1;
+        var y = r.Top + Math.Max((r.Height - altura) / 2, 1);
+
+        try
+        {
+            if (!TudoPreto(x, y, largura, altura)) return;   // tem cor: o efeito entrou
+
+            // Preto na barra pode ser efeito que não entrou OU tela que não se deixa fotografar —
+            // existe display cuja captura vem preta mesmo com o conteúdo aparecendo na tela. A
+            // referência ao lado, fora da barra, separa os dois casos: se ela também vier preta, a
+            // conclusão é sobre a captura, não sobre o efeito, e nada muda.
+            var fora = _settings.DockEdge == DockEdge.Right ? r.Left - largura - 2 : r.Right + 2;
+            if (TudoPreto(fora, y, largura, altura)) return;
+        }
+        catch
+        {
+            // sem conseguir olhar, fica como está: melhor não desfazer um efeito que talvez esteja bom
+            return;
+        }
+
+        _foscoAtivo = false;
+        Root.Background = new SolidColorBrush(Color.FromArgb(255, 0x1B, 0x1A, 0x19));
+    }
+
+    /// <summary>A região da tela é preto puro em todos os pixels?</summary>
+    private static bool TudoPreto(int x, int y, int largura, int altura)
+    {
+        using var bmp = new System.Drawing.Bitmap(largura, altura);
+        using var g = System.Drawing.Graphics.FromImage(bmp);
+        g.CopyFromScreen(x, y, 0, 0, new System.Drawing.Size(largura, altura));
+
+        for (var px = 0; px < largura; px++)
+        {
+            for (var py = 0; py < altura; py++)
+            {
+                var c = bmp.GetPixel(px, py);
+                if (c.R != 0 || c.G != 0 || c.B != 0) return false;
+            }
+        }
+        return true;
     }
 
     /// <summary>
