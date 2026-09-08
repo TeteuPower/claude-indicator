@@ -255,6 +255,8 @@ intervalo: decisão de quem usa, não uma punição que o app aplica sozinho.
   fosco (desfoque do Windows),
   tamanho do conteúdo (com botão de restaurar padrões) e, para cada painel, se ele aparece nela e em
   qual lado — começo ou fim da barra, independente do lado que ele usa na barra do Windows
+- **Barra do Windows**: efeito (não mexer, transparente, desfocada, fosca ou opaca), tom do efeito e
+  se a barra própria segue o mesmo estilo
 - **Ritmo**: velocímetro no painel da barra e/ou no gadget, de qual limite ele acompanha, a janela
   da média (5 min a 24 h) e a marca do tempo decorrido nas barras
 - **Histórico de consumo**: guardar tudo (padrão) ou apagar registros com mais de N dias
@@ -317,11 +319,11 @@ garantir:
    torna a janela *layered* e a desenha inteira por conta própria; aí o compositor não tem onde
    compor o desfoque. Como isso se decide antes de a janela existir, trocar a preferência **recria**
    a barra.
-2. **O tom é pintado pelo app, não pedido ao Windows.** O acrílico do Windows 11 ignora a cor que se
-   pede junto do efeito — o mesmo tom escuro a 25% e a 55% dava resultado idêntico, com o papel de
-   parede dominando. Como o efeito respeita o alfa do que a janela desenha, o tom feito no WPF é
-   exato e usa a mesma régua do modo sem fosco. Se o Windows recusar o efeito, o fundo volta a ser
-   opaco: "transparente" sem compositor pintando atrás é preto.
+2. **O tom vai no pedido ao compositor, não pintado pela janela.** Testado em três janelas lado a
+   lado: acrílico com o tom no pedido dá vidro escuro; acrílico sem tom, com o tom pintado por cima
+   pelo WPF, dá **preto**. O motivo é o mesmo do item anterior — a janela não é *layered*, então o
+   alfa que ela desenha não tem o que compor. Se o Windows recusar o efeito, o fundo volta a ser
+   opaco: "transparente" sem compositor pintando atrás também é preto.
 
 ### Os painéis dentro dela
 
@@ -392,6 +394,43 @@ Duas coisas que o código garante, e que faltando quebram a experiência de form
 2. **Quem reserva, devolve.** Uma faixa reservada por uma janela que morreu fica presa até o
    Explorer reiniciar. A remoção acontece ao fechar a barra, ao sair do app e no encerramento do
    processo — e desligar a barra fecha a janela, em vez de apenas escondê-la.
+
+## A barra do Windows
+
+O app também cuida da **aparência da barra de tarefas do Windows**, pela mesma API de composição que
+usa na barra própria. É o que programas como o TranslucentTB fazem — e é por isso que dá para
+substituí-los em vez de os dois brigarem pelo mesmo efeito. Se você tem um deles rodando, feche.
+
+Cinco opções em *Configurações › Barra do Windows*:
+
+| Efeito | O que acontece |
+|---|---|
+| **Não mexer** | a barra fica como o Windows a desenha; o app não toca nela |
+| **Transparente** | o que está atrás aparece nítido, com o tom por cima |
+| **Desfocada** | desfoque clássico, sem granulado — o mais escuro e uniforme |
+| **Fosca** | acrílico do Windows: desfoque com granulado fino, o vidro dos menus do sistema |
+| **Opaca** | cor cheia, para uniformizar a barra em telas com papéis de parede diferentes |
+
+O **tom** é a cor do app por cima do efeito: quanto mais alto, mais escura a barra e menos o fundo
+aparece. Em *Opaca* ele não vale — opaca com tom pela metade não seria opaca.
+
+E a **barra própria pode seguir o mesmo estilo** (ligado por padrão): as duas ficam com o mesmo vidro
+e o mesmo tom, que é o ponto de um app só cuidar das duas. Nesse modo os controles de fundo da barra
+própria ficam desabilitados, em vez de prometerem algo que vem de outro lugar.
+
+Três cuidados que o código garante, e que faltando quebram a experiência de forma difícil de
+entender:
+
+1. **Toda barra, não só a principal.** Com "mostrar a barra em todas as telas" ligado existe uma
+   janela por monitor — aqui são três — e estilizar só a principal deixaria as outras destoando.
+2. **Reaplicar a cada três segundos.** O Explorer recria as janelas da barra quando reinicia, e o
+   efeito não sobrevive à janela antiga: sem reaplicar, a barra volta ao normal sozinha e parece que
+   o app desistiu.
+3. **Devolver ao sair.** Efeito deixado para trás por um programa que já fechou só sai reiniciando o
+   Explorer — e a culpa fica com o Windows, não com quem deixou.
+
+Deixar as **outras janelas** do sistema translúcidas, como o TranslucentTB também faz, ainda não está
+aqui.
 
 ## Uso no dia a dia
 
@@ -809,6 +848,7 @@ src/ClaudeIndicator/
     TaskbarInfo.cs       geometria da barra de tarefas, dos monitores e espaço livre nela
     DesktopAppBar.cs     registra a barra própria como appbar do Windows (reserva a faixa)
     WindowBackdrop.cs    fundo fosco pelo compositor do Windows (o acrílico da barra)
+    TaskbarStyler.cs     aparência da barra de tarefas do Windows, em todas as telas
     EtwSession.cs        sessão de rastreamento do Windows: eventos de quadro apresentado
     FrameRateMonitor.cs  carimbos de quadro -> FPS, tempo de quadro e 1% low por processo
     GameDetector.cs      resolve qual janela recebe o indicador (escolhida ou adivinhada)
