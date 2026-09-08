@@ -322,8 +322,15 @@ garantir:
 2. **O tom vai no pedido ao compositor, não pintado pela janela.** Testado em três janelas lado a
    lado: acrílico com o tom no pedido dá vidro escuro; acrílico sem tom, com o tom pintado por cima
    pelo WPF, dá **preto**. O motivo é o mesmo do item anterior — a janela não é *layered*, então o
-   alfa que ela desenha não tem o que compor. Se o Windows recusar o efeito, o fundo volta a ser
-   opaco: "transparente" sem compositor pintando atrás também é preto.
+   alfa que ela desenha não tem o que compor.
+3. **O Windows diz "sim" mesmo quando não compõe nada.** Aconteceu numa tela secundária: pedido
+   aceito, efeito nenhum, barra preta. Não há como perguntar isso à API, então o app **olha o
+   resultado**: vidro sobre qualquer fundo produz pelo menos o tom da barra, nunca preto puro, e
+   preto puro em toda a amostra só acontece quando o efeito não entrou. Nesse caso o fundo volta a
+   ser opaco e a tela de configurações passa a dizer que o Windows recusou — barra escura com
+   explicação é melhor que barra preta sem nenhuma. A conferência ainda compara com uma referência
+   ao lado da barra: existe display cuja captura vem preta com o conteúdo aparecendo na tela, e aí a
+   conclusão seria sobre a captura, não sobre o efeito.
 
 ### Os painéis dentro dela
 
@@ -414,6 +421,12 @@ Cinco opções em *Configurações › Barra do Windows*:
 O **tom** é a cor do app por cima do efeito: quanto mais alto, mais escura a barra e menos o fundo
 aparece. Em *Opaca* ele não vale — opaca com tom pela metade não seria opaca.
 
+O tom tem **piso de 20%**, e o motivo é medido: o efeito entra *atrás* do fundo que a própria barra
+do Windows pinta, então é o tom que de fato aparece. Com foto da barra nas três aparências e três
+tons, em tom 0 as nove saem **idênticas ao sistema** — a opção parece quebrada quando na verdade
+está fazendo exatamente o que foi pedido. Valor menor guardado de antes do piso volta ao padrão de
+65%, e não ao mínimo: 20% é discreto, e quem cai ali por acidente conclui a mesma coisa.
+
 E a **barra própria pode seguir o mesmo estilo** (ligado por padrão): as duas ficam com o mesmo vidro
 e o mesmo tom, que é o ponto de um app só cuidar das duas. Nesse modo os controles de fundo da barra
 própria ficam desabilitados, em vez de prometerem algo que vem de outro lugar.
@@ -428,6 +441,13 @@ entender:
    o app desistiu.
 3. **Devolver ao sair.** Efeito deixado para trás por um programa que já fechou só sai reiniciando o
    Explorer — e a culpa fica com o Windows, não com quem deixou.
+
+A reaplicação é **por aviso, não por relógio**: o app mantém uma janela oculta escutando o
+`TaskbarCreated` (a difusão que o shell manda quando recria a barra), mais mudança de telas, troca de
+tema e reinício do compositor. A primeira versão perguntava a cada três segundos; o custo era
+irrisório — achar três janelas e mandar um atributo — mas perguntar sem parar por algo que o sistema
+avisa é desperdício de princípio. O ciclo de consulta ao consumo, que já existe, reaplica também,
+como rede de segurança sem relógio novo.
 
 Deixar as **outras janelas** do sistema translúcidas, como o TranslucentTB também faz, ainda não está
 aqui.
@@ -849,6 +869,7 @@ src/ClaudeIndicator/
     DesktopAppBar.cs     registra a barra própria como appbar do Windows (reserva a faixa)
     WindowBackdrop.cs    fundo fosco pelo compositor do Windows (o acrílico da barra)
     TaskbarStyler.cs     aparência da barra de tarefas do Windows, em todas as telas
+    ShellWatcher.cs      avisos do shell: barra recriada, telas, compositor, tema
     EtwSession.cs        sessão de rastreamento do Windows: eventos de quadro apresentado
     FrameRateMonitor.cs  carimbos de quadro -> FPS, tempo de quadro e 1% low por processo
     GameDetector.cs      resolve qual janela recebe o indicador (escolhida ou adivinhada)
