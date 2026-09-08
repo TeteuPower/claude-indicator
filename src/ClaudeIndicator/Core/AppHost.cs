@@ -209,7 +209,9 @@ public sealed class AppHost
             _gadget?.Hide();
         }
 
-        if (Settings.ShowTaskbarBar)
+        // Com a barra própria ligada, o painel muda de casa: mostrar os dois seria o mesmo bloco
+        // duas vezes na tela, e foi para a barra própria que o usuário mandou o painel ir.
+        if (Settings.ShowTaskbarBar && !Settings.ShowDock)
         {
             EnsureTaskbarBar();
             _taskbarBar!.ApplySettings(Settings);
@@ -355,7 +357,8 @@ public sealed class AppHost
     /// </summary>
     private void ApplyPcPanel()
     {
-        if (Settings.ShowPcPanel)
+        // idem ao painel da IA: com a barra própria ligada, os sensores aparecem lá
+        if (Settings.ShowPcPanel && !Settings.ShowDock)
         {
             if (_pcPanel == null)
             {
@@ -491,7 +494,7 @@ public sealed class AppHost
         {
             if (Settings.ShowPcPanel) _pcPanel?.RenderHardware(snap, Settings);
             if (Settings.GadgetEnabled && Settings.GadgetShowHardware) _gadget?.RenderHardware(snap, Settings);
-            if (Settings.ShowDock && Settings.DockShowHardware) _dock?.RenderHardware(snap, Settings);
+            if (Settings.ShowDock && Settings.ShowPcPanel) _dock?.RenderHardware(snap, Settings);
         }));
     }
 

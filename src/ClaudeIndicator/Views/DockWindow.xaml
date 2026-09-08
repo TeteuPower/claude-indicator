@@ -33,7 +33,7 @@
     <Border x:Name="Root" Background="#EB1B1A19"
             MouseLeftButtonUp="OnClick" Cursor="Hand">
         <Grid>
-            <DockPanel x:Name="Layout" LastChildFill="True" Margin="10,7">
+            <DockPanel x:Name="Layout" LastChildFill="False" Margin="10,7">
                 <DockPanel.LayoutTransform>
                     <ScaleTransform x:Name="RootScale" ScaleX="1" ScaleY="1"/>
                 </DockPanel.LayoutTransform>
@@ -42,8 +42,8 @@
                      porque muda com a borda: embaixo na barra em pé, à direita na deitada. -->
                 <StackPanel x:Name="SidePanel" Orientation="Horizontal"/>
 
-                <!-- Painéis: limites, sensores e velocímetro, na ordem em que estão ligados -->
-                <StackPanel x:Name="MainPanel"/>
+                <!-- Os blocos dos painéis entram aqui pelo código: cada um no seu lado da barra,
+                     conforme a configuração que ele já tinha na barra de tarefas. -->
             </DockPanel>
 
             <Border x:Name="Edge" Background="#1FFFFFFF"/>

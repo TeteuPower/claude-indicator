@@ -159,12 +159,14 @@ public class AppSettings
     /// <summary>Tamanho do conteúdo dentro da barra.</summary>
     public double DockScale { get; set; } = 1.0;
 
-    public bool DockShowBars { get; set; } = true;
-    public bool DockShowHardware { get; set; } = true;
-    public bool DockShowRate { get; set; }
-
     /// <summary>Sair da frente de jogo em tela cheia. Só vale no modo por cima; reservando, o jogo cobre a barra de qualquer forma.</summary>
     public bool DockHideOnFullscreen { get; set; } = true;
+
+    // O que aparece na barra própria NÃO tem interruptor próprio: são os mesmos painéis, com as
+    // mesmas preferências. Com a barra ligada, o painel da IA (ShowTaskbarBar), o do computador
+    // (ShowPcPanel) e o velocímetro (ShowRateTaskbar) mudam de casa em vez de duplicar de opção —
+    // e o lado de cada um continua sendo o TaskbarBarAnchor / PcPanelAnchor, onde "à esquerda"
+    // vira o começo da barra e "junto ao relógio" vira o fim.
 
     // ---- Indicador por cima do jogo ----
     /// <summary>Desenhar os indicadores por cima do jogo em primeiro plano.</summary>

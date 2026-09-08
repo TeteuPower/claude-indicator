@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -152,9 +153,16 @@ public partial class DockWindow : Window
     }
 
     /// <summary>
-    /// Monta os painéis. Em pé, cada painel é uma linha empilhada — o mesmo desenho do gadget.
-    /// Deitada, cada painel é uma célula lado a lado — o mesmo desenho do painel da barra de
-    /// tarefas. Nos dois casos o que muda é só a forma; os medidores são os mesmos do app.
+    /// Monta os dois painéis e põe cada um no seu lado da barra.
+    ///
+    /// A forma muda com a orientação, e não é enfeite: <b>em pé</b>, cada limite é uma coluna que
+    /// enche de baixo para cima, lado a lado — numa faixa estreita e alta, trilhos deitados um
+    /// sobre o outro gastariam a altura e desperdiçariam a largura. <b>Deitada</b>, cada limite é
+    /// uma célula ao lado da outra, no mesmo desenho do painel da barra de tarefas.
+    ///
+    /// O lado de cada painel vem da configuração que ele já tinha na barra de tarefas: "à esquerda"
+    /// vira o começo da barra (esquerda na deitada, topo na em pé) e "junto ao relógio" vira o fim.
+    /// É o que faz o painel mudar de casa levando as próprias preferências.
     /// </summary>
     private void Rebuild()
     {
@@ -166,119 +174,149 @@ public partial class DockWindow : Window
         _pendingRender = false;
 
         var vertical = _settings.DockEdge != DockEdge.Top;
+        Layout.Margin = vertical ? new Thickness(9, 10, 9, 10) : new Thickness(12, 5, 12, 5);
+        Layout.Children.Clear();
 
-        Layout.Margin = vertical ? new Thickness(11, 10, 11, 10) : new Thickness(12, 5, 12, 5);
-        MainPanel.Orientation = vertical ? Orientation.Vertical : Orientation.Horizontal;
-        MainPanel.VerticalAlignment = vertical ? VerticalAlignment.Top : VerticalAlignment.Center;
-        MainPanel.Children.Clear();
-
-        DockPanel.SetDock(SidePanel, vertical ? Dock.Bottom : Dock.Right);
-        SidePanel.HorizontalAlignment = vertical ? HorizontalAlignment.Left : HorizontalAlignment.Right;
-        SidePanel.VerticalAlignment = vertical ? VerticalAlignment.Bottom : VerticalAlignment.Center;
-        SidePanel.Margin = vertical ? new Thickness(0, 8, 0, 0) : new Thickness(12, 0, 0, 0);
-
-        if (vertical) BuildVertical();
-        else BuildHorizontal();
-
+        // A linha do tempo entra primeiro: no DockPanel, quem entra antes fica mais na borda.
         BuildTimeline();
+        if (SidePanel.Children.Count > 0)
+        {
+            DockPanel.SetDock(SidePanel, vertical ? Dock.Bottom : Dock.Right);
+            SidePanel.HorizontalAlignment = vertical ? HorizontalAlignment.Center : HorizontalAlignment.Right;
+            SidePanel.VerticalAlignment = vertical ? VerticalAlignment.Bottom : VerticalAlignment.Center;
+            SidePanel.Margin = vertical ? new Thickness(0, 10, 0, 0) : new Thickness(12, 0, 0, 0);
+            Layout.Children.Add(SidePanel);
+        }
+
+        var claude = BuildClaudeBlock(vertical);
+        var pc = BuildPcBlock(vertical);
+
+        Place(claude, _settings.TaskbarBarAnchor, vertical);
+        Place(pc, _settings.PcPanelAnchor, vertical);
+
+        if (claude == null && pc == null)
+        {
+            var vazio = Aviso("Nenhum painel escolhido para esta barra.", vertical ? 160 : 320);
+            DockPanel.SetDock(vazio, vertical ? Dock.Top : Dock.Left);
+            Layout.Children.Add(vazio);
+        }
     }
 
-    private void BuildVertical()
+    /// <summary>Encosta o bloco no começo ou no fim da barra, conforme o lado escolhido.</summary>
+    private void Place(UIElement? bloco, TaskbarAnchor anchor, bool vertical)
     {
-        var blocos = 0;
+        if (bloco == null) return;
 
-        if (_settings.DockShowBars)
+        var comeco = anchor == TaskbarAnchor.Left;
+        DockPanel.SetDock(bloco, vertical
+            ? (comeco ? Dock.Top : Dock.Bottom)
+            : (comeco ? Dock.Left : Dock.Right));
+
+        Layout.Children.Add(bloco);
+    }
+
+    /// <summary>
+    /// O painel da assinatura: os limites e, junto com eles, o velocímetro do ritmo — na barra de
+    /// tarefas o velocímetro também mora no painel da IA, e o interruptor dele é o mesmo.
+    /// </summary>
+    private UIElement? BuildClaudeBlock(bool vertical)
+    {
+        if (!_settings.ShowTaskbarBar && !_settings.ShowRateTaskbar) return null;
+
+        var bloco = new StackPanel
+        {
+            Orientation = vertical ? Orientation.Vertical : Orientation.Horizontal,
+            VerticalAlignment = vertical ? VerticalAlignment.Top : VerticalAlignment.Center
+        };
+
+        if (_settings.ShowTaskbarBar)
         {
             var bars = _snapshot?.Visible(_settings) ?? new List<UsageBar>();
-            if (bars.Count > 0)
+            if (bars.Count == 0)
             {
-                foreach (var bar in bars)
-                    MainPanel.Children.Add(BarRenderer.BuildRow(bar, _settings, _settings.GadgetShowReset));
-                blocos++;
+                bloco.Children.Add(Aviso(_snapshot == null ? "Consultando…" : _snapshot.Error ?? "Sem dados de consumo.",
+                    vertical ? 160 : 320));
+            }
+            else if (vertical)
+            {
+                bloco.Children.Add(Colunas(bars.Count,
+                    bars.ConvertAll(b => BarRenderer.BuildColumn(b, _settings, ColunaAltura))));
             }
             else
             {
-                MainPanel.Children.Add(Aviso(_snapshot == null ? "Consultando…" : _snapshot.Error ?? "Sem dados de consumo.", 168));
-                blocos++;
-            }
-        }
-
-        if (_settings.DockShowHardware)
-        {
-            var sensores = Sensores();
-            if (sensores.Count > 0)
-            {
-                if (blocos > 0) MainPanel.Children.Add(Separador(true));
-                foreach (var (rotulo, leitura) in sensores)
-                    MainPanel.Children.Add(HardwareRenderer.Row(rotulo, leitura, _hardware));
-                blocos++;
-            }
-        }
-
-        if (_settings.DockShowRate && AppHost.Current is { } host)
-        {
-            if (blocos > 0) MainPanel.Children.Add(Separador(true));
-
-            var leitura = host.Rate;
-            var medidor = GaugeRenderer.Build(leitura, 78);
-            if (medidor is FrameworkElement fe)
-            {
-                fe.HorizontalAlignment = HorizontalAlignment.Center;
-                fe.ToolTip = GaugeRenderer.Describe(leitura, _settings, _settings.RateKind);
-            }
-            MainPanel.Children.Add(medidor);
-        }
-    }
-
-    private void BuildHorizontal()
-    {
-        var celulas = 0;
-
-        if (_settings.DockShowBars)
-        {
-            var bars = _snapshot?.Visible(_settings) ?? new List<UsageBar>();
-            if (bars.Count > 0)
-            {
-                foreach (var bar in bars)
+                for (var i = 0; i < bars.Count; i++)
                 {
-                    if (celulas++ > 0) MainPanel.Children.Add(BarRenderer.BuildCellSeparator());
-                    MainPanel.Children.Add(BarRenderer.BuildCell(bar, _settings, _settings.GadgetShowReset));
+                    if (i > 0) bloco.Children.Add(BarRenderer.BuildCellSeparator());
+                    bloco.Children.Add(BarRenderer.BuildCell(bars[i], _settings, _settings.GadgetShowReset));
                 }
             }
-            else
-            {
-                MainPanel.Children.Add(Aviso(_snapshot == null ? "Consultando…" : _snapshot.Error ?? "Sem dados de consumo.", 320));
-                celulas++;
-            }
         }
 
-        if (_settings.DockShowHardware)
+        if (_settings.ShowRateTaskbar && AppHost.Current is { } host)
         {
-            foreach (var (rotulo, leitura) in Sensores())
-            {
-                if (celulas++ > 0) MainPanel.Children.Add(BarRenderer.BuildCellSeparator());
-                MainPanel.Children.Add(HardwareRenderer.Cell(rotulo, leitura, _hardware));
-            }
-        }
-
-        if (_settings.DockShowRate && AppHost.Current is { } host)
-        {
-            if (celulas++ > 0) MainPanel.Children.Add(BarRenderer.BuildCellSeparator());
-
             var leitura = host.Rate;
-            var medidor = GaugeRenderer.Build(leitura, 34);
+            var medidor = GaugeRenderer.Build(leitura, vertical ? 78 : 34);
             if (medidor is FrameworkElement fe)
             {
-                fe.VerticalAlignment = VerticalAlignment.Center;
                 fe.ToolTip = GaugeRenderer.Describe(leitura, _settings, _settings.RateKind);
+                if (vertical)
+                {
+                    fe.HorizontalAlignment = HorizontalAlignment.Center;
+                    fe.Margin = new Thickness(0, bloco.Children.Count > 0 ? 12 : 0, 0, 0);
+                }
+                else
+                {
+                    fe.VerticalAlignment = VerticalAlignment.Center;
+                    fe.Margin = new Thickness(bloco.Children.Count > 0 ? 12 : 0, 0, 0, 0);
+                }
             }
-            MainPanel.Children.Add(medidor);
+            bloco.Children.Add(medidor);
         }
+
+        return bloco.Children.Count > 0 ? bloco : null;
+    }
+
+    /// <summary>O painel do computador: os sensores escolhidos para ele.</summary>
+    private UIElement? BuildPcBlock(bool vertical)
+    {
+        if (!_settings.ShowPcPanel) return null;
+
+        var sensores = Sensores();
+        if (sensores.Count == 0) return null;
+
+        if (vertical)
+        {
+            return Colunas(sensores.Count,
+                sensores.ConvertAll(s => HardwareRenderer.Column(s.Rotulo, s.Leitura, _hardware, ColunaAltura)));
+        }
+
+        var linha = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        for (var i = 0; i < sensores.Count; i++)
+        {
+            if (i > 0) linha.Children.Add(BarRenderer.BuildCellSeparator());
+            linha.Children.Add(HardwareRenderer.Cell(sensores[i].Rotulo, sensores[i].Leitura, _hardware));
+        }
+        return linha;
+    }
+
+    /// <summary>Altura do trilho das colunas, em unidades de tela.</summary>
+    private const double ColunaAltura = 108;
+
+    /// <summary>
+    /// As colunas de um painel, dividindo a largura da barra em partes iguais. Grade e não pilha
+    /// horizontal: com largura repartida, as colunas continuam alinhadas entre os dois painéis e
+    /// acompanham a espessura escolhida sem número mágico nenhum.
+    /// </summary>
+    private static UIElement Colunas(int quantas, List<UIElement> filhos)
+    {
+        var grade = new UniformGrid { Rows = 1, Columns = Math.Max(quantas, 1) };
+        foreach (var f in filhos) grade.Children.Add(f);
+        return grade;
     }
 
     private List<(string Rotulo, ComponentReading Leitura)> Sensores()
     {
-        var quais = new List<(string, ComponentReading)>();
+        var quais = new List<(string Rotulo, ComponentReading Leitura)>();
         if (_settings.PcShowCpu) quais.Add(("CPU", _hardware.Cpu));
         if (_settings.PcShowGpu) quais.Add(("GPU", _hardware.Gpu));
         if (_settings.PcShowRam) quais.Add(("RAM", _hardware.Ram));
@@ -329,15 +367,7 @@ public partial class DockWindow : Window
         };
     }
 
-    private UIElement Separador(bool vertical) => new Border
-    {
-        Height = vertical ? 1 : double.NaN,
-        Width = vertical ? double.NaN : 1,
-        Background = BarRenderer.Swatch("LineBrush"),
-        Margin = vertical ? new Thickness(0, 2, 0, 10) : new Thickness(10, 2, 10, 2)
-    };
-
-    private UIElement Aviso(string texto, double largura) => new TextBlock
+    private FrameworkElement Aviso(string texto, double largura) => new TextBlock
     {
         Text = texto,
         FontSize = 11,
