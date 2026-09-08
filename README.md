@@ -204,8 +204,8 @@ endpoint de uso. Com várias sessões abertas, um intervalo curto no indicador e
 que o app sozinho pareça comportado. O endpoint não devolve cabeçalhos de rate-limit, então não há
 como saber o teto — a única saída é consultar menos.
 
-O intervalo escolhido nas configurações é a **cadência**, e o app a cumpre: uma consulta por
-intervalo, sempre, mesmo com o consumo parado.
+O intervalo escolhido nas configurações é a **cadência**, e o app a cumpre ao pé da letra: uma
+consulta por intervalo, sempre — mesmo com o consumo parado, mesmo depois de erro.
 
 Fechar e reabrir **não recomeça a contagem**. A última leitura boa e os últimos ciclos ficam
 guardados em `session.json`; ao abrir, as barras já nascem preenchidas e a faixa de bolinhas
@@ -224,12 +224,16 @@ minutos. Economizava chamadas, mas tornava o indicador imprevisível — a linha
 querer dizer "uma consulta por intervalo" e não dava mais para saber, olhando, se a conexão estava
 de pé. Cadência fixa vale mais que a economia.
 
-O que continua sendo reação e não escolha:
+**Erro não gera espera.** Houve uma versão em que um 429 fazia o app pausar 5, 10 ou 15 minutos e só
+voltar ao ritmo depois de três consultas boas seguidas. Na prática, isso fazia o indicador parecer
+ter desistido: o consumo congelava na tela e a única saída era clicar em "Atualizar" — que, na
+maioria das vezes, funcionava na primeira tentativa, justamente porque a pausa era autoimposta e não
+uma recusa da API. A pausa saiu. Agora todo ciclo consulta, deu erro ou não, e todo ciclo desenha
+o seu ponto.
 
-- Depois de um 429 ele espera 5, 10 ou 15 minutos antes de tentar de novo, e só volta ao ritmo
-  normal após três consultas bem-sucedidas seguidas — voltar na primeira é o caminho de bater no
-  limite outra vez. Durante a espera os pontos seguem avançando, em âmbar.
-- O mínimo aceito é 60 s. Se o 429 aparecer com frequência, o remédio é aumentar o intervalo.
+O que sobrou é só a guarda contra atropelo: uma consulta em voo não é duplicada pelo ciclo seguinte —
+esse ciclo vira ponto apagado. O mínimo aceito é 60 s e, se o 429 insistir, o remédio é aumentar o
+intervalo: decisão de quem usa, não uma punição que o app aplica sozinho.
 
 ## Configurações disponíveis
 
@@ -383,18 +387,17 @@ Duas coisas que o código garante, e que faltando quebram a experiência de form
 - **Gadget**: arraste **pelo cabeçalho** (a faixa com o nome, no topo); passe o mouse para ver os
   botões de atualizar, configurar e ocultar; botão direito abre o menu.
 
-A **linha do tempo da comunicação** aparece no rodapé do gadget e ao lado dos indicadores no painel
-da barra de tarefas: dez pontos, o mais recente à direita, **um por ciclo do intervalo configurado**
-— e não um por chamada. É essa cadência fixa que mostra a saúde da conexão: durante uma pausa por
-limite os pontos continuam avançando, em vez de a faixa congelar como se nada estivesse
-acontecendo.
+A **linha do tempo da comunicação** aparece no rodapé do gadget, ao lado dos indicadores no painel
+da barra de tarefas e descendo pela lateral da barra própria: dez pontos, o mais recente à direita
+(embaixo, na barra em pé), **um por ciclo do intervalo configurado** — e não um por chamada. É essa
+cadência fixa que mostra a saúde da conexão.
 
 | Ponto | O que aconteceu naquele ciclo |
 |---|---|
 | **Verde** | a consulta respondeu |
-| **Âmbar** | não deu para falar com a API por limite de consultas (HTTP 429) |
+| **Âmbar** | a API respondeu com limite de consultas atingido (HTTP 429) |
 | **Vermelho** | a consulta falhou (rede, credencial, formato inesperado) |
-| **Apagado** | não houve consulta porque o consumo não mudou e o app espaçou de propósito — conexão saudável |
+| **Apagado** | o ciclo fechou sem resposta: a consulta demorou mais que o intervalo |
 
 Passar o mouse sobre cada ponto mostra o horário e o motivo daquele ciclo. Dá para desligar a faixa
 em Configurações › Sistema.
