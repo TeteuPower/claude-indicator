@@ -352,13 +352,15 @@ public static class PanelStyle
     /// rótulo é o mesmo da célula deitada — sem ele, o velocímetro mede algo que só quem abriu as
     /// configurações sabe qual é.
     /// </summary>
-    public static UIElement GaugeColumn(RateReading rate, AppSettings s, double scale)
+    public static UIElement GaugeColumn(RateReading rate, AppSettings s, double scale, bool compacto = false)
     {
         var pilha = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
 
+        // arco menor que a versão anterior: ele é acessório do bloco de limites, e ocupando 62
+        // unidades competia em peso com as colunas, que são o assunto
         pilha.Children.Add(new Border
         {
-            Child = GaugeRenderer.Build(rate, 62 * scale),
+            Child = GaugeRenderer.Build(rate, (compacto ? 40 : 48) * scale),
             HorizontalAlignment = HorizontalAlignment.Center
         });
 
@@ -367,14 +369,27 @@ public static class PanelStyle
         filtro.Margin = new Thickness(0, 3, 0, 0);
         pilha.Children.Add(filtro);
 
+        // "0,05% p/min" numa coluna de 72 unidades sai cortado nas duas pontas: o número fica na
+        // linha do valor e a unidade desce para uma linha própria, menor
         pilha.Children.Add(new OutlinedText
         {
-            Text = ConsumptionRate.Format(rate),
-            FontSize = 12 * scale,
+            Text = ConsumptionRate.FormatShort(rate),
+            FontSize = (compacto ? 11 : 12) * scale,
             FontWeight = FontWeights.SemiBold,
             Foreground = new SolidColorBrush(GaugeRenderer.ColorFor(rate)),
             HorizontalAlignment = HorizontalAlignment.Center
         });
+
+        if (rate.HasData)
+        {
+            pilha.Children.Add(new OutlinedText
+            {
+                Text = "p/min",
+                FontSize = (compacto ? 8.5 : 9) * scale,
+                Foreground = BarRenderer.Swatch("MutedBrush"),
+                HorizontalAlignment = HorizontalAlignment.Center
+            });
+        }
 
         return Clicavel(pilha, GaugeRenderer.Describe(rate, s, s.RateKind)
                                + "\n\nClique para ver o ritmo de outro limite.",

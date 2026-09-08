@@ -56,9 +56,24 @@ public partial class DockWindow : Window
     private bool _pendingRender;
     private DateTime _lastTopmost = DateTime.MinValue;
 
-    public DockWindow()
+    /// <summary>
+    /// Fundo fosco pedido nas preferências. Decidido no nascimento da janela porque
+    /// <see cref="Window.AllowsTransparency"/> só pode ser mexido antes de a janela existir de
+    /// fato — e os dois são exclusivos: com a transparência por pixel do WPF ligada, o compositor
+    /// não tem onde compor o desfoque. Trocar a preferência recria a janela.
+    /// </summary>
+    private readonly bool _fosco;
+
+    /// <summary>O Windows aceitou o fosco? Recusou, o fundo volta a ser opaco em vez de preto.</summary>
+    private bool _foscoAtivo;
+
+    public DockWindow(bool fosco = false)
     {
         InitializeComponent();
+
+        _fosco = fosco;
+        AllowsTransparency = !fosco;
+
         VersionItem.Header = AppInfo.NameWithVersion;
 
         _follow.Tick += (_, _) => Reposition();
@@ -111,6 +126,18 @@ public partial class DockWindow : Window
         var hwnd = new WindowInteropHelper(this).Handle;
         NativeMethods.MakeNoActivate(hwnd);
 
+        // Fosco recusado pelo Windows: o fundo volta a ser opaco, porque "transparente" sem o
+        // compositor pintando atrás é preto — e uma barra preta chapada não é o que foi pedido.
+        if (_fosco && !WindowBackdrop.ApplyAcrylic(hwnd))
+        {
+            _foscoAtivo = false;
+            Root.Background = new SolidColorBrush(Color.FromArgb(255, 0x1B, 0x1A, 0x19));
+        }
+        else if (_fosco)
+        {
+            _foscoAtivo = true;
+        }
+
         _hook = HwndSource.FromHwnd(hwnd);
         _hook?.AddHook(OnWindowMessage);
 
@@ -132,10 +159,7 @@ public partial class DockWindow : Window
 
         _settings = s;
 
-        // Alfa 0 deixaria a barra clicável-através: numa janela transparente o Windows decide o
-        // hit-test pelo alfa do pixel. 1/255 é invisível a olho nu e mantém o clique.
-        var alpha = (byte)Math.Clamp(Math.Round(s.DockOpacity * 255), 1, 255);
-        Root.Background = new SolidColorBrush(Color.FromArgb(alpha, 0x1B, 0x1A, 0x19));
+        AplicarFundo(s);
 
         // a linha fica na borda de dentro — a que encara o desktop
         Edge.HorizontalAlignment = s.DockEdge switch
@@ -161,6 +185,31 @@ public partial class DockWindow : Window
         Rebuild();
         Reposition();
     }
+
+    /// <summary>
+    /// Pinta o fundo conforme o modo. Sem fosco, a opacidade é a do próprio fundo — e o alfa nunca
+    /// chega a 0: numa janela transparente o Windows decide o hit-test pelo alfa do pixel, e 0
+    /// deixaria a barra clicável-através. Com fosco, o desfoque é do compositor e a opacidade é só
+    /// o tom por cima dele. Fosco pedido mas recusado pelo Windows volta a opaco, porque
+    /// "transparente" sem compositor pintando atrás é preto.
+    /// </summary>
+    private void AplicarFundo(AppSettings s)
+    {
+        // O fosco é o que está ATRÁS do fundo, não o fundo: o compositor entrega o desfoque e este
+        // pincel dá o tom em cima. Por isso a régua é a mesma nos dois modos — o mesmo controle de
+        // fundo, com ou sem desfoque. Piso de alfa 1 porque em janela transparente o Windows decide
+        // o hit-test pelo alfa do pixel, e 0 deixaria a barra clicável-através.
+        var alpha = (byte)Math.Clamp(Math.Round(s.DockOpacity * 255), 1, 255);
+        if (_fosco && !_foscoAtivo) alpha = 255;
+
+        Root.Background = new SolidColorBrush(Color.FromArgb(alpha, 0x1B, 0x1A, 0x19));
+    }
+
+    /// <summary>
+    /// A janela precisa nascer de novo? Só quando o modo do fundo muda: fosco e transparência por
+    /// pixel se decidem antes de a janela existir.
+    /// </summary>
+    public bool PrecisaRecriar(AppSettings s) => s.DockFrosted != _fosco;
 
     public void Render(UsageSnapshot? snap, AppSettings s)
     {
@@ -349,7 +398,7 @@ public partial class DockWindow : Window
             colunas.Rows = Math.Max(colunas.Children.Count, 1);
 
             var extra = _settings.DockShowRate
-                ? PanelStyle.GaugeColumn(AppHost.Current?.Rate ?? RateReading.Empty, _settings, 1.0)
+                ? PanelStyle.GaugeColumn(AppHost.Current?.Rate ?? RateReading.Empty, _settings, 1.0, compacto)
                 : null;
 
             if (colunas.Children.Count == 0 && extra == null) return null;

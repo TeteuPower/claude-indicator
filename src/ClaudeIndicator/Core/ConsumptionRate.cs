@@ -147,6 +147,20 @@ public static class ConsumptionRate
     }
 
     /// <summary>
+    /// O número sem a unidade, para onde a linha inteira não caberia — a coluna estreita da barra
+    /// própria em pé. A unidade não desaparece: vira a linha de baixo, em corpo menor.
+    /// </summary>
+    public static string FormatShort(RateReading r)
+    {
+        if (!r.HasData) return "—";
+        var v = r.PerMinute;
+        if (v <= 0) return "0%";
+        if (v < 0.01) return v.ToString("0.###") + "%";
+        if (v < 1) return v.ToString("0.##") + "%";
+        return v.ToString("0.#") + "%";
+    }
+
+    /// <summary>
     /// O que esperar mantido este ritmo. "Acaba em X" só faz sentido quando o limite acaba ANTES
     /// de renovar — senão o esgotamento nunca acontece, e o que interessa é quanto vai sobrar.
     /// </summary>
