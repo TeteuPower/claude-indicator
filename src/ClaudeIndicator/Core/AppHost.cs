@@ -68,6 +68,12 @@ public sealed class AppHost
     /// </summary>
     private readonly DispatcherTimer _taskbarClock = new() { Interval = TimeSpan.FromSeconds(2) };
 
+    /// <summary>
+    /// Transparência das janelas de outros programas. Sem relógio: a varredura roda quando outra
+    /// janela vai para a frente, que é quando janela nova aparece.
+    /// </summary>
+    private readonly WindowGlass _glass = new();
+
     private readonly HardwareMonitor _hardware = new();
 
     // Indicador por cima do jogo: medição de quadros, detecção e a janela em si.
@@ -109,6 +115,10 @@ public sealed class AppHost
         var idadeDoRetrato = RestoreSession();
 
         ForegroundWatcher.Start();
+
+        // janela nova quase sempre vai para a frente ao nascer: é o gancho certo para descobrir
+        // que ela apareceu, sem varrer o sistema de tempos em tempos
+        ForegroundWatcher.Changed += AplicarVidroNasJanelas;
 
         BuildTray();
         ApplyDisplayMode();
@@ -237,6 +247,7 @@ public sealed class AppHost
         }
 
         ApplyTaskbarLook();
+        AplicarVidroNasJanelas();
         ApplyDock();
         ApplyPcPanel();
         ApplyOverlay();
@@ -305,6 +316,32 @@ public sealed class AppHost
     }
 
     /// <summary>
+    /// Acerta a transparência das janelas abertas conforme as regras. Chamada ao salvar e a cada
+    /// troca de janela em primeiro plano.
+    /// </summary>
+    private void AplicarVidroNasJanelas()
+    {
+        try
+        {
+            _glass.Varrer(Settings);
+        }
+        catch
+        {
+            // janela alheia sumindo no meio do caminho não pode derrubar o app
+        }
+    }
+
+    /// <summary>Liga e desliga a transparência da janela em foco — o atalho global.</summary>
+    public void ToggleGlassOnActiveWindow()
+    {
+        if (!Settings.GlassEnabled) return;
+        _glass.AlternarAtiva(Settings);
+    }
+
+    /// <summary>Quantas janelas estão translúcidas agora, para a tela de configurações.</summary>
+    public int GlassAtivas => _glass.Ativas;
+
+    /// <summary>
     /// O aviso do shell (barra recriada, tela que entrou) traz o caminho pesado: reengancha as
     /// threads novas e repinta. É raro, então pode custar.
     /// </summary>
@@ -362,6 +399,11 @@ public sealed class AppHost
         _atalhos.Register(Hotkey.Parse(Settings.OverlayToggleHotkey), ToggleGameOverlay);
         _atalhos.Register(Hotkey.Parse(Settings.OverlayCycleHotkey), CycleOverlayAnchor);
         _atalhos.Register(Hotkey.Parse(Settings.OverlayLayoutHotkey), CycleOverlayLayout);
+
+        // só registra o da transparência quando ela está ligada: atalho global tomado à toa é
+        // atalho a menos para outro programa
+        if (Settings.GlassEnabled)
+            _atalhos.Register(Hotkey.Parse(Settings.GlassHotkey), ToggleGlassOnActiveWindow);
     }
 
     /// <summary>Combinações que o Windows recusou, para a tela de configurações avisar.</summary>
@@ -391,6 +433,7 @@ public sealed class AppHost
         Somar(Settings.OverlayToggleHotkey, "ocultar");
         Somar(Settings.OverlayCycleHotkey, "mover");
         Somar(Settings.OverlayLayoutHotkey, "layout");
+        if (Settings.GlassEnabled) Somar(Settings.GlassHotkey, "transparência");
         return lista;
     }
 
@@ -1010,6 +1053,10 @@ public sealed class AppHost
         _shell?.Dispose();
         if (TaskbarStyler.Ativo) TaskbarStyler.Restore();
         TaskbarStyler.Encerrar();
+
+        // janela alheia deixada translucida por um programa que ja fechou so volta ao normal
+        // quando ela mesma for reaberta: devolver na saida e obrigacao
+        _glass.DevolverTudo();
         _main?.Close();
         System.Windows.Application.Current?.Shutdown();
     }
