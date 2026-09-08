@@ -835,12 +835,12 @@
                                            HorizontalAlignment="Right" Foreground="{StaticResource MutedBrush}"/>
                             </Grid>
                             <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0"
-                                       Text="A cadência é fixa: uma consulta por intervalo, sempre, mesmo com o consumo parado. O limite de consultas é da conta inteira e cada sessão do Claude Code aberta consulta o mesmo endpoint — por isso intervalos curtos com várias sessões abertas causam HTTP 429. Se isso acontecer, o app espera o limite passar e volta sozinho; o remédio permanente é aumentar este intervalo."/>
+                                       Text="A cadência é fixa e fiel a este número: uma consulta por intervalo, sempre — mesmo com o consumo parado, mesmo depois de erro. O limite de consultas é da conta inteira e cada sessão do Claude Code aberta consulta o mesmo endpoint, por isso intervalos curtos com várias sessões abertas causam HTTP 429. O app não se pune por isso: ele tenta de novo no ciclo seguinte, e o remédio, se o 429 insistir, é aumentar este intervalo — decisão sua, não dele."/>
 
                             <CheckBox x:Name="ChkCallTimeline" Style="{StaticResource Switch}"
                                       Content="Mostrar a linha do tempo das consultas"/>
                             <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
-                                       Text="Dez pontos no gadget e no painel da barra, um por ciclo do intervalo acima: verde respondeu, âmbar não conseguiu falar por limite, vermelho falhou e o ponto apagado é ciclo sem consulta porque o consumo não mudou. Passar o mouse mostra o horário de cada um."/>
+                                       Text="Dez pontos no gadget, no painel da barra e na barra própria, um por ciclo do intervalo acima: verde respondeu, âmbar levou HTTP 429, vermelho falhou e o ponto apagado é ciclo que fechou sem resposta — consulta que demorou mais que o intervalo. Passar o mouse mostra o horário e o motivo de cada um."/>
                         </StackPanel>
                     </Border>
                 </StackPanel>

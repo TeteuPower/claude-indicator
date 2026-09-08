@@ -471,7 +471,7 @@ public static class PanelStyle
 
     /// <summary>
     /// Linha do tempo dos últimos ciclos: verde respondeu, âmbar não conseguiu falar por limite,
-    /// vermelho falhou, e o ponto apagado é ciclo sem consulta porque o consumo não mudou.
+    /// vermelho falhou, e o ponto apagado é ciclo que fechou sem resposta.
     /// </summary>
     public static UIElement Dot(ApiCall? call, AppSettings s, double height)
     {

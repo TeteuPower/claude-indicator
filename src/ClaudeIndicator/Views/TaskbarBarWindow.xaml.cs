@@ -225,7 +225,7 @@ public partial class TaskbarBarWindow : Window
     /// <summary>
     /// Linha do tempo dos últimos ciclos de comunicação com a API, a mais recente à direita.
     /// Verde respondeu, âmbar não conseguiu falar por limite, vermelho falhou, e o ponto vazado é
-    /// ciclo sem consulta porque o consumo não mudou.
+    /// ciclo que fechou sem resposta — consulta que demorou mais que o intervalo.
     /// </summary>
     private void DrawCallTimeline()
     {
