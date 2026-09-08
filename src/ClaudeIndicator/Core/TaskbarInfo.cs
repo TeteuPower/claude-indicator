@@ -198,6 +198,112 @@ public static class TaskbarInfo
     /// <summary>Está no rodapé (o caso comum)? Se estiver na lateral, o modo barra não se aplica.</summary>
     public static bool IsHorizontal(TaskbarBar? bar) => bar == null || bar.IsHorizontal;
 
+    // ------------------------------------------------------------------
+    // Monitores (sem depender de haver barra de tarefas neles)
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Um monitor já resolvido: a área inteira, a área útil (o que sobra depois das barras já
+    /// registradas) e a escala. A barra própria se posiciona por aqui, e não pela barra de
+    /// tarefas: ela existe justamente para ocupar bordas onde o Windows não pôs barra nenhuma.
+    /// </summary>
+    public sealed class MonitorGeometry
+    {
+        public IntPtr Handle { get; init; }
+        public string Device { get; init; } = "";
+        public bool Primary { get; init; }
+
+        /// <summary>Área do monitor inteiro, em pixels de tela.</summary>
+        public RECT Monitor { get; init; }
+
+        /// <summary>Área útil, já sem as barras registradas, em pixels de tela.</summary>
+        public RECT Work { get; init; }
+
+        /// <summary>Escala do monitor: 1,0 a 100%, 1,5 a 150%.</summary>
+        public double Scale { get; init; } = 1.0;
+    }
+
+    /// <summary>
+    /// O monitor de nome guardado nas configurações, ou o principal quando o nome está vazio,
+    /// desconhecido ou o cabo saiu — mesma escolha conservadora do <see cref="Resolve"/>: melhor
+    /// aparecer na tela errada do que desaparecer sem explicação.
+    /// </summary>
+    public static MonitorGeometry? ResolveMonitor(string? device)
+    {
+        var all = Monitors();
+        if (all.Count == 0) return null;
+        if (!string.IsNullOrWhiteSpace(device))
+        {
+            var wanted = all.FirstOrDefault(m => string.Equals(m.Device, device, StringComparison.OrdinalIgnoreCase));
+            if (wanted != null) return wanted;
+        }
+        return all.FirstOrDefault(m => m.Primary) ?? all[0];
+    }
+
+    /// <summary>Todos os monitores ligados, da esquerda para a direita.</summary>
+    public static List<MonitorGeometry> Monitors()
+    {
+        var found = new List<MonitorGeometry>();
+        EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (IntPtr h, IntPtr _, ref RECT _, IntPtr _) =>
+        {
+            var info = InfoOf(h);
+            if (info != null)
+            {
+                found.Add(new MonitorGeometry
+                {
+                    Handle = h,
+                    Device = info.Value.szDevice,
+                    Primary = (info.Value.dwFlags & MONITORINFOF_PRIMARY) == MONITORINFOF_PRIMARY,
+                    Monitor = info.Value.rcMonitor,
+                    Work = info.Value.rcWork,
+                    Scale = ScaleOfMonitor(h)
+                });
+            }
+            return true;
+        }, IntPtr.Zero);
+
+        return found.OrderBy(m => m.Monitor.Left).ToList();
+    }
+
+    /// <summary>Escala de um monitor pelo handle. 100% é o palpite seguro quando o Windows não diz.</summary>
+    public static double ScaleOfMonitor(IntPtr monitor)
+    {
+        if (monitor == IntPtr.Zero) return 1.0;
+        try
+        {
+            if (GetDpiForMonitor(monitor, 0, out var dpi, out _) == 0 && dpi > 0) return dpi / 96.0;
+        }
+        catch
+        {
+            // shcore ausente
+        }
+        return 1.0;
+    }
+
+    /// <summary>
+    /// Uma janela em tela cheia está na frente neste monitor? Mesma pergunta que o
+    /// <see cref="FullscreenAppInFront"/> responde para uma barra de tarefas, feita direto ao
+    /// monitor — é o que a barra própria precisa saber, já que ela não depende de haver barra ali.
+    /// </summary>
+    public static bool FullscreenAppOnMonitor(MonitorGeometry? monitor)
+    {
+        if (monitor == null) return false;
+
+        var fg = GetForegroundWindow();
+        if (fg == IntPtr.Zero) return false;
+
+        var sb = new StringBuilder(128);
+        GetClassName(fg, sb, sb.Capacity);
+        var cls = sb.ToString();
+        if (cls is "Progman" or "WorkerW" or "Shell_TrayWnd" or "Shell_SecondaryTrayWnd") return false;
+
+        if (MonitorFromWindow(fg, MONITOR_DEFAULTTONEAREST) != monitor.Handle) return false;
+        if (!GetWindowRect(fg, out var r)) return false;
+
+        var m = monitor.Monitor;
+        return r.Left <= m.Left && r.Top <= m.Top && r.Right >= m.Right && r.Bottom >= m.Bottom;
+    }
+
     [DllImport("shcore.dll")]
     private static extern int GetDpiForMonitor(IntPtr monitor, int type, out uint x, out uint y);
 

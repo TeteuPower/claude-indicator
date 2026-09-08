@@ -125,6 +125,47 @@ public class AppSettings
     /// <summary>Intervalo de leitura dos sensores, em segundos.</summary>
     public int PcIntervalSeconds { get; set; } = 2;
 
+    // ---- Barra própria (appbar) ----
+    /// <summary>
+    /// Uma barra de tarefas nossa, numa borda que o Windows deixou livre. Desligada por padrão:
+    /// ela mexe na área útil da tela, e isso é decisão de quem usa.
+    /// </summary>
+    public bool ShowDock { get; set; }
+
+    /// <summary>Em qual borda. Rodapé não entra: lá já está a barra do Windows.</summary>
+    public DockEdge DockEdge { get; set; } = DockEdge.Top;
+
+    /// <summary>Monitor da barra, no mesmo formato do <see cref="TaskbarBarMonitor"/>.</summary>
+    public string DockMonitor { get; set; } = "";
+
+    /// <summary>
+    /// Registrar como barra de aplicativo: o Windows tira a faixa da área útil e as janelas
+    /// maximizadas param nela, em vez de passar por baixo. É o que faz dela uma barra de verdade.
+    /// </summary>
+    public bool DockReserveSpace { get; set; } = true;
+
+    /// <summary>Ficar acima das outras janelas. Junto com a reserva, é o comportamento da barra do Windows.</summary>
+    public bool DockTopmost { get; set; } = true;
+
+    /// <summary>Espessura em pé (esquerda/direita), em unidades de tela.</summary>
+    public int DockWidth { get; set; } = 190;
+
+    /// <summary>Espessura deitada (topo), em unidades de tela.</summary>
+    public int DockHeight { get; set; } = 46;
+
+    /// <summary>Opacidade do fundo. 0 deixa só o conteúdo, sobre o que estiver atrás.</summary>
+    public double DockOpacity { get; set; } = 0.92;
+
+    /// <summary>Tamanho do conteúdo dentro da barra.</summary>
+    public double DockScale { get; set; } = 1.0;
+
+    public bool DockShowBars { get; set; } = true;
+    public bool DockShowHardware { get; set; } = true;
+    public bool DockShowRate { get; set; }
+
+    /// <summary>Sair da frente de jogo em tela cheia. Só vale no modo por cima; reservando, o jogo cobre a barra de qualquer forma.</summary>
+    public bool DockHideOnFullscreen { get; set; } = true;
+
     // ---- Indicador por cima do jogo ----
     /// <summary>Desenhar os indicadores por cima do jogo em primeiro plano.</summary>
     public bool ShowGameOverlay { get; set; }
@@ -444,6 +485,13 @@ public class AppSettings
         if (string.IsNullOrWhiteSpace(WeeklyLabel)) WeeklyLabel = "Semanal";
         if (string.IsNullOrWhiteSpace(FableLabel)) FableLabel = "Fable 5";
         if (CredentialSource != "Manual" && CredentialSource != "AppLogin") CredentialSource = "ClaudeCode";
+
+        // Barra própria: espessura tem piso e teto porque ela sai da área útil da tela. Uma faixa
+        // de 4 px não mostra nada e uma de meia tela deixaria o Windows sem espaço para trabalhar.
+        DockWidth = Math.Clamp(DockWidth, 120, 420);
+        DockHeight = Math.Clamp(DockHeight, 28, 160);
+        DockOpacity = Math.Clamp(DockOpacity, 0, 1);
+        DockScale = Math.Clamp(DockScale, 0.7, 1.8);
     }
 
     public IEnumerable<string> EndpointList()
