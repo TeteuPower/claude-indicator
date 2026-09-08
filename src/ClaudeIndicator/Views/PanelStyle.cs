@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using ClaudeIndicator.Core;
@@ -306,10 +307,23 @@ public static class PanelStyle
         return Clicavel(conteudo, DescreverLimite(bar, s), () => AppHost.Current?.ShowDashboard());
     }
 
-    /// <summary>Um componente como coluna, no mesmo desenho do limite.</summary>
+    /// <summary>
+    /// Um componente como coluna: o trilho de uso e, ao lado, o <b>termômetro</b> — o mesmo do
+    /// indicador no jogo.
+    ///
+    /// São duas perguntas diferentes e por isso duas formas diferentes: o trilho diz quanto do
+    /// total está em uso, o termômetro diz quão perto do limite físico a peça está. Ficam juntas
+    /// porque a pergunta que se faz é sobre um componente ("como está a GPU?"), não sobre uma
+    /// grandeza — termômetro solto entre duas colunas não teria dono.
+    ///
+    /// Sem leitura de temperatura o termômetro não é desenhado, em vez de aparecer vazio: é o caso
+    /// da RAM, que não tem sensor, e da CPU sem elevação. Espaço reservado para nada é ruído.
+    /// </summary>
     public static UIElement HardwareColumn(string rotulo, ComponentReading c, AppSettings s,
         HardwareSnapshot hw, double scale)
     {
+        var temp = c.Temperature.HasValue ? c.Temperature.Value!.Value : (double?)null;
+
         var conteudo = ColunaBase(
             rotulo,
             c.Load.Format("%"),
@@ -317,7 +331,10 @@ public static class PanelStyle
             BarRenderer.VerticalTrack(Math.Clamp((c.Load.Value ?? 0) / 100.0, 0, 1),
                 RampaAte(Math.Clamp((c.Load.Value ?? 0) / 100.0, 0, 1)), 10 * scale, double.NaN, null,
                 FundoDaTrilha(s), TrilhaBorda, BordaDaTrilha(s)),
-            scale);
+            scale,
+            temp != null ? MeterRenderer.Thermometer(temp.Value, 7 * scale, s.PanelOutline) : null,
+            temp != null ? $"{temp.Value:0}°" : null,
+            temp != null ? new SolidColorBrush(MeterRenderer.TempRamp(temp.Value)) : null);
 
         return new Border
         {
@@ -367,7 +384,8 @@ public static class PanelStyle
     /// para dar, em vez de uma altura fixa escolhida no escuro.
     /// </summary>
     private static FrameworkElement ColunaBase(string rotulo, string valor, Brush corDoValor,
-        UIElement trilho, double scale)
+        UIElement trilho, double scale, UIElement? aoLado = null, string? valorAoLado = null,
+        Brush? corAoLado = null)
     {
         var grade = new Grid { Margin = new Thickness(2, 3, 2, 3) };
         grade.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -390,19 +408,59 @@ public static class PanelStyle
             fe.VerticalAlignment = VerticalAlignment.Stretch;
             fe.Margin = new Thickness(0, 4 * scale, 0, 4 * scale);
         }
-        Grid.SetRow(trilho, 1);
-        grade.Children.Add(trilho);
 
-        var numero = new OutlinedText
+        // o miolo: só o trilho, ou o trilho e o vizinho lado a lado esticando juntos
+        UIElement miolo = trilho;
+        if (aoLado != null)
+        {
+            var par = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            par.Children.Add(trilho);
+
+            if (aoLado is FrameworkElement vizinho)
+            {
+                vizinho.VerticalAlignment = VerticalAlignment.Stretch;
+                vizinho.Margin = new Thickness(4 * scale, 4 * scale, 0, 4 * scale);
+            }
+            par.Children.Add(aoLado);
+            miolo = par;
+        }
+
+        Grid.SetRow(miolo, 1);
+        grade.Children.Add(miolo);
+
+        var numeros = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+        numeros.Children.Add(new OutlinedText
         {
             Text = valor,
             FontSize = 12.5 * scale,
             FontWeight = FontWeights.SemiBold,
             Foreground = corDoValor,
-            HorizontalAlignment = HorizontalAlignment.Center
-        };
-        Grid.SetRow(numero, 2);
-        grade.Children.Add(numero);
+            VerticalAlignment = VerticalAlignment.Center
+        });
+
+        if (valorAoLado != null)
+        {
+            numeros.Children.Add(new OutlinedText
+            {
+                Text = valorAoLado,
+                FontSize = 10.5 * scale,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = corAoLado ?? BarRenderer.Swatch("MutedBrush"),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(5 * scale, 0, 0, 0)
+            });
+        }
+
+        Grid.SetRow(numeros, 2);
+        grade.Children.Add(numeros);
 
         return grade;
     }
@@ -436,10 +494,39 @@ public static class PanelStyle
             },
             Background = Brushes.Transparent,
             Width = 11,
-            Height = height,
-            VerticalAlignment = VerticalAlignment.Center,
+            Height = double.IsNaN(height) ? double.NaN : height,
+            VerticalAlignment = double.IsNaN(height) ? VerticalAlignment.Stretch : VerticalAlignment.Center,
             ToolTip = call?.Describe() ?? "ciclo ainda não registrado"
         };
+    }
+
+    /// <summary>
+    /// A linha do tempo <b>em pé</b>: as mesmas bolinhas, descendo pela lateral em vez de correr
+    /// no rodapé.
+    ///
+    /// Elas ficam ao lado dos limites por dois motivos. Primeiro, é o que aproveita a lateral que
+    /// sobrava — a barra em pé tem largura de sobra e altura disputada. Segundo, o dado é dos
+    /// limites: cada bolinha é uma consulta que trouxe (ou não) os números que estão ali. No
+    /// rodapé, no fim de um bloco de sensores, a faixa parecia falar da CPU.
+    /// </summary>
+    public static UIElement VerticalTimeline(AppSettings s, System.Collections.Generic.List<ApiCall> calls)
+    {
+        var coluna = new UniformGrid
+        {
+            Columns = 1,
+            Rows = ApiCallLog.Capacity,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            Margin = new Thickness(2, 4, 0, 4)
+        };
+
+        // a mais recente embaixo, como a mais recente fica à direita na deitada
+        for (var i = 0; i < ApiCallLog.Capacity - calls.Count; i++)
+            coluna.Children.Add(Dot(null, s, double.NaN));
+
+        foreach (var call in calls)
+            coluna.Children.Add(Dot(call, s, double.NaN));
+
+        return coluna;
     }
 
     /// <summary>O nome do limite que o velocímetro acompanha, com a seta de "dá para trocar".</summary>

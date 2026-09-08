@@ -276,6 +276,91 @@ public static class MeterRenderer
         return caixa;
     }
 
+    /// <summary>
+    /// O mesmo termômetro do indicador no jogo, medido pela <b>largura</b> em vez da altura, para
+    /// caber ao lado do trilho de uso na barra própria em pé e esticar com ele.
+    ///
+    /// No jogo o bloco tem altura conhecida (o diâmetro do anel) e o tubo é uma fração dela. Na
+    /// barra o tubo tem que crescer com a altura que a barra tem para dar, então quem dá a escala
+    /// é a largura: o bulbo sai dela, e o mercúrio ocupa a fração da altura que sobrar. A régua de
+    /// cor é a mesma — e ela NÃO é a régua de carga: 50 °C é temperatura confortável e sai verde.
+    /// </summary>
+    public static UIElement Thermometer(double tempC, double largura, bool contorno)
+    {
+        var cor = TempRamp(tempC);
+        var tubo = largura;
+        var bulbo = tubo * 1.85;
+        var fracao = Math.Clamp(tempC / 100.0, 0, 1);
+
+        var caixa = new Grid
+        {
+            Width = bulbo + 4,
+            VerticalAlignment = VerticalAlignment.Stretch
+        };
+
+        UIElement Corpo(double engorda, Color c, bool preenchido) => new Border
+        {
+            Width = tubo + engorda,
+            CornerRadius = new CornerRadius((tubo + engorda) / 2),
+            Background = preenchido ? Congelado(c) : null,
+            BorderBrush = preenchido ? null : Congelado(c),
+            BorderThickness = preenchido ? default : new Thickness(1.2),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            Margin = new Thickness(0, 0, 0, bulbo / 2 - engorda / 2)
+        };
+
+        // contorno escuro do conjunto, mesmo papel do contorno do texto
+        if (contorno)
+        {
+            caixa.Children.Add(Corpo(3, Color.FromArgb(0xB3, 0, 0, 0), true));
+            caixa.Children.Add(new Ellipse
+            {
+                Width = bulbo + 3,
+                Height = bulbo + 3,
+                Fill = Congelado(Color.FromArgb(0xB3, 0, 0, 0)),
+                VerticalAlignment = VerticalAlignment.Bottom,
+                HorizontalAlignment = HorizontalAlignment.Center
+            });
+        }
+
+        caixa.Children.Add(Corpo(0, Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF), false));
+
+        // mercúrio: a coluna sobe do bulbo até a fração da temperatura, em linhas proporcionais —
+        // é o que permite ele acompanhar uma altura que só se conhece na hora de desenhar
+        var interior = new Grid
+        {
+            Margin = new Thickness(0, 2, 0, bulbo * 0.75),
+            VerticalAlignment = VerticalAlignment.Stretch,
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+        interior.RowDefinitions.Add(new RowDefinition { Height = new GridLength(Math.Max(1 - fracao, 0.0001), GridUnitType.Star) });
+        interior.RowDefinitions.Add(new RowDefinition { Height = new GridLength(Math.Max(fracao, 0.0001), GridUnitType.Star) });
+
+        var mercurio = new Border
+        {
+            Width = tubo * 0.55,
+            CornerRadius = new CornerRadius(tubo * 0.275),
+            Background = Congelado(cor),
+            MinHeight = 2
+        };
+        Grid.SetRow(mercurio, 1);
+        interior.Children.Add(mercurio);
+        caixa.Children.Add(interior);
+
+        // bulbo, sempre na cor atual: é o "agora" do termômetro
+        caixa.Children.Add(new Ellipse
+        {
+            Width = bulbo,
+            Height = bulbo,
+            Fill = Congelado(cor),
+            VerticalAlignment = VerticalAlignment.Bottom,
+            HorizontalAlignment = HorizontalAlignment.Center
+        });
+
+        return caixa;
+    }
+
     /// <summary>Verde até 70 °C, amarelo até 90, vermelho dali até o limite de 100.</summary>
     public static Color TempRamp(double tempC)
     {
