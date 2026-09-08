@@ -11,9 +11,9 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
-    <Version>2.10.4</Version>
-    <FileVersion>2.10.4.0</FileVersion>
-    <AssemblyVersion>2.10.4.0</AssemblyVersion>
+    <Version>2.11.0</Version>
+    <FileVersion>2.11.0.0</FileVersion>
+    <AssemblyVersion>2.11.0.0</AssemblyVersion>
     <Product>Claude Indicator</Product>
     <Company>Claude Indicator</Company>
     <AssemblyTitle>Claude Indicator</AssemblyTitle>
@@ -25,6 +25,16 @@
 
   <ItemGroup>
     <Resource Include="Assets\app.ico" />
+  </ItemGroup>
+
+  <!-- A DLL nativa que entra no Explorer (native/ExplorerTap), embutida para ser extraida em
+       tempo de execucao: assim o portatil e o instalado funcionam igual. Compilada antes pelo
+       build.ps1; sem compilador C++ o app ainda compila, so a aparencia da barra do Windows fica
+       indisponivel e a tela avisa. -->
+  <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)\..\..\native\ExplorerTap\bin\x64\Release\ExplorerTap.dll')">
+    <EmbeddedResource Include="$(MSBuildProjectDirectory)\..\..\native\ExplorerTap\bin\x64\Release\ExplorerTap.dll">
+      <LogicalName>ClaudeIndicator.ExplorerTap.dll</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>
