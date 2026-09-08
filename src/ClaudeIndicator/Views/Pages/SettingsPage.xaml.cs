@@ -19,6 +19,15 @@ namespace ClaudeIndicator.Views.Pages;
 public partial class SettingsPage : UserControl
 {
     private readonly AppHost _host;
+
+    /// <summary>
+    /// Espessura da barra própria, guardada por orientação: a barra em pé quer 190 unidades de
+    /// largura e a deitada 46 de altura, então trocar de borda não pode levar o número junto.
+    /// </summary>
+    private int _dockWidth = 190;
+    private int _dockHeight = 46;
+    private string _dockMonitor = "";
+
     private bool _ready;
     private bool _resetPosition;
     private string _baseline = "";
@@ -42,7 +51,7 @@ public partial class SettingsPage : UserControl
             _host.Updated -= OnUsageUpdated;
             _host.Updated += OnUsageUpdated;
             // relista as telas: plugar ou tirar um monitor com o app aberto muda as opções
-            BuildMonitorChoices(_tbMonitor, _pcMonitor);
+            BuildMonitorChoices(_tbMonitor, _pcMonitor, _dockMonitor);
             RenderPreview();
         };
         Unloaded += (_, _) => _host.Updated -= OnUsageUpdated;
@@ -98,7 +107,7 @@ public partial class SettingsPage : UserControl
 
         TbLeft.IsChecked = s.TaskbarBarAnchor == TaskbarAnchor.Left;
         TbRight.IsChecked = s.TaskbarBarAnchor == TaskbarAnchor.Right;
-        BuildMonitorChoices(s.TaskbarBarMonitor, s.PcPanelMonitor);
+        BuildMonitorChoices(s.TaskbarBarMonitor, s.PcPanelMonitor, s.DockMonitor);
         SldTbOffset.Value = s.TaskbarBarOffset;
         SldTbScale.Value = s.TaskbarBarScale;
         SldTbOpacity.Value = s.TaskbarBarOpacity;
@@ -145,6 +154,22 @@ public partial class SettingsPage : UserControl
         Win1440.IsChecked = s.RateWindowMinutes == 1440;
         ChkTimeProgress.IsChecked = s.ShowTimeProgress;
         ChkCallTimeline.IsChecked = s.ShowCallTimeline;
+
+        ChkDock.IsChecked = s.ShowDock;
+        DockTop.IsChecked = s.DockEdge == DockEdge.Top;
+        DockLeft.IsChecked = s.DockEdge == DockEdge.Left;
+        DockRight.IsChecked = s.DockEdge == DockEdge.Right;
+        ChkDockReserve.IsChecked = s.DockReserveSpace;
+        ChkDockTopmost.IsChecked = s.DockTopmost;
+        ChkDockFullscreen.IsChecked = s.DockHideOnFullscreen;
+        ChkDockBars.IsChecked = s.DockShowBars;
+        ChkDockHardware.IsChecked = s.DockShowHardware;
+        ChkDockRate.IsChecked = s.DockShowRate;
+        SldDockOpacity.Value = s.DockOpacity;
+        SldDockScale.Value = s.DockScale;
+        _dockWidth = s.DockWidth;
+        _dockHeight = s.DockHeight;
+        UpdateDockUi();
 
         ChkStartup.IsChecked = s.StartWithWindows;
         ChkStartHidden.IsChecked = s.StartHidden;
@@ -254,6 +279,21 @@ public partial class SettingsPage : UserControl
         s.ShowTimeProgress = ChkTimeProgress.IsChecked == true;
         s.ShowCallTimeline = ChkCallTimeline.IsChecked == true;
 
+        s.ShowDock = ChkDock.IsChecked == true;
+        s.DockEdge = DockLeft.IsChecked == true ? DockEdge.Left
+            : DockRight.IsChecked == true ? DockEdge.Right : DockEdge.Top;
+        s.DockMonitor = _dockMonitor;
+        s.DockReserveSpace = ChkDockReserve.IsChecked == true;
+        s.DockTopmost = ChkDockTopmost.IsChecked == true;
+        s.DockHideOnFullscreen = ChkDockFullscreen.IsChecked == true;
+        s.DockShowBars = ChkDockBars.IsChecked == true;
+        s.DockShowHardware = ChkDockHardware.IsChecked == true;
+        s.DockShowRate = ChkDockRate.IsChecked == true;
+        s.DockOpacity = SldDockOpacity.Value;
+        s.DockScale = SldDockScale.Value;
+        s.DockWidth = _dockWidth;
+        s.DockHeight = _dockHeight;
+
         s.StartWithWindows = ChkStartup.IsChecked == true;
         s.StartHidden = ChkStartHidden.IsChecked == true;
         s.RefreshSeconds = (int)Math.Round(SldRefresh.Value);
@@ -328,11 +368,17 @@ public partial class SettingsPage : UserControl
                      Win5, Win20, Win60, Win1440, ChkTimeProgress, ChkCallTimeline,
                      ChkOverlay, ChkOvFps, ChkOvFrameTime, ChkOvCpu, ChkOvGpu, ChkOvRam, ChkOvClaude,
                      ChkOverlayNoFocus, EstiloContorno, EstiloLeve, ChkOvGraphs, ChkOvHotkeys,
-                     LayoutCompact, LayoutGauges
+                     LayoutCompact, LayoutGauges,
+                     ChkDock, ChkDockReserve, ChkDockTopmost, ChkDockFullscreen,
+                     ChkDockBars, ChkDockHardware, ChkDockRate
                  })
         {
             Hook(c);
         }
+
+        // o aviso de tela cheia só vale sem a reserva de espaço, então o texto acompanha o interruptor
+        ChkDockReserve.Checked += (_, _) => UpdateDockUi();
+        ChkDockReserve.Unchecked += (_, _) => UpdateDockUi();
     }
 
     private string _gameTarget = "";
@@ -515,12 +561,13 @@ public partial class SettingsPage : UserControl
     /// A lista é montada na hora, a partir dos monitores que o Windows enxerga agora — e não de
     /// uma lista fixa —, então plugar ou tirar uma tela e reabrir as configurações já reflete.
     /// </summary>
-    private void BuildMonitorChoices(string? aiDevice, string? pcDevice)
+    private void BuildMonitorChoices(string? aiDevice, string? pcDevice, string? dockDevice = null)
     {
         _tbMonitor = aiDevice ?? "";
         _pcMonitor = pcDevice ?? "";
+        _dockMonitor = dockDevice ?? _dockMonitor;
 
-        var opcoes = TaskbarInfo.MonitorOptions(_tbMonitor, _pcMonitor);
+        var opcoes = TaskbarInfo.MonitorOptions(_tbMonitor, _pcMonitor, _dockMonitor);
 
         Fill(TbMonitors, "TbMonitor", _tbMonitor, escolhida =>
         {
@@ -532,6 +579,10 @@ public partial class SettingsPage : UserControl
             _pcMonitor = escolhida;
             UpdateMonitorHints(opcoes);
         });
+
+        // A barra própria funciona em qualquer tela — inclusive nas que não têm barra do Windows —,
+        // por isso ela não recebe o aviso de "sem barra de tarefas nesta tela".
+        Fill(DockMonitors, "DockMonitor", _dockMonitor, escolhida => _dockMonitor = escolhida);
 
         UpdateMonitorHints(opcoes);
 
@@ -724,6 +775,7 @@ public partial class SettingsPage : UserControl
         PanelBars.Visibility = Vis(TabBars);
         PanelRate.Visibility = Vis(TabRate);
         PanelAccount.Visibility = Vis(TabAccount);
+        PanelDock.Visibility = Vis(TabDock);
         PanelSystem.Visibility = Vis(TabSystem);
         PanelData.Visibility = Vis(TabData);
         PanelAdvanced.Visibility = Vis(TabAdvanced);
@@ -733,6 +785,7 @@ public partial class SettingsPage : UserControl
         if (TabRate.IsChecked == true) RenderRatePreview();
         if (TabAdvanced.IsChecked == true) UpdateUpdateUi();
         if (TabGame.IsChecked == true) { UpdateGameTargetUi(); UpdateHotkeyUi(); }
+        if (TabDock.IsChecked == true) UpdateDockUi();
 
         AnimateIn();
     }
@@ -1151,6 +1204,63 @@ public partial class SettingsPage : UserControl
         {
             BtnInstallUpdate.IsEnabled = true;
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Barra própria
+    // ------------------------------------------------------------------
+
+    private void OnDockEdgeChanged(object sender, RoutedEventArgs e)
+    {
+        if (!_ready) return;
+        UpdateDockUi();
+        MarkDirty();
+    }
+
+    private void OnDockSizeChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (!_ready) return;
+
+        // o número mexido pertence à orientação atual: em pé é largura, deitada é altura
+        if (DockTop.IsChecked == true) _dockHeight = (int)Math.Round(e.NewValue);
+        else _dockWidth = (int)Math.Round(e.NewValue);
+
+        UpdateDockLabels();
+        MarkDirty();
+    }
+
+    /// <summary>
+    /// Ajusta o controle de espessura à borda escolhida — nome, faixa e valor —, porque uma faixa
+    /// deitada de 46 unidades e uma em pé de 190 não cabem na mesma régua, e explica o que a opção
+    /// de tela cheia faz no modo em que ela vale.
+    /// </summary>
+    private void UpdateDockUi()
+    {
+        if (SldDockSize == null) return;
+
+        var deitada = DockTop.IsChecked == true;
+
+        _ready = false;
+        LblDockSizeName.Text = deitada ? "Altura" : "Largura";
+        SldDockSize.Minimum = deitada ? 28 : 120;
+        SldDockSize.Maximum = deitada ? 160 : 420;
+        SldDockSize.Value = deitada ? _dockHeight : _dockWidth;
+        _ready = true;
+
+        DockFullscreenHint.Text = ChkDockReserve.IsChecked == true
+            ? "Só vale sem a reserva de espaço: com a faixa reservada, o jogo em tela cheia cobre a barra de qualquer forma."
+            : "Jogo em tela cheia no monitor da barra faz ela desaparecer até você sair do jogo.";
+
+        UpdateDockLabels();
+    }
+
+    private void UpdateDockLabels()
+    {
+        if (LblDockSize == null) return;
+
+        LblDockSize.Text = Math.Round(SldDockSize.Value) + " px";
+        LblDockOpacity.Text = Math.Round(SldDockOpacity.Value * 100) + "%";
+        LblDockScale.Text = Math.Round(SldDockScale.Value * 100) + "%";
     }
 
     // ------------------------------------------------------------------
