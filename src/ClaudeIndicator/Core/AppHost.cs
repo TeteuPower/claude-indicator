@@ -61,6 +61,12 @@ public sealed class AppHost
     /// </summary>
     private ShellWatcher? _shell;
 
+    /// <summary>
+    /// Reafirma a aparência da barra do Windows a cada 2 s enquanto ela estiver ligada. O Explorer
+    /// desfaz o acento por conta própria em alguns segundos; sem reafirmar, a barra — já com o fundo
+    /// XAML transparente pelo tap — voltaria a preto. Só roda quando há aparência a manter.
+    /// </summary>
+    private readonly DispatcherTimer _taskbarClock = new() { Interval = TimeSpan.FromSeconds(2) };
 
     private readonly HardwareMonitor _hardware = new();
 
@@ -112,6 +118,7 @@ public sealed class AppHost
 
         _shell = new ShellWatcher();
         _shell.Changed += ReaplicarBarraDoWindows;
+        _taskbarClock.Tick += (_, _) => ReafirmarBarraDoWindows();
 
         _overlayClock.Tick += (_, _) => OverlayTick();
 
@@ -288,14 +295,31 @@ public sealed class AppHost
     {
         if (Settings.TaskbarLook == TaskbarLook.Sistema)
         {
+            _taskbarClock.Stop();
             if (TaskbarStyler.Ativo) TaskbarStyler.Restore();
             return;
         }
 
         TaskbarStyler.Apply(Settings.TaskbarLook, Settings.TaskbarTint);
+        _taskbarClock.Start();
     }
 
+    /// <summary>
+    /// O aviso do shell (barra recriada, tela que entrou) traz o caminho pesado: reengancha as
+    /// threads novas e repinta. É raro, então pode custar.
+    /// </summary>
     private void ReaplicarBarraDoWindows()
+    {
+        if (Settings.TaskbarLook != TaskbarLook.Sistema)
+            TaskbarStyler.Reaplicar(Settings.TaskbarLook, Settings.TaskbarTint);
+    }
+
+    /// <summary>
+    /// O relógio traz o caminho leve: só reafirma o acento e o fundo. Existe porque o Explorer
+    /// desfaz o acento sozinho depois de alguns segundos, e sem reafirmar a barra — já com o fundo
+    /// XAML transparente pelo tap — voltaria a preto. Dois segundos é o intervalo do TranslucentTB.
+    /// </summary>
+    private void ReafirmarBarraDoWindows()
     {
         if (Settings.TaskbarLook != TaskbarLook.Sistema)
             TaskbarStyler.Apply(Settings.TaskbarLook, Settings.TaskbarTint);
@@ -982,8 +1006,10 @@ public sealed class AppHost
 
         // e a barra do Windows volta ao desenho do sistema: efeito deixado para tras por um
         // programa que morreu so sai reiniciando o Explorer
+        _taskbarClock.Stop();
         _shell?.Dispose();
         if (TaskbarStyler.Ativo) TaskbarStyler.Restore();
+        TaskbarStyler.Encerrar();
         _main?.Close();
         System.Windows.Application.Current?.Shutdown();
     }

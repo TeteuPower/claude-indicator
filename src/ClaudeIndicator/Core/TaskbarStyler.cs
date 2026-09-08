@@ -23,38 +23,49 @@ public enum TaskbarLook
 }
 
 /// <summary>
-/// Aparência da barra de tarefas do <b>Windows</b>, pela política de acento do compositor
-/// (<c>SetWindowCompositionAttribute</c>) — a API que ficou conhecida justamente por isso.
+/// Aparência da barra de tarefas do <b>Windows</b>. São <b>duas metades</b> que só juntas funcionam
+/// no Windows 11, e descobrir isso custou várias rodadas:
 ///
-/// <b>Aviso medido:</b> no Windows 11 build 26200 desta máquina ela <b>não muda a barra</b>. O teste
-/// que decidiu: com a área de trabalho à vista (janelas minimizadas), fotos da faixa da barra mais
-/// 60 px de papel de parede acima, comparando o nativo com os quatro estados (tom, transparente,
-/// desfoque, acrílico), tom de 0 a 65%, aplicados na <c>Shell_TrayWnd</c> <b>e</b> em cada
-/// janela-filha grande dela — a ilha XAML (<c>DesktopWindowContentBridge</c>), a
-/// <c>CoreWindow</c>, a <c>ReBarWindow32</c>, a lista de tarefas. Todas as fotos saíram iguais.
+/// 1. O <b>acento</b> na janela da barra (<c>SetWindowCompositionAttribute</c> — transparente,
+///    desfoque ou acrílico). Sozinho não muda nada: o XAML da barra pinta o próprio fundo por cima.
+/// 2. O <b>tap</b> (<see cref="ExplorerTap"/>), que entra no Explorer e deixa esse fundo XAML
+///    transparente. Sozinho, deixa a barra <b>preta</b> — sem fundo, o compositor mostra preto.
 ///
-/// Antes disso eu havia concluído o contrário, comparando a <i>cor média</i> da faixa: a média
-/// mudava, mas por causa do que passava atrás da barra, não do efeito. Métrica cega leva a
-/// conclusão errada com toda a aparência de rigor.
+/// Com as duas, o fundo XAML sai da frente e o acento aparece: vidro de verdade, com o papel de
+/// parede atravessando. Medido nesta máquina (build 26200), faixa da barra contra o papel logo
+/// acima: nativo (34,36,36); só tap (3,4,5) preto; tap + acrílico na raiz (48,41,90) vidro; tap +
+/// transparente na raiz (89,79,189), ainda mais aberto. O acento tem que ir na <b>raiz</b>
+/// <c>Shell_TrayWnd</c>, não na ilha XAML filha — na filha o resultado volta a ser preto.
 ///
-/// Programas que conseguem hoje, como o TranslucentTB, chegam lá por outro caminho — mexendo na
-/// árvore de composição da barra, não pela política de acento. O tipo fica porque a API continua
-/// valendo onde funciona (Windows 10 e builds anteriores do 11) e porque é a base pronta se o
-/// caminho mais profundo for implementado. A tela avisa que aqui pode não mudar nada.
+/// É o caminho do TranslucentTB, e é por isso que ele funciona onde a política de acento sozinha
+/// não muda nada.
 ///
 /// Dois cuidados que o tipo garante:
 ///
 /// 1. <b>Toda barra, não só a principal.</b> Com "mostrar a barra em todas as telas" ligado existe
 ///    uma janela por monitor, e estilizar só a principal deixaria as outras destoando.
-/// 2. <b>Devolver.</b> Sair do app devolve a barra ao estado do sistema, e tirar o acento pode não
-///    bastar: por precaução, o shell também é avisado para se redesenhar.
+/// 2. <b>Devolver.</b> Sair do app devolve o fundo XAML original (pelo tap) e tira o acento, e
+///    ainda avisa o shell para se redesenhar — a barra não pode ficar pior do que estava.
 /// </summary>
 public static class TaskbarStyler
 {
     private static TaskbarLook _aplicado = TaskbarLook.Sistema;
 
+    /// <summary>
+    /// O tap dentro do Explorer. Sem ele, no Windows 11 a política de acento não muda nada: o XAML
+    /// da barra pinta o próprio fundo por cima do efeito. O tap deixa esse fundo transparente e aí
+    /// o efeito pedido à janela aparece — é a combinação que o TranslucentTB usa.
+    /// </summary>
+    private static ExplorerTap? _tap;
+
     /// <summary>Alguma coisa foi aplicada e ainda não devolvida?</summary>
     public static bool Ativo => _aplicado != TaskbarLook.Sistema;
+
+    /// <summary>O que deu errado ao colocar o tap no Explorer, para a tela dizer. Nulo quando está tudo bem.</summary>
+    public static string? ErroDoTap => _tap?.Erro;
+
+    /// <summary>O tap está dentro do Explorer agora?</summary>
+    public static bool TapInstalado => _tap?.Instalado == true;
 
     /// <summary>
     /// Aplica a aparência em todas as barras. <paramref name="tint"/> é a opacidade do tom da cor
@@ -85,10 +96,41 @@ public static class TaskbarStyler
             ? (byte)255
             : (byte)Math.Clamp(Math.Round(tint * 255), 0, 255);
 
+        // Ordem importa e foi medida. O acento entra PRIMEIRO, na raiz de cada barra; só depois o
+        // tap deixa o fundo XAML transparente. Ao contrário — XAML transparente antes do acento —
+        // há um instante em que a barra não tem fundo nenhum e o compositor a mostra PRETA (medido:
+        // (3,4,5) contra o (48,41,90) do vidro pronto). Começar pelo acento nunca deixa a barra sem
+        // fundo: enquanto o tap não agiu, o XAML opaco cobre; quando age, o acento já está lá.
         foreach (var bar in bars)
             WindowBackdrop.Apply(bar.Handle, efeito, alfa, 0x1B, 0x1A, 0x19);
 
+        _tap ??= new ExplorerTap();
+        if (_tap.Instalado || _tap.Instalar())
+        {
+            // opaca: o XAML fica na cor cheia (nada do fundo aparece). Nos outros, transparente,
+            // e o vidro vem do acento na janela logo abaixo.
+            _tap.Aplicar(look == TaskbarLook.Opaca ? 0xFF1B1A19u : 0x00000000u);
+        }
+
         _aplicado = look;
+    }
+
+    /// <summary>
+    /// O shell recriou a barra (Explorer reiniciou, tela entrou): o gancho da barra antiga morreu
+    /// com ela e a nova precisa do seu. Reengancha e reaplica.
+    /// </summary>
+    public static void Reaplicar(TaskbarLook look, double tint)
+    {
+        if (look == TaskbarLook.Sistema) return;
+        _tap?.Reinstalar();
+        Apply(look, tint);
+    }
+
+    /// <summary>Solta os ganchos ao sair. A DLL continua no Explorer até ele reiniciar, de propósito (ver ExplorerTap).</summary>
+    public static void Encerrar()
+    {
+        _tap?.Dispose();
+        _tap = null;
     }
 
     /// <summary>
@@ -102,6 +144,9 @@ public static class TaskbarStyler
     public static void Restore()
     {
         var bars = TaskbarInfo.Bars();
+
+        // o fundo do XAML volta ao original antes do efeito da janela sair
+        _tap?.Devolver();
 
         foreach (var bar in bars)
             WindowBackdrop.Apply(bar.Handle, WindowBackdrop.Efeito.Nenhum, 0, 0, 0, 0);
