@@ -209,9 +209,7 @@ public sealed class AppHost
             _gadget?.Hide();
         }
 
-        // Com a barra própria ligada, o painel muda de casa: mostrar os dois seria o mesmo bloco
-        // duas vezes na tela, e foi para a barra própria que o usuário mandou o painel ir.
-        if (Settings.ShowTaskbarBar && !Settings.ShowDock)
+        if (Settings.ShowTaskbarBar)
         {
             EnsureTaskbarBar();
             _taskbarBar!.ApplySettings(Settings);
@@ -238,7 +236,10 @@ public sealed class AppHost
     {
         if (Settings.ShowDock)
         {
-            if (_dock == null)
+            // Janela fechada não se reaproveita: o WPF recusa Show e até o pedido do handle depois
+            // do fechamento, e era isso que estourava dois "erro inesperado" em sequência —
+            // um no ApplySettings, que reposiciona, e outro no ShowDock, que mostra.
+            if (_dock is null or { Fechada: true })
             {
                 _dock = new DockWindow();
                 _dock.Closed += (_, _) => _dock = null;
@@ -251,8 +252,11 @@ public sealed class AppHost
         }
         else
         {
-            _dock?.Close();
+            // solta a referência ANTES de fechar: se algo reentrante quiser desenhar durante o
+            // fechamento, não encontra mais a janela pela metade
+            var indoEmbora = _dock;
             _dock = null;
+            indoEmbora?.Close();
         }
     }
 
@@ -357,8 +361,7 @@ public sealed class AppHost
     /// </summary>
     private void ApplyPcPanel()
     {
-        // idem ao painel da IA: com a barra própria ligada, os sensores aparecem lá
-        if (Settings.ShowPcPanel && !Settings.ShowDock)
+        if (Settings.ShowPcPanel)
         {
             if (_pcPanel == null)
             {
@@ -388,8 +391,9 @@ public sealed class AppHost
         var overlayQuerSensores = Settings.ShowGameOverlay
             && (Settings.OverlayShowCpu || Settings.OverlayShowGpu || Settings.OverlayShowRam);
         var gadgetQuerSensores = Settings.GadgetEnabled && Settings.GadgetShowHardware;
+        var barraQuerSensores = Settings.ShowDock && Settings.DockShowHardware;
 
-        if (Settings.ShowPcPanel || overlayQuerSensores || gadgetQuerSensores)
+        if (Settings.ShowPcPanel || overlayQuerSensores || gadgetQuerSensores || barraQuerSensores)
         {
             if (!_assinouSensores)
             {
@@ -494,7 +498,7 @@ public sealed class AppHost
         {
             if (Settings.ShowPcPanel) _pcPanel?.RenderHardware(snap, Settings);
             if (Settings.GadgetEnabled && Settings.GadgetShowHardware) _gadget?.RenderHardware(snap, Settings);
-            if (Settings.ShowDock && Settings.ShowPcPanel) _dock?.RenderHardware(snap, Settings);
+            if (Settings.ShowDock && Settings.DockShowHardware) _dock?.RenderHardware(snap, Settings);
         }));
     }
 

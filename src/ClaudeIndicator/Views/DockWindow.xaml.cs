@@ -39,6 +39,18 @@ public partial class DockWindow : Window
     private HardwareSnapshot _hardware = HardwareSnapshot.Empty;
 
     private TaskbarInfo.RECT? _target;
+
+    /// <summary>
+    /// Janela já fechada. Depois do Close, mexer em Visibility ou pedir o handle explode com
+    /// "Cannot set Visibility ... after a Window has closed" — e ainda chegam coisas para fazer:
+    /// o tique do relógio que já estava na fila, o aviso do shell sobre a faixa, a mudança de
+    /// configuração do Windows. Desligar a barra disparava justamente isso.
+    /// </summary>
+    private bool _closed;
+
+    /// <summary>Já foi fechada? Quem guarda a referência precisa saber para criar outra.</summary>
+    public bool Fechada => _closed;
+
     private bool _hiddenByUser;
     private bool _fullscreenApp;
     private bool _pendingRender;
@@ -74,11 +86,21 @@ public partial class DockWindow : Window
 
         Closed += (_, _) =>
         {
+            // a ordem importa: marcar e soltar o gancho ANTES de devolver a faixa. Remover a
+            // faixa muda a área útil, o Windows avisa todas as janelas, e o aviso voltaria a
+            // chamar Reposition numa janela que já morreu.
+            _closed = true;
             _follow.Stop();
             AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
+
+            _hook?.RemoveHook(OnWindowMessage);
+            _hook = null;
+
             _appBar.Remove();
         };
     }
+
+    private HwndSource? _hook;
 
     private void OnProcessExit(object? sender, EventArgs e) => _appBar.Remove();
 
@@ -89,8 +111,8 @@ public partial class DockWindow : Window
         var hwnd = new WindowInteropHelper(this).Handle;
         NativeMethods.MakeNoActivate(hwnd);
 
-        var source = HwndSource.FromHwnd(hwnd);
-        source?.AddHook(OnWindowMessage);
+        _hook = HwndSource.FromHwnd(hwnd);
+        _hook?.AddHook(OnWindowMessage);
 
         // posiciona antes do primeiro quadro: a barra nasce no lugar, sem piscar no meio da tela
         Reposition();
@@ -102,6 +124,8 @@ public partial class DockWindow : Window
 
     public void ApplySettings(AppSettings s)
     {
+        if (_closed) return;
+
         var mudouRegistro = s.DockReserveSpace != _settings.DockReserveSpace
                             || s.DockEdge != _settings.DockEdge
                             || !string.Equals(s.DockMonitor, _settings.DockMonitor, StringComparison.OrdinalIgnoreCase);
@@ -140,6 +164,8 @@ public partial class DockWindow : Window
 
     public void Render(UsageSnapshot? snap, AppSettings s)
     {
+        if (_closed) return;
+
         _snapshot = snap;
         _settings = s;
         Rebuild();
@@ -147,6 +173,8 @@ public partial class DockWindow : Window
 
     public void RenderHardware(HardwareSnapshot hw, AppSettings s)
     {
+        if (_closed) return;
+
         _hardware = hw;
         _settings = s;
         Rebuild();
@@ -166,6 +194,8 @@ public partial class DockWindow : Window
     /// </summary>
     private void Rebuild()
     {
+        if (_closed) return;
+
         if (IsMouseOver)
         {
             _pendingRender = true;
@@ -191,8 +221,40 @@ public partial class DockWindow : Window
         var claude = BuildClaudeBlock(vertical);
         var pc = BuildPcBlock(vertical);
 
-        Place(claude, _settings.TaskbarBarAnchor, vertical);
-        Place(pc, _settings.PcPanelAnchor, vertical);
+        if (vertical)
+        {
+            // Em pé, os dois blocos dividem a altura INTEIRA da barra, em proporção ao número de
+            // indicadores de cada um: é o que faz as colunas serem altas em vez de três tocos
+            // no topo com a barra vazia embaixo. O lado escolhido decide quem fica em cima.
+            var grade = new Grid();
+            var deCima = _settings.DockBarsSide == TaskbarAnchor.Left ? claude : pc;
+            var deBaixo = ReferenceEquals(deCima, claude) ? pc : claude;
+
+            // os dois no mesmo lado: mantém a ordem em que estão nas configurações
+            if (_settings.DockBarsSide == _settings.DockPcSide)
+            {
+                deCima = claude;
+                deBaixo = pc;
+            }
+
+            Empilhar(grade, deCima, Peso(deCima));
+            Empilhar(grade, deBaixo, Peso(deBaixo));
+
+            if (grade.Children.Count > 0)
+            {
+                Layout.Children.Add(grade);
+                DockPanel.SetDock(grade, Dock.Top);
+
+                // o que sobra depois da linha do tempo é o que a grade ocupa
+                Layout.LastChildFill = true;
+            }
+        }
+        else
+        {
+            Layout.LastChildFill = false;
+            Place(claude, _settings.DockBarsSide);
+            Place(pc, _settings.DockPcSide);
+        }
 
         if (claude == null && pc == null)
         {
@@ -202,117 +264,155 @@ public partial class DockWindow : Window
         }
     }
 
-    /// <summary>Encosta o bloco no começo ou no fim da barra, conforme o lado escolhido.</summary>
-    private void Place(UIElement? bloco, TaskbarAnchor anchor, bool vertical)
+    /// <summary>Quantos indicadores o bloco tem — é o peso dele na divisão da altura.</summary>
+    private int Peso(UIElement? bloco) => bloco switch
+    {
+        UniformGrid u => Math.Max(u.Children.Count, 1),
+        Grid g when g.Children.Count > 0 && g.Children[0] is UniformGrid u2 => Math.Max(u2.Children.Count, 1),
+        Panel p => Math.Max(p.Children.Count, 1),
+        _ => 1
+    };
+
+    private static void Empilhar(Grid grade, UIElement? bloco, int peso)
     {
         if (bloco == null) return;
 
-        var comeco = anchor == TaskbarAnchor.Left;
-        DockPanel.SetDock(bloco, vertical
-            ? (comeco ? Dock.Top : Dock.Bottom)
-            : (comeco ? Dock.Left : Dock.Right));
+        grade.RowDefinitions.Add(new RowDefinition { Height = new GridLength(peso, GridUnitType.Star) });
+        Grid.SetRow(bloco, grade.RowDefinitions.Count - 1);
+        grade.Children.Add(bloco);
+    }
 
+    /// <summary>Encosta o bloco no começo ou no fim da barra deitada.</summary>
+    private void Place(UIElement? bloco, TaskbarAnchor lado)
+    {
+        if (bloco == null) return;
+
+        DockPanel.SetDock(bloco, lado == TaskbarAnchor.Left ? Dock.Left : Dock.Right);
         Layout.Children.Add(bloco);
     }
 
     /// <summary>
     /// O painel da assinatura: os limites e, junto com eles, o velocímetro do ritmo — na barra de
-    /// tarefas o velocímetro também mora no painel da IA, e o interruptor dele é o mesmo.
+    /// tarefas o velocímetro também mora no painel da IA.
+    ///
+    /// As células e as colunas vêm do <see cref="PanelStyle"/>, o mesmo desenho que o painel da
+    /// barra de tarefas usa: o painel aparecendo aqui é o MESMO painel, não um parecido.
     /// </summary>
     private UIElement? BuildClaudeBlock(bool vertical)
     {
-        if (!_settings.ShowTaskbarBar && !_settings.ShowRateTaskbar) return null;
+        if (!_settings.DockShowBars && !_settings.DockShowRate) return null;
 
-        var bloco = new StackPanel
-        {
-            Orientation = vertical ? Orientation.Vertical : Orientation.Horizontal,
-            VerticalAlignment = vertical ? VerticalAlignment.Top : VerticalAlignment.Center
-        };
+        var bars = _settings.DockShowBars
+            ? _snapshot?.Visible(_settings) ?? new List<UsageBar>()
+            : new List<UsageBar>();
 
-        if (_settings.ShowTaskbarBar)
+        if (vertical)
         {
-            var bars = _snapshot?.Visible(_settings) ?? new List<UsageBar>();
-            if (bars.Count == 0)
-            {
-                bloco.Children.Add(Aviso(_snapshot == null ? "Consultando…" : _snapshot.Error ?? "Sem dados de consumo.",
-                    vertical ? 160 : 320));
-            }
-            else if (vertical)
-            {
-                bloco.Children.Add(Colunas(bars.Count,
-                    bars.ConvertAll(b => BarRenderer.BuildColumn(b, _settings, ColunaAltura))));
-            }
-            else
-            {
-                for (var i = 0; i < bars.Count; i++)
-                {
-                    if (i > 0) bloco.Children.Add(BarRenderer.BuildCellSeparator());
-                    bloco.Children.Add(BarRenderer.BuildCell(bars[i], _settings, _settings.GadgetShowReset));
-                }
-            }
+            // as colunas esticam na linha elástica; o velocímetro fica na linha de tamanho próprio
+            // logo abaixo, porque ele não é uma coluna e roubaria altura das que são
+            var colunas = new UniformGrid { Columns = 1 };
+
+            if (_settings.DockShowBars && bars.Count == 0)
+                colunas.Children.Add(Aviso(SemDados(), 160));
+
+            foreach (var bar in bars)
+                colunas.Children.Add(PanelStyle.Column(bar, _settings, 1.0));
+
+            colunas.Rows = Math.Max(colunas.Children.Count, 1);
+
+            var extra = _settings.DockShowRate
+                ? PanelStyle.GaugeColumn(AppHost.Current?.Rate ?? RateReading.Empty, _settings, 1.0)
+                : null;
+
+            if (colunas.Children.Count == 0 && extra == null) return null;
+            return Empilhado(colunas, extra);
         }
 
-        if (_settings.ShowRateTaskbar && AppHost.Current is { } host)
+        var linha = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+
+        if (_settings.DockShowBars && bars.Count == 0) linha.Children.Add(Aviso(SemDados(), 320));
+
+        foreach (var bar in bars)
         {
-            var leitura = host.Rate;
-            var medidor = GaugeRenderer.Build(leitura, vertical ? 78 : 34);
-            if (medidor is FrameworkElement fe)
-            {
-                fe.ToolTip = GaugeRenderer.Describe(leitura, _settings, _settings.RateKind);
-                if (vertical)
-                {
-                    fe.HorizontalAlignment = HorizontalAlignment.Center;
-                    fe.Margin = new Thickness(0, bloco.Children.Count > 0 ? 12 : 0, 0, 0);
-                }
-                else
-                {
-                    fe.VerticalAlignment = VerticalAlignment.Center;
-                    fe.Margin = new Thickness(bloco.Children.Count > 0 ? 12 : 0, 0, 0, 0);
-                }
-            }
-            bloco.Children.Add(medidor);
+            if (linha.Children.Count > 0) linha.Children.Add(PanelStyle.Divider());
+            linha.Children.Add(PanelStyle.Cell(bar, _settings, 1.0));
         }
 
-        return bloco.Children.Count > 0 ? bloco : null;
+        if (_settings.DockShowRate)
+        {
+            if (linha.Children.Count > 0) linha.Children.Add(PanelStyle.Divider());
+            linha.Children.Add(PanelStyle.GaugeCell(AppHost.Current?.Rate ?? RateReading.Empty, _settings, 1.0));
+        }
+
+        return linha.Children.Count > 0 ? linha : null;
     }
 
-    /// <summary>O painel do computador: os sensores escolhidos para ele.</summary>
+    /// <summary>O painel do computador: os sensores escolhidos para ele, e o botão do tema.</summary>
     private UIElement? BuildPcBlock(bool vertical)
     {
-        if (!_settings.ShowPcPanel) return null;
+        if (!_settings.DockShowHardware) return null;
 
         var sensores = Sensores();
         if (sensores.Count == 0) return null;
 
         if (vertical)
         {
-            return Colunas(sensores.Count,
-                sensores.ConvertAll(s => HardwareRenderer.Column(s.Rotulo, s.Leitura, _hardware, ColunaAltura)));
+            var colunas = new UniformGrid { Columns = 1, Rows = sensores.Count };
+            foreach (var (rotulo, leitura) in sensores)
+                colunas.Children.Add(PanelStyle.HardwareColumn(rotulo, leitura, _settings, _hardware, 1.0));
+
+            var extra = _settings.ShowThemeToggle
+                ? PanelStyle.ThemeCell(_settings, 1.0, Rebuild)
+                : null;
+
+            return Empilhado(colunas, extra);
         }
 
         var linha = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        for (var i = 0; i < sensores.Count; i++)
+        foreach (var (rotulo, leitura) in sensores)
         {
-            if (i > 0) linha.Children.Add(BarRenderer.BuildCellSeparator());
-            linha.Children.Add(HardwareRenderer.Cell(sensores[i].Rotulo, sensores[i].Leitura, _hardware));
+            if (linha.Children.Count > 0) linha.Children.Add(PanelStyle.Divider());
+            linha.Children.Add(PanelStyle.HardwareCell(rotulo, leitura, _settings, _hardware, 1.0));
         }
+
+        if (_settings.ShowThemeToggle)
+        {
+            linha.Children.Add(PanelStyle.Divider());
+            linha.Children.Add(PanelStyle.ThemeCell(_settings, 1.0, Rebuild));
+        }
+
         return linha;
     }
 
-    /// <summary>Altura do trilho das colunas, em unidades de tela.</summary>
-    private const double ColunaAltura = 108;
-
     /// <summary>
-    /// As colunas de um painel, dividindo a largura da barra em partes iguais. Grade e não pilha
-    /// horizontal: com largura repartida, as colunas continuam alinhadas entre os dois painéis e
-    /// acompanham a espessura escolhida sem número mágico nenhum.
+    /// As colunas na linha elástica e o acessório (velocímetro, botão do tema) na linha de tamanho
+    /// próprio embaixo: assim as colunas ocupam toda a altura que a barra tem para dar, e o
+    /// acessório não passa a valer uma coluna.
     /// </summary>
-    private static UIElement Colunas(int quantas, List<UIElement> filhos)
+    private static UIElement Empilhado(UniformGrid colunas, UIElement? extra)
     {
-        var grade = new UniformGrid { Rows = 1, Columns = Math.Max(quantas, 1) };
-        foreach (var f in filhos) grade.Children.Add(f);
+        if (extra == null) return colunas;
+
+        var grade = new Grid();
+        grade.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        grade.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        Grid.SetRow(colunas, 0);
+        grade.Children.Add(colunas);
+
+        if (extra is FrameworkElement fe)
+        {
+            fe.HorizontalAlignment = HorizontalAlignment.Center;
+            fe.Margin = new Thickness(0, 10, 0, 2);
+        }
+        Grid.SetRow(extra, 1);
+        grade.Children.Add(extra);
+
         return grade;
     }
+
+    private string SemDados() =>
+        _snapshot == null ? "Claude · carregando…" : _snapshot.Error ?? "Claude · sem dados";
 
     private List<(string Rotulo, ComponentReading Leitura)> Sensores()
     {
@@ -329,42 +429,10 @@ public partial class DockWindow : Window
         if (!_settings.ShowCallTimeline) return;
 
         var calls = AppHost.Current?.Calls.Recent() ?? new List<ApiCall>();
-        for (var i = 0; i < ApiCallLog.Capacity - calls.Count; i++) SidePanel.Children.Add(Dot(null));
-        foreach (var call in calls) SidePanel.Children.Add(Dot(call));
-    }
-
-    /// <summary>
-    /// Bolinha de uma consulta. Cada painel do app tem a sua — as alturas e o texto de apoio
-    /// diferem conforme o espaço —, e aqui ela é baixa o bastante para caber numa barra deitada
-    /// de 46 unidades.
-    /// </summary>
-    private UIElement Dot(ApiCall? call)
-    {
-        var cor = call?.Outcome switch
-        {
-            ApiOutcome.Ok => BarRenderer.Swatch("OkBrush"),
-            ApiOutcome.RateLimited => BarRenderer.Swatch("WarnBrush"),
-            ApiOutcome.Failed => BarRenderer.Swatch("DangerBrush"),
-            _ => BarRenderer.Swatch("TrackBrush")
-        };
-
-        return new Border
-        {
-            Child = new System.Windows.Shapes.Ellipse
-            {
-                Width = 6,
-                Height = 6,
-                Fill = cor,
-                Opacity = call == null || call.Outcome == ApiOutcome.Idle ? 0.5 : 1,
-                VerticalAlignment = VerticalAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Center
-            },
-            Background = Brushes.Transparent,
-            Width = 11,
-            Height = 14,
-            VerticalAlignment = VerticalAlignment.Center,
-            ToolTip = call?.Describe() ?? "ciclo ainda não registrado"
-        };
+        for (var i = 0; i < ApiCallLog.Capacity - calls.Count; i++)
+            SidePanel.Children.Add(PanelStyle.Dot(null, _settings, 14));
+        foreach (var call in calls)
+            SidePanel.Children.Add(PanelStyle.Dot(call, _settings, 14));
     }
 
     private FrameworkElement Aviso(string texto, double largura) => new TextBlock
@@ -391,7 +459,7 @@ public partial class DockWindow : Window
     /// </summary>
     private void Reposition()
     {
-        if (_hiddenByUser || !_settings.ShowDock) return;
+        if (_closed || _hiddenByUser || !_settings.ShowDock) return;
 
         var monitor = TaskbarInfo.ResolveMonitor(_settings.DockMonitor);
         if (monitor == null) return;
@@ -449,7 +517,7 @@ public partial class DockWindow : Window
     /// </summary>
     private void ReassertTopmost()
     {
-        if (!_settings.DockTopmost || _fullscreenApp || IsMouseOver) return;
+        if (_closed || !_settings.DockTopmost || _fullscreenApp || IsMouseOver) return;
         if (DateTime.UtcNow - _lastTopmost < TimeSpan.FromSeconds(10)) return;
 
         _lastTopmost = DateTime.UtcNow;
@@ -464,6 +532,8 @@ public partial class DockWindow : Window
     /// </summary>
     private IntPtr OnWindowMessage(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
+        if (_closed) return IntPtr.Zero;
+
         if (msg == DesktopAppBar.CallbackMessage)
         {
             switch (wParam.ToInt32())
@@ -506,6 +576,8 @@ public partial class DockWindow : Window
 
     public void ShowDock()
     {
+        if (_closed) return;
+
         _hiddenByUser = false;
         Show();
         Reposition();
@@ -515,6 +587,8 @@ public partial class DockWindow : Window
     public void HideDock()
     {
         _hiddenByUser = true;
+        if (_closed) return;
+
         _appBar.Remove();
         _target = null;
         Hide();
