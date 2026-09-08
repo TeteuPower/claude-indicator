@@ -65,14 +65,11 @@ public sealed class AppHost
     private MainWindow? _main;
     private bool _busy;
 
-    // Resiliência: última consulta que veio com barras, e pausa imposta por HTTP 429.
+    /// <summary>
+    /// Última consulta que veio com barras. Erro na consulta não apaga números da tela: o consumo
+    /// de minutos atrás continua sendo a melhor informação disponível.
+    /// </summary>
     private UsageSnapshot? _lastGood;
-    private DateTimeOffset _pausedUntil = DateTimeOffset.MinValue;
-    private int _rateLimitStreak;
-    private int _okStreak;
-
-    /// <summary>Piso enquanto o limite de consultas estiver sendo respeitado.</summary>
-    private const int CooldownSeconds = 300;
 
     public AppHost()
     {
@@ -637,10 +634,6 @@ public sealed class AppHost
         UsageHistory.Prune(Settings.HistoryRetentionDays, force: true); // aplica na hora se acabou de ligar a retenção
         _store.Invalidate();
         _service.ForgetEndpointFailures();
-        _pausedUntil = DateTimeOffset.MinValue;
-        _rateLimitStreak = 0;
-        _okStreak = 0;
-
         RestartClock();
         ApplyDisplayMode();
         _ = RefreshAsync(true);
@@ -652,8 +645,10 @@ public sealed class AppHost
 
     public async Task<UsageSnapshot?> RefreshAsync(bool force = false)
     {
+        // Só não atropela uma consulta que ainda está em voo. Erro não gera espera: a cadência é
+        // a que está configurada, e o ciclo seguinte tenta de novo — era a pausa que fazia o app
+        // parecer ter desistido, obrigando a clicar em "Atualizar" para ele voltar a falar.
         if (_busy && !force) return Last;
-        if (!force && DateTimeOffset.Now < _pausedUntil) return Last; // aguardando o 429 passar
         _busy = true;
         try
         {
@@ -751,18 +746,11 @@ public sealed class AppHost
             RestartClock();
         }
 
+        // Ponto do ciclo que passou sem resposta nenhuma — consulta que demorou mais que o
+        // intervalo. Assim a faixa nunca congela: um ponto por ciclo, sempre.
         if (!_registradoNoCiclo)
         {
-            if (_pausedUntil > DateTimeOffset.Now)
-            {
-                _calls.Record(ApiOutcome.RateLimited,
-                    $"aguardando o limite até {_pausedUntil.ToLocalTime():HH:mm}");
-            }
-            else
-            {
-                _calls.Record(ApiOutcome.Idle, "consulta sem resposta dentro do ciclo");
-            }
-
+            _calls.Record(ApiOutcome.Idle, "consulta sem resposta dentro do ciclo");
             RefreshTimelines();
         }
 
@@ -853,14 +841,6 @@ public sealed class AppHost
 
         if (snap.Ok && snap.Bars.Count > 0)
         {
-            // o alívio do 429 só vem depois de algumas consultas boas seguidas: voltar ao
-            // intervalo curto na primeira que funciona é o caminho de bater no limite de novo
-            if (_rateLimitStreak > 0 && ++_okStreak >= 3)
-            {
-                _rateLimitStreak = 0;
-                _okStreak = 0;
-            }
-
             _lastGood = snap;
             UsageHistory.Append(snap, Settings);
             SessionState.Save(snap, _calls.Recent());
@@ -879,15 +859,12 @@ public sealed class AppHost
 
         if (snap.RateLimited)
         {
-            // Respeita o Retry-After quando vier; sem ele (é o caso deste endpoint, que não
-            // publica limites), backoff 5 min → 10 → 15, com teto de 15 minutos.
-            _rateLimitStreak++;
-            _okStreak = 0;
-            var baseDelay = snap.RetryAfterSeconds ?? CooldownSeconds * Math.Min(3, _rateLimitStreak);
-            var delay = Math.Clamp(baseDelay, 60, 900);
-            _pausedUntil = DateTimeOffset.Now.AddSeconds(delay);
-            snap.Error = $"Limite de consultas da API atingido. Nova tentativa às " +
-                         $"{_pausedUntil.ToLocalTime():HH:mm} — as barras seguem com os últimos valores.";
+            // Nada de espera imposta: o próximo ciclo tenta igual aos outros. Se o 429 insistir,
+            // o remédio é aumentar o intervalo em Configurações › Sistema — decisão de quem usa,
+            // e não uma pausa que o app aplica sozinho e que fazia o consumo congelar na tela.
+            snap.Error = "Limite de consultas da API atingido (HTTP 429). O app tenta de novo no "
+                         + $"próximo ciclo, em até {Settings.RefreshSeconds}s — as barras seguem "
+                         + "com os últimos valores.";
         }
 
         Last = snap;
