@@ -129,24 +129,24 @@ public partial class TaskbarBarWindow : Window
 
         if (s.PcShowCpu)
         {
-            if (cells++ > 0) CellsPanel.Children.Add(Divider());
-            CellsPanel.Children.Add(BuildHardwareCell("CPU", hw.Cpu, s, hw));
+            if (cells++ > 0) CellsPanel.Children.Add(PanelStyle.Divider());
+            CellsPanel.Children.Add(PanelStyle.HardwareCell("CPU", hw.Cpu, s, hw, PanelStyle.ScaleOf(s)));
         }
         if (s.PcShowGpu)
         {
-            if (cells++ > 0) CellsPanel.Children.Add(Divider());
-            CellsPanel.Children.Add(BuildHardwareCell("GPU", hw.Gpu, s, hw));
+            if (cells++ > 0) CellsPanel.Children.Add(PanelStyle.Divider());
+            CellsPanel.Children.Add(PanelStyle.HardwareCell("GPU", hw.Gpu, s, hw, PanelStyle.ScaleOf(s)));
         }
         if (s.PcShowRam)
         {
-            if (cells++ > 0) CellsPanel.Children.Add(Divider());
-            CellsPanel.Children.Add(BuildHardwareCell("RAM", hw.Ram, s, hw));
+            if (cells++ > 0) CellsPanel.Children.Add(PanelStyle.Divider());
+            CellsPanel.Children.Add(PanelStyle.HardwareCell("RAM", hw.Ram, s, hw, PanelStyle.ScaleOf(s)));
         }
 
         if (s.ShowThemeToggle && cells > 0)
         {
-            CellsPanel.Children.Add(Divider());
-            CellsPanel.Children.Add(BuildThemeCell(s));
+            CellsPanel.Children.Add(PanelStyle.Divider());
+            CellsPanel.Children.Add(PanelStyle.ThemeCell(s, PanelStyle.ScaleOf(s), RenderCurrent));
         }
 
         if (cells == 0 || (!hw.Ok && !hw.Cpu.HasAnything && !hw.Gpu.HasAnything))
@@ -197,22 +197,22 @@ public partial class TaskbarBarWindow : Window
 
         for (var i = 0; i < bars.Count; i++)
         {
-            if (i > 0) CellsPanel.Children.Add(Divider());
-            CellsPanel.Children.Add(BuildCell(bars[i], s));
+            if (i > 0) CellsPanel.Children.Add(PanelStyle.Divider());
+            CellsPanel.Children.Add(PanelStyle.Cell(bars[i], s, PanelStyle.ScaleOf(s)));
         }
 
         if (s.ShowRateTaskbar)
         {
             var rate = AppHost.Current?.Rate ?? RateReading.Empty;
-            CellsPanel.Children.Add(Divider());
-            CellsPanel.Children.Add(BuildGaugeCell(rate, s));
+            CellsPanel.Children.Add(PanelStyle.Divider());
+            CellsPanel.Children.Add(PanelStyle.GaugeCell(rate, s, PanelStyle.ScaleOf(s)));
         }
 
         // o botão do tema mora no painel do computador; sem ele, vem para cá em vez de sumir
         if (s.ShowThemeToggle && !s.ShowPcPanel)
         {
-            CellsPanel.Children.Add(Divider());
-            CellsPanel.Children.Add(BuildThemeCell(s));
+            CellsPanel.Children.Add(PanelStyle.Divider());
+            CellsPanel.Children.Add(PanelStyle.ThemeCell(s, PanelStyle.ScaleOf(s), RenderCurrent));
         }
 
         DrawCallTimeline();
@@ -242,400 +242,9 @@ public partial class TaskbarBarWindow : Window
 
         var calls = AppHost.Current?.Calls.Recent() ?? new List<ApiCall>();
         for (var i = 0; i < ApiCallLog.Capacity - calls.Count; i++)
-            CallsPanel.Children.Add(Dot(null));
+            CallsPanel.Children.Add(PanelStyle.Dot(null, _settings, 22));
         foreach (var call in calls)
-            CallsPanel.Children.Add(Dot(call));
-    }
-
-    private UIElement Dot(ApiCall? call)
-    {
-        var cor = call?.Outcome switch
-        {
-            ApiOutcome.Ok => BarRenderer.Swatch("OkBrush"),
-            ApiOutcome.RateLimited => BarRenderer.Swatch("WarnBrush"),
-            ApiOutcome.Failed => BarRenderer.Swatch("DangerBrush"),
-            _ => _settings.PanelOutline ? TrilhaBorda : BarRenderer.Swatch("TrackBrush")
-        };
-
-        var bolinha = new System.Windows.Shapes.Ellipse
-        {
-            Width = 6,
-            Height = 6,
-            Fill = cor,
-            Opacity = call == null || call.Outcome == ApiOutcome.Idle ? 0.5 : 1,
-            VerticalAlignment = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Center
-        };
-
-        return new Border
-        {
-            Child = bolinha,
-            Background = System.Windows.Media.Brushes.Transparent,
-            Width = 11,
-            Height = 22,
-            VerticalAlignment = VerticalAlignment.Center,
-            ToolTip = call?.Describe() ?? "ciclo ainda não registrado"
-        };
-    }
-
-    /// <summary>
-    /// Célula de um componente: rótulo, uso em destaque e as medidas de apoio (temperatura e
-    /// watts) numa linha abaixo. A cor segue a métrica que mais preocupa, que é a temperatura
-    /// quando existe — uso alto é trabalho, temperatura alta é problema.
-    /// </summary>
-    private UIElement BuildHardwareCell(string rotulo, ComponentReading c, AppSettings s, HardwareSnapshot hw)
-    {
-        var scale = Math.Clamp(s.TaskbarBarScale, 0.8, 1.6);
-        var cell = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-
-        var head = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 2) };
-        head.Children.Add(new OutlinedText
-        {
-            Text = rotulo,
-            FontSize = 9.5 * scale,
-            Foreground = BarRenderer.Swatch("MutedBrush")
-        });
-
-        var apoio = HardwareRenderer.Support(c, rotulo);
-        if (apoio.Length > 0)
-        {
-            head.Children.Add(new OutlinedText
-            {
-                Text = "  " + apoio,
-                FontSize = 9.5 * scale,
-                Foreground = new SolidColorBrush(HardwareColor(c)),
-                VerticalAlignment = VerticalAlignment.Center
-            });
-        }
-        cell.Children.Add(head);
-
-        var row = new StackPanel { Orientation = Orientation.Horizontal };
-        row.Children.Add(new OutlinedText
-        {
-            Text = c.Load.Format("%"),
-            FontSize = 12.5 * scale,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(LoadColor(c.Load)),
-            VerticalAlignment = VerticalAlignment.Center,
-            MinWidth = 34 * scale
-        });
-
-        var largura = 44 * scale;
-        var track = new Border
-        {
-            Width = largura,
-            Height = 5,
-            CornerRadius = new CornerRadius(2.5),
-            Background = FundoDaTrilha,
-            BorderBrush = TrilhaBorda,
-            BorderThickness = EsperaDaTrilha,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(5, 0, 0, 0),
-            ClipToBounds = true
-        };
-        var grid = new Grid();
-        var frac = Math.Clamp((c.Load.Value ?? 0) / 100.0, 0, 1);
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(frac, 0.0001), GridUnitType.Star) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(1 - frac, 0.0001), GridUnitType.Star) });
-        var fill = new Border
-        {
-            CornerRadius = new CornerRadius(2.5),
-            Background = ScaleGradient(largura),
-            MinWidth = frac > 0 ? 3 : 0
-        };
-        Grid.SetColumn(fill, 0);
-        grid.Children.Add(fill);
-        track.Child = grid;
-        row.Children.Add(track);
-
-        cell.Children.Add(row);
-
-        return new Border
-        {
-            Child = cell,
-            Background = System.Windows.Media.Brushes.Transparent,
-            Padding = new Thickness(2, 0, 2, 0),
-            ToolTip = HardwareRenderer.Describe(rotulo, c, hw)
-        };
-    }
-
-    // ------------------------------------------------------------------
-    // Tema do Windows
-    // ------------------------------------------------------------------
-
-    /// <summary>
-    /// Botão que troca o tema claro/escuro do Windows. Mostra o tema de DESTINO, não o atual: um
-    /// sol quando está escuro, uma lua quando está claro — é o que o clique vai fazer, e o balão
-    /// diz isso com todas as letras para não sobrar dúvida.
-    ///
-    /// Os ícones são desenhados como forma, e não como caractere de fonte. Já houve glifo virando
-    /// quadrado vazio neste app por causa do estilo global de fonte, e um botão que não se explica
-    /// é pior que botão nenhum.
-    /// </summary>
-    private UIElement BuildThemeCell(AppSettings s)
-    {
-        var claro = WindowsTheme.IsLight();
-        var scale = s.TaskbarBarScale;
-        var lado = 17 * scale;
-
-        var icone = new Grid { Width = lado, Height = lado };
-        var cor = BarRenderer.Swatch("TextBrush");
-
-        // cópia escura por baixo, mais grossa: é o mesmo contorno do texto, para o ícone não
-        // sumir sobre papel de parede claro
-        if (s.PanelOutline)
-        {
-            foreach (var parte in BarRenderer.ThemeIcon(claro, lado, Contorno, 1.5))
-                icone.Children.Add(parte);
-        }
-        foreach (var parte in BarRenderer.ThemeIcon(claro, lado, cor, 0))
-            icone.Children.Add(parte);
-
-        var alvo = claro ? "escuro" : "claro";
-        var botao = new Border
-        {
-            Child = icone,
-            Background = System.Windows.Media.Brushes.Transparent,
-            Padding = new Thickness(6, 0, 2, 0),
-            Cursor = Cursors.Hand,
-            VerticalAlignment = VerticalAlignment.Center,
-            ToolTip = $"Tema do Windows: {(claro ? "claro" : "escuro")}.\nClique para mudar para o {alvo}."
-        };
-        botao.MouseLeftButtonUp += (_, e) =>
-        {
-            e.Handled = true;   // senão o clique subiria e abriria o painel
-            WindowsTheme.Toggle();
-            RenderCurrent();    // o ícone passa a mostrar o novo destino
-        };
-        return botao;
-    }
-
-    private static readonly Brush Contorno = Congelado(Color.FromArgb(0xE6, 0, 0, 0));
-
-    private static readonly Color Verde = Color.FromArgb(255, 76, 195, 138);
-    private static readonly Color Amarelo = Color.FromArgb(255, 232, 176, 75);
-    private static readonly Color Vermelho = Color.FromArgb(255, 240, 92, 92);
-    private static readonly Color Cinza = Color.FromArgb(255, 156, 151, 145);
-
-    /// <summary>
-    /// Régua de cor da barra: verde no início, amarela no meio, vermelha no fim. O gradiente é
-    /// medido em unidades absolutas sobre a largura da trilha, e não sobre a parte preenchida —
-    /// sem isso ele se comprimiria dentro do preenchimento e a barra ficaria vermelha já nos
-    /// primeiros por cento, que é o oposto da ideia.
-    /// </summary>
-    private static LinearGradientBrush ScaleGradient(double larguraDaTrilha)
-    {
-        var g = new LinearGradientBrush
-        {
-            MappingMode = BrushMappingMode.Absolute,
-            StartPoint = new Point(0, 0),
-            EndPoint = new Point(larguraDaTrilha, 0)
-        };
-        g.GradientStops.Add(new GradientStop(Verde, 0.0));
-        g.GradientStops.Add(new GradientStop(Amarelo, 0.5));
-        g.GradientStops.Add(new GradientStop(Vermelho, 1.0));
-        g.Freeze();
-        return g;
-    }
-
-    /// <summary>Cor da mesma régua no ponto onde a barra parou — é o que o número mostra.</summary>
-    private static Color LoadColor(Reading load)
-    {
-        if (!load.HasValue) return Cinza;
-
-        var f = Math.Clamp(load.Value!.Value / 100.0, 0, 1);
-        return f <= 0.5
-            ? Mix(Verde, Amarelo, f / 0.5)
-            : Mix(Amarelo, Vermelho, (f - 0.5) / 0.5);
-    }
-
-    private static Color Mix(Color a, Color b, double t)
-    {
-        t = Math.Clamp(t, 0, 1);
-        return Color.FromArgb(
-            255,
-            (byte)(a.R + (b.R - a.R) * t),
-            (byte)(a.G + (b.G - a.G) * t),
-            (byte)(a.B + (b.B - a.B) * t));
-    }
-
-    /// <summary>Temperatura manda na cor de apoio; sem ela, os watts não têm faixa universal.</summary>
-    private static Color HardwareColor(ComponentReading c)
-    {
-        if (!c.Temperature.HasValue) return Cinza;
-        var t = c.Temperature.Value!.Value;
-        if (t >= 90) return Vermelho;
-        if (t >= 80) return Amarelo;
-        return Cinza;
-    }
-
-    /// <summary>Borda da trilha; sem contorno não há borda, como era antes.</summary>
-    private Thickness EsperaDaTrilha => new(_settings.PanelOutline ? 1 : 0);
-
-    private static Brush Congelado(Color c)
-    {
-        var b = new SolidColorBrush(c);
-        b.Freeze();
-        return b;
-    }
-
-    /// <summary>
-    /// A trilha vazia da barra precisa aparecer tanto sobre a barra escura quanto sobre um papel de
-    /// parede claro. Um preenchimento escuro resolve o segundo caso e a borda clara o primeiro —
-    /// isolados, cada um sumiria justamente no outro. É o par que acompanha o texto com contorno.
-    /// </summary>
-    private static readonly Brush TrilhaEscura = Congelado(Color.FromArgb(0x73, 0, 0, 0));
-    private static readonly Brush TrilhaBorda = Congelado(Color.FromArgb(0x59, 0xFF, 0xFF, 0xFF));
-
-    /// <summary>Preenchimento da trilha no estilo escolhido.</summary>
-    private Brush FundoDaTrilha => _settings.PanelOutline ? TrilhaEscura : BarRenderer.Swatch("TrackBrush");
-
-    private static UIElement Divider() => new Border
-    {
-        Width = 1,
-        Background = BarRenderer.Swatch("LineBrush"),
-        Margin = new Thickness(10, 9, 10, 9)
-    };
-
-    /// <summary>
-    /// Velocímetro do ritmo: arco pequeno + o número, que é o que se lê de relance. O rótulo diz
-    /// de qual limite é o ritmo, e clicar passa para o próximo — por isso ele não diz só "Ritmo".
-    /// </summary>
-    private UIElement BuildGaugeCell(RateReading rate, AppSettings s)
-    {
-        var scale = Math.Clamp(s.TaskbarBarScale, 0.8, 1.6);
-
-        var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        row.Children.Add(new Border
-        {
-            Child = GaugeRenderer.Build(rate, 34 * scale),
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, 0, 7, 0)
-        });
-
-        var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-
-        // linha do filtro: nome do limite + seta, indicando que dá para trocar
-        var header = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 2) };
-        header.Children.Add(new OutlinedText
-        {
-            Text = s.LabelFor(s.RateKind),
-            FontSize = 9.5 * scale,
-            Foreground = BarRenderer.Swatch("MutedBrush")
-        });
-        header.Children.Add(new OutlinedText
-        {
-            Text = " ↻",
-            FontSize = 9 * scale,
-            Foreground = BarRenderer.Swatch("MutedBrush"),
-            VerticalAlignment = VerticalAlignment.Center
-        });
-        text.Children.Add(header);
-
-        text.Children.Add(new OutlinedText
-        {
-            Text = ConsumptionRate.Format(rate),
-            FontSize = 12 * scale,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(GaugeRenderer.ColorFor(rate))
-        });
-        row.Children.Add(text);
-
-        var cell = new Border
-        {
-            Child = row,
-            Background = System.Windows.Media.Brushes.Transparent,
-            Cursor = Cursors.Hand,
-            Padding = new Thickness(2, 0, 2, 0),
-            ToolTip = GaugeRenderer.Describe(rate, s, s.RateKind) + "\n\nClique para ver o ritmo de outro limite."
-        };
-        cell.MouseLeftButtonUp += (_, e) =>
-        {
-            // sem isto o clique subiria para o painel e abriria a janela
-            e.Handled = true;
-            AppHost.Current?.CycleRateKind();
-        };
-
-        return cell;
-    }
-
-    /// <summary>Célula compacta: cabe na altura da barra sem apertar o texto.</summary>
-    private UIElement BuildCell(UsageBar bar, AppSettings s)
-    {
-        var scale = Math.Clamp(s.TaskbarBarScale, 0.8, 1.6);
-        var cell = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-
-        cell.Children.Add(new OutlinedText
-        {
-            Text = s.LabelFor(bar.Kind),
-            FontSize = 9.5 * scale,
-            Foreground = BarRenderer.Swatch("MutedBrush"),
-            Margin = new Thickness(0, 0, 0, 2)
-        });
-
-        var row = new StackPanel { Orientation = Orientation.Horizontal };
-        row.Children.Add(new OutlinedText
-        {
-            Text = Math.Round(bar.Percent) + "%",
-            FontSize = 12.5 * scale,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = BarRenderer.BrushFor(bar.Percent, s),
-            VerticalAlignment = VerticalAlignment.Center,
-            MinWidth = 32 * scale
-        });
-
-        var bars = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(5, 0, 0, 0) };
-
-        var track = new Border
-        {
-            Width = 52 * scale,
-            Height = 5,
-            CornerRadius = new CornerRadius(2.5),
-            Background = FundoDaTrilha,
-            BorderBrush = TrilhaBorda,
-            BorderThickness = EsperaDaTrilha,
-            ClipToBounds = true
-        };
-        var grid = new Grid();
-        var frac = Math.Clamp(bar.Fraction, 0, 1);
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(frac, 0.0001), GridUnitType.Star) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(1 - frac, 0.0001), GridUnitType.Star) });
-        var fill = new Border
-        {
-            CornerRadius = new CornerRadius(2.5),
-            Background = BarRenderer.BrushFor(bar.Percent, s),
-            MinWidth = bar.Percent > 0 ? 3 : 0
-        };
-        Grid.SetColumn(fill, 0);
-        grid.Children.Add(fill);
-        track.Child = grid;
-
-        // marca do tempo decorrido, no próprio trilho: preenchimento além dela é consumo adiantado
-        var timeFrac = s.ShowTimeProgress ? bar.TimeFraction() : null;
-        bars.Children.Add(BarRenderer.TrackWithMarker(track, timeFrac, 5));
-
-        row.Children.Add(bars);
-        cell.Children.Add(row);
-
-        var tip = $"{s.LabelFor(bar.Kind)}: {bar.Percent:0.#}% usado, restam {Math.Max(0, 100 - bar.Percent):0.#}%";
-        if (bar.ResetsAt != null) tip += $"\n{bar.ResetText()} (às {bar.ResetClock()})";
-        tip += "\n\nClique para abrir o painel.";
-
-        // área de clique da célula inteira, e não só onde há pixel pintado
-        var hit = new Border
-        {
-            Child = cell,
-            Background = System.Windows.Media.Brushes.Transparent,
-            Cursor = Cursors.Hand,
-            ToolTip = tip
-        };
-        hit.MouseLeftButtonUp += (_, e) =>
-        {
-            e.Handled = true;
-            AppHost.Current?.ShowDashboard();
-        };
-
-        return hit;
+            CallsPanel.Children.Add(PanelStyle.Dot(call, _settings, 22));
     }
 
     // ------------------------------------------------------------------

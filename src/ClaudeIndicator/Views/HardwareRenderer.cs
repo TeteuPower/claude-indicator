@@ -195,54 +195,6 @@ public static class HardwareRenderer
         };
     }
 
-    /// <summary>
-    /// Um componente como coluna, para a barra própria em pé — o par da
-    /// <see cref="BarRenderer.BuildColumn"/>, no mesmo desenho: uso em cima, trilho vertical no
-    /// meio, rótulo embaixo.
-    ///
-    /// O apoio (temperatura, watts, memória) fica só no balão: numa coluna estreita, "58° · 4 W"
-    /// viraria uma linha cortada no meio, e o que o relance precisa mostrar é a carga.
-    /// </summary>
-    public static UIElement Column(string rotulo, ComponentReading c, HardwareSnapshot hw, double trackHeight)
-    {
-        var coluna = new StackPanel { Margin = new Thickness(3, 0, 3, 0) };
-
-        coluna.Children.Add(new TextBlock
-        {
-            Text = c.Load.Format("%"),
-            FontSize = 11.5,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = Cor(c),
-            HorizontalAlignment = HorizontalAlignment.Center
-        });
-
-        var trilho = BarRenderer.VerticalTrack(Math.Clamp((c.Load.Value ?? 0) / 100.0, 0, 1),
-            Cor(c), 12, trackHeight, null);
-        if (trilho is FrameworkElement fe)
-        {
-            fe.HorizontalAlignment = HorizontalAlignment.Center;
-            fe.Margin = new Thickness(0, 5, 0, 0);
-        }
-        coluna.Children.Add(trilho);
-
-        coluna.Children.Add(new TextBlock
-        {
-            Text = rotulo,
-            FontSize = 10,
-            Foreground = BarRenderer.Swatch("MutedBrush"),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-            Margin = new Thickness(0, 6, 0, 0)
-        });
-
-        return new Border
-        {
-            Child = coluna,
-            Background = Brushes.Transparent,
-            ToolTip = Describe(rotulo, c, hw)
-        };
-    }
-
     private static SolidColorBrush Cor(ComponentReading c) =>
         new(c.Load.HasValue ? BarRenderer.LoadRamp(c.Load.Value!.Value) : Color.FromArgb(255, 156, 151, 145));
 

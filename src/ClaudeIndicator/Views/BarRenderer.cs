@@ -153,17 +153,24 @@ public static class BarRenderer
     /// deitadas, girada: mesmas cores, mesma trilha, mesma marca de tempo — só o eixo muda.
     /// </summary>
     public static UIElement VerticalTrack(double fraction, Brush fill, double width, double height,
-        double? timeFraction)
+        double? timeFraction, Brush? background = null, Brush? borderBrush = null,
+        Thickness? borderThickness = null)
     {
         var raio = width / 2;
         var track = new Border
         {
             Width = width,
-            Height = height,
             CornerRadius = new CornerRadius(raio),
-            Background = Swatch("TrackBrush"),
+            Background = background ?? Swatch("TrackBrush"),
+            BorderBrush = borderBrush,
+            BorderThickness = borderThickness ?? new Thickness(0),
             ClipToBounds = true
         };
+
+        // altura NaN significa "ocupe o que a barra tiver para dar": é o que faz as colunas
+        // aproveitarem a altura inteira da barra própria em vez de uma medida fixa
+        if (!double.IsNaN(height)) track.Height = height;
+        else track.VerticalAlignment = VerticalAlignment.Stretch;
 
         var grade = new Grid();
         var f = Math.Clamp(fraction, 0, 1);
@@ -185,6 +192,7 @@ public static class BarRenderer
         if (timeFraction == null) return track;
 
         var pilha = new Grid { HorizontalAlignment = HorizontalAlignment.Center };
+        if (double.IsNaN(height)) pilha.VerticalAlignment = VerticalAlignment.Stretch;
         pilha.Children.Add(track);
         pilha.Children.Add(VerticalTimeMarker(timeFraction.Value, width));
         return pilha;
@@ -218,60 +226,6 @@ public static class BarRenderer
         Grid.SetRow(marca, 1);
         grade.Children.Add(marca);
         return grade;
-    }
-
-    /// <summary>
-    /// Um limite como coluna, para a barra própria em pé: porcentagem em cima, trilho vertical no
-    /// meio, rótulo embaixo.
-    ///
-    /// O horário de renovação <b>não</b> vira texto aqui: ele já está na marca que atravessa o
-    /// trilho, que diz a mesma coisa ocupando zero linha — e numa coluna de 60 px "reseta em 6d 4h"
-    /// não caberia mesmo. O texto continua no balão, para quem quiser o número exato.
-    /// </summary>
-    public static UIElement BuildColumn(UsageBar bar, AppSettings s, double trackHeight)
-    {
-        var coluna = new StackPanel { Margin = new Thickness(3, 0, 3, 0) };
-
-        coluna.Children.Add(new TextBlock
-        {
-            Text = Math.Round(bar.Percent).ToString("0") + "%",
-            FontSize = 11.5,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = BrushFor(bar.Percent, s),
-            HorizontalAlignment = HorizontalAlignment.Center
-        });
-
-        var trilho = VerticalTrack(bar.Fraction, BrushFor(bar.Percent, s), 12, trackHeight,
-            s.ShowTimeProgress ? bar.TimeFraction() : null);
-        if (trilho is FrameworkElement fe)
-        {
-            fe.HorizontalAlignment = HorizontalAlignment.Center;
-            fe.Margin = new Thickness(0, 5, 0, 0);
-        }
-        coluna.Children.Add(trilho);
-
-        coluna.Children.Add(new TextBlock
-        {
-            Text = s.LabelFor(bar.Kind),
-            FontSize = 10,
-            Foreground = Swatch("MutedBrush"),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-            Margin = new Thickness(0, 6, 0, 0)
-        });
-
-        var balao = new StringBuilder();
-        balao.Append(s.LabelFor(bar.Kind)).Append(" · ").Append(Math.Round(bar.Percent)).Append('%');
-        if (bar.ResetsAt != null) balao.Append('\n').Append(bar.ResetText());
-        var decorrido = bar.TimeProgressText();
-        if (decorrido.Length > 0) balao.Append('\n').Append(decorrido);
-
-        return new Border
-        {
-            Child = coluna,
-            Background = Brushes.Transparent,
-            ToolTip = balao.ToString()
-        };
     }
 
     /// <summary>
