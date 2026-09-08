@@ -51,6 +51,9 @@ public sealed class AppHost
     private GadgetWindow? _gadget;
     private TaskbarBarWindow? _taskbarBar;
     private TaskbarBarWindow? _pcPanel;
+
+    /// <summary>Barra de tarefas própria, numa borda que o Windows deixou livre.</summary>
+    private DockWindow? _dock;
     private readonly HardwareMonitor _hardware = new();
 
     // Indicador por cima do jogo: medição de quadros, detecção e a janela em si.
@@ -156,6 +159,7 @@ public sealed class AppHost
         menu.Items.Add("Configurações…", null, (_, _) => ShowSettings());
         menu.Items.Add(new WinForms.ToolStripSeparator());
         menu.Items.Add("Mostrar/ocultar gadget", null, (_, _) => ToggleGadget());
+        menu.Items.Add("Mostrar/ocultar barra própria", null, (_, _) => ToggleDock());
         menu.Items.Add(new WinForms.ToolStripSeparator());
         menu.Items.Add("Sair", null, (_, _) => Exit());
 
@@ -217,10 +221,57 @@ public sealed class AppHost
             _taskbarBar?.HidePanel();
         }
 
+        ApplyDock();
         ApplyPcPanel();
         ApplyOverlay();
         ApplyHotkeys();
     }
+
+    /// <summary>
+    /// Liga ou desliga a barra própria. Desligar fecha a janela em vez de só escondê-la: a faixa
+    /// reservada some junto com ela, e uma barra invisível que continua tirando espaço da tela
+    /// seria impossível de entender.
+    /// </summary>
+    private void ApplyDock()
+    {
+        if (Settings.ShowDock)
+        {
+            if (_dock == null)
+            {
+                _dock = new DockWindow();
+                _dock.Closed += (_, _) => _dock = null;
+            }
+
+            _dock.ApplySettings(Settings);
+            _dock.Render(Last, Settings);
+            _dock.RenderHardware(_hardware.Current, Settings);
+            _dock.ShowDock();
+        }
+        else
+        {
+            _dock?.Close();
+            _dock = null;
+        }
+    }
+
+    /// <summary>Oculta a barra própria pelo menu dela. Fica guardado: esconder é uma decisão.</summary>
+    public void HideDockBar()
+    {
+        Settings.ShowDock = false;
+        Settings.Save();
+        ApplyDock();
+    }
+
+    /// <summary>Liga e desliga a barra própria pela bandeja.</summary>
+    public void ToggleDock()
+    {
+        Settings.ShowDock = !Settings.ShowDock;
+        Settings.Save();
+        ApplyDock();
+    }
+
+    /// <summary>A barra própria está na tela agora? Usado pela tela de configurações.</summary>
+    public bool DockVisible => _dock is { IsVisible: true };
 
     /// <summary>
     /// (Re)registra os atalhos globais. Solta tudo antes: mudar a combinação sem soltar a anterior
@@ -440,6 +491,7 @@ public sealed class AppHost
         {
             if (Settings.ShowPcPanel) _pcPanel?.RenderHardware(snap, Settings);
             if (Settings.GadgetEnabled && Settings.GadgetShowHardware) _gadget?.RenderHardware(snap, Settings);
+            if (Settings.ShowDock && Settings.DockShowHardware) _dock?.RenderHardware(snap, Settings);
         }));
     }
 
@@ -756,6 +808,7 @@ public sealed class AppHost
         UpdateTray();
         _gadget?.Render(Last, Settings);
         _taskbarBar?.Render(Last, Settings);
+        _dock?.Render(Last, Settings);
         Updated?.Invoke(Last);
     }
 
@@ -783,6 +836,7 @@ public sealed class AppHost
         UpdateTray();
         _gadget?.Render(Last, Settings);
         _taskbarBar?.Render(Last, Settings);
+        _dock?.Render(Last, Settings);
         Updated?.Invoke(Last);
     }
 
@@ -838,6 +892,7 @@ public sealed class AppHost
         UpdateTray();
         _gadget?.Render(snap, Settings);
         _taskbarBar?.Render(snap, Settings);
+        _dock?.Render(snap, Settings);
         Updated?.Invoke(snap);
         CheckThresholds(snap);
     }
@@ -885,6 +940,9 @@ public sealed class AppHost
         _gadget?.Close();
         _taskbarBar?.Close();
         _pcPanel?.Close();
+
+        // fechar a barra propria devolve ao Windows a faixa que ela reservou
+        _dock?.Close();
         _main?.Close();
         System.Windows.Application.Current?.Shutdown();
     }

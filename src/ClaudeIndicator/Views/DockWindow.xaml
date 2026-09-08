@@ -1,0 +1,52 @@
+<Window x:Class="ClaudeIndicator.Views.DockWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Claude Indicator"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Foreground="{StaticResource TextBrush}"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        SizeToContent="Manual"
+        WindowStartupLocation="Manual"
+        ShowActivated="False"
+        Focusable="False"
+        FontFamily="Segoe UI">
+
+    <Window.ContextMenu>
+        <ContextMenu>
+            <MenuItem x:Name="VersionItem" IsEnabled="False"/>
+            <Separator/>
+            <MenuItem Header="Atualizar agora" Click="OnRefreshClick"/>
+            <MenuItem Header="Abrir painel…" Click="OnDashboardClick"/>
+            <MenuItem Header="Configurações da barra…" Click="OnSettingsClick"/>
+            <Separator/>
+            <MenuItem Header="Ocultar esta barra" Click="OnHideClick"/>
+            <MenuItem Header="Sair" Click="OnExitClick"/>
+        </ContextMenu>
+    </Window.ContextMenu>
+
+    <!-- O fundo é o único lugar com transparência: o conteúdo fica opaco para continuar legível
+         sobre qualquer papel de parede. A linha de dentro (Edge) separa a barra do desktop e
+         muda de lado conforme a borda escolhida. -->
+    <Border x:Name="Root" Background="#EB1B1A19"
+            MouseLeftButtonUp="OnClick" Cursor="Hand">
+        <Grid>
+            <DockPanel x:Name="Layout" LastChildFill="True" Margin="10,7">
+                <DockPanel.LayoutTransform>
+                    <ScaleTransform x:Name="RootScale" ScaleX="1" ScaleY="1"/>
+                </DockPanel.LayoutTransform>
+
+                <!-- Rodapé/canto: linha do tempo das consultas. O Dock é definido no código,
+                     porque muda com a borda: embaixo na barra em pé, à direita na deitada. -->
+                <StackPanel x:Name="SidePanel" Orientation="Horizontal"/>
+
+                <!-- Painéis: limites, sensores e velocímetro, na ordem em que estão ligados -->
+                <StackPanel x:Name="MainPanel"/>
+            </DockPanel>
+
+            <Border x:Name="Edge" Background="#1FFFFFFF"/>
+        </Grid>
+    </Border>
+</Window>
