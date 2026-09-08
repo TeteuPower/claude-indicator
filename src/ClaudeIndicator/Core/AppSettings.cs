@@ -229,6 +229,25 @@ public class AppSettings
     /// <summary>Lado do painel do computador na barra própria.</summary>
     public TaskbarAnchor DockPcSide { get; set; } = TaskbarAnchor.Right;
 
+    // ---- Transparência de janelas ----
+    /// <summary>
+    /// Deixar janelas de outros programas translúcidas. Desligado por padrão: mexer na aparência
+    /// das janelas alheias é decisão de quem usa.
+    /// </summary>
+    public bool GlassEnabled { get; set; }
+
+    /// <summary>
+    /// Opacidade das janelas com vidro. Tem piso porque a 100% de transparência a janela some e
+    /// vira um fantasma inutilizável — o motivo de a opção existir com número ajustável.
+    /// </summary>
+    public double GlassOpacity { get; set; } = 0.85;
+
+    /// <summary>Processos que abrem sempre translúcidos, por nome (sem o .exe).</summary>
+    public List<string> GlassApps { get; set; } = new();
+
+    /// <summary>Atalho que liga e desliga a transparência na janela em foco.</summary>
+    public string GlassHotkey { get; set; } = "Ctrl+Alt+T";
+
     // ---- Indicador por cima do jogo ----
     /// <summary>Desenhar os indicadores por cima do jogo em primeiro plano.</summary>
     public bool ShowGameOverlay { get; set; }
@@ -559,6 +578,11 @@ public class AppSettings
         DockOpacity = Math.Clamp(DockOpacity, 0, 1);
         TaskbarTint = Math.Clamp(TaskbarTint, 0, 1);
         DockScale = Math.Clamp(DockScale, 0.7, 1.8);
+
+        // Piso de 25%: abaixo disso a janela some e deixa de ser usável, que é justamente o que a
+        // opacidade ajustável existe para evitar.
+        GlassOpacity = Math.Clamp(GlassOpacity, 0.25, 1);
+        GlassApps ??= new List<string>();
     }
 
     public IEnumerable<string> EndpointList()
