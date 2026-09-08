@@ -207,15 +207,21 @@ public partial class DockWindow : Window
         Layout.Margin = vertical ? new Thickness(9, 10, 9, 10) : new Thickness(12, 5, 12, 5);
         Layout.Children.Clear();
 
-        // A linha do tempo entra primeiro: no DockPanel, quem entra antes fica mais na borda.
-        BuildTimeline();
-        if (SidePanel.Children.Count > 0)
+        // Deitada, a linha do tempo entra primeiro e fica na ponta direita: no DockPanel, quem
+        // entra antes fica mais na borda. Em pé ela não vem para o rodapé — desce pela lateral,
+        // ao lado dos limites, dentro do bloco deles.
+        SidePanel.Children.Clear();
+        if (!vertical)
         {
-            DockPanel.SetDock(SidePanel, vertical ? Dock.Bottom : Dock.Right);
-            SidePanel.HorizontalAlignment = vertical ? HorizontalAlignment.Center : HorizontalAlignment.Right;
-            SidePanel.VerticalAlignment = vertical ? VerticalAlignment.Bottom : VerticalAlignment.Center;
-            SidePanel.Margin = vertical ? new Thickness(0, 10, 0, 0) : new Thickness(12, 0, 0, 0);
-            Layout.Children.Add(SidePanel);
+            BuildTimeline();
+            if (SidePanel.Children.Count > 0)
+            {
+                DockPanel.SetDock(SidePanel, Dock.Right);
+                SidePanel.HorizontalAlignment = HorizontalAlignment.Right;
+                SidePanel.VerticalAlignment = VerticalAlignment.Center;
+                SidePanel.Margin = new Thickness(12, 0, 0, 0);
+                Layout.Children.Add(SidePanel);
+            }
         }
 
         var claude = BuildClaudeBlock(vertical);
@@ -265,13 +271,13 @@ public partial class DockWindow : Window
     }
 
     /// <summary>Quantos indicadores o bloco tem — é o peso dele na divisão da altura.</summary>
-    private int Peso(UIElement? bloco) => bloco switch
-    {
-        UniformGrid u => Math.Max(u.Children.Count, 1),
-        Grid g when g.Children.Count > 0 && g.Children[0] is UniformGrid u2 => Math.Max(u2.Children.Count, 1),
-        Panel p => Math.Max(p.Children.Count, 1),
-        _ => 1
-    };
+    /// <summary>
+    /// Quantos indicadores o bloco tem — é o peso dele na divisão da altura. Vem anotado no
+    /// próprio elemento na montagem: adivinhar percorrendo a árvore quebrava a cada camada nova
+    /// (a fila de bolinhas ao lado foi uma).
+    /// </summary>
+    private static int Peso(UIElement? bloco) =>
+        bloco is FrameworkElement fe && fe.Tag is int n && n > 0 ? n : 1;
 
     private static void Empilhar(Grid grade, UIElement? bloco, int peso)
     {
@@ -325,7 +331,29 @@ public partial class DockWindow : Window
                 : null;
 
             if (colunas.Children.Count == 0 && extra == null) return null;
-            return Empilhado(colunas, extra);
+
+            // A fila de consultas desce pela direita na altura DAS COLUNAS, e não do bloco todo:
+            // ela é a linha do tempo dos limites, então acompanha os limites — descer ao lado do
+            // velocímetro faria a última bolinha parecer falar dele.
+            UIElement miolo = colunas;
+            if (_settings.ShowCallTimeline && colunas.Children.Count > 0)
+            {
+                var comFila = new Grid();
+                comFila.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                comFila.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                Grid.SetColumn(colunas, 0);
+                comFila.Children.Add(colunas);
+
+                var fila = PanelStyle.VerticalTimeline(_settings,
+                    AppHost.Current?.Calls.Recent() ?? new List<ApiCall>());
+                Grid.SetColumn(fila, 1);
+                comFila.Children.Add(fila);
+
+                miolo = comFila;
+            }
+
+            return Empilhado(miolo, extra, colunas.Children.Count);
         }
 
         var linha = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
@@ -365,7 +393,7 @@ public partial class DockWindow : Window
                 ? PanelStyle.ThemeCell(_settings, 1.0, Rebuild)
                 : null;
 
-            return Empilhado(colunas, extra);
+            return Empilhado(colunas, extra, sensores.Count);
         }
 
         var linha = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
@@ -389,8 +417,9 @@ public partial class DockWindow : Window
     /// próprio embaixo: assim as colunas ocupam toda a altura que a barra tem para dar, e o
     /// acessório não passa a valer uma coluna.
     /// </summary>
-    private static UIElement Empilhado(UniformGrid colunas, UIElement? extra)
+    private static UIElement Empilhado(UIElement colunas, UIElement? extra, int quantasColunas)
     {
+        if (colunas is FrameworkElement bloco) bloco.Tag = quantasColunas;
         if (extra == null) return colunas;
 
         var grade = new Grid();
@@ -408,6 +437,7 @@ public partial class DockWindow : Window
         Grid.SetRow(extra, 1);
         grade.Children.Add(extra);
 
+        grade.Tag = quantasColunas;
         return grade;
     }
 

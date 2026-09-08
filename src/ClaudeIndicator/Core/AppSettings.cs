@@ -147,8 +147,12 @@ public class AppSettings
     /// <summary>Ficar acima das outras janelas. Junto com a reserva, é o comportamento da barra do Windows.</summary>
     public bool DockTopmost { get; set; } = true;
 
-    /// <summary>Espessura em pé (esquerda/direita), em unidades de tela.</summary>
-    public int DockWidth { get; set; } = 190;
+    /// <summary>
+    /// Espessura em pé (esquerda/direita), em unidades de tela. 160 é o padrão desde que o
+    /// termômetro passou a caber ao lado do trilho e as bolinhas foram para a lateral: o mesmo
+    /// conteúdo ocupa menos largura, e largura em barra vertical é área útil da tela.
+    /// </summary>
+    public int DockWidth { get; set; } = 160;
 
     /// <summary>Espessura deitada (topo), em unidades de tela.</summary>
     public int DockHeight { get; set; } = 46;
