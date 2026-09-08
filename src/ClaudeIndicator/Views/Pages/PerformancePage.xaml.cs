@@ -15,7 +15,8 @@ namespace ClaudeIndicator.Views.Pages;
 /// componentes como filtros.
 ///
 /// A página serve à pergunta "o que aconteceu?" — o jogo engasgou às 21h, o PC estava quente? —
-/// então as escalas são honestas: uso é sempre 0–100%, temperatura sempre até 100 °C. Só os watts
+/// então as escalas são honestas: uso é sempre 0–100%, temperatura sempre até o teto térmico de
+/// referência (105 °C, o mesmo dos termômetros). Só os watts
 /// se ajustam à janela, porque não têm teto natural comum entre CPU e GPU.
 /// </summary>
 public partial class PerformancePage : UserControl
@@ -77,7 +78,7 @@ public partial class PerformancePage : UserControl
         var temps = new List<(string, Color, Func<HardwarePoint, double?>)>();
         if (ChkCpu.IsChecked == true) temps.Add(("CPU", CorCpu, p => p.CpuTemp));
         if (ChkGpu.IsChecked == true) temps.Add(("GPU", CorGpu, p => p.GpuTemp));
-        Desenhar(TempChartHost, TempLegend, pontos, temps, 100, "°C");
+        Desenhar(TempChartHost, TempLegend, pontos, temps, MeterRenderer.TetoTemperaturaC, "°C");
 
         var watts = new List<(string, Color, Func<HardwarePoint, double?>)>();
         if (ChkCpu.IsChecked == true) watts.Add(("CPU", CorCpu, p => p.CpuWatts));

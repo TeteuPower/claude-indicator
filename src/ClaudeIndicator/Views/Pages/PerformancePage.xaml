@@ -53,7 +53,7 @@
                 <StackPanel>
                     <TextBlock Text="Temperatura" Style="{StaticResource Title}"/>
                     <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,8"
-                               Text="Graus Celsius, com o teto da escala em 100 °C — o limite térmico de referência."/>
+                               Text="Graus Celsius, com o teto da escala em 105 °C — onde o silício de verdade chega sob carga, e a mesma régua dos termômetros."/>
                     <Grid x:Name="TempChartHost" Height="190"/>
                     <StackPanel x:Name="TempLegend" Orientation="Horizontal" Margin="0,8,0,0"/>
                 </StackPanel>

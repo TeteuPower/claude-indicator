@@ -25,6 +25,19 @@ public static class MeterRenderer
     private static readonly Color SemLeitura = Color.FromArgb(255, 156, 151, 145);
 
     /// <summary>
+    /// Teto da escala de temperatura, em graus Celsius.
+    ///
+    /// Não é um limite do app, é onde o silício de verdade chega: processadores e placas modernas
+    /// batem em 100 °C sob carga e ainda continuam, reduzindo clock. Com a escala terminando em
+    /// 100, todo pico de carga encostava no topo do tubo — e termômetro sempre cheio não informa
+    /// nada. A folga de 105 devolve a diferença entre "quente" e "no limite".
+    ///
+    /// Mora num lugar só porque é a mesma régua nos três desenhos: o termômetro do indicador no
+    /// jogo, o da barra própria e o eixo do gráfico de desempenho.
+    /// </summary>
+    public const double TetoTemperaturaC = 105;
+
+    /// <summary>
     /// Um componente inteiro: anel de uso, termômetro de temperatura e o rótulo embaixo.
     ///
     /// <paramref name="tempC"/> nulo tira o termômetro em vez de desenhar um vazio — sensor que
@@ -195,7 +208,8 @@ public static class MeterRenderer
     }
 
     /// <summary>
-    /// O tubo com bulbo: o mercúrio sobe até a fração de 100 °C e muda de cor com a temperatura.
+    /// O tubo com bulbo: o mercúrio sobe até a fração do teto da escala e muda de cor com a
+    /// temperatura.
     ///
     /// A régua daqui NÃO é a de carga. 50% de uso é metade do caminho e é amarelo; 50 °C é
     /// temperatura confortável e tem que ser verde. O amarelo entra aos 70 °C e o vermelho aos
@@ -207,7 +221,7 @@ public static class MeterRenderer
         var bulbo = tubo * 1.85;
         var largura = bulbo + 5;         // sobra para o contorno escuro do bulbo
         var util = altura - bulbo - 4;   // altura útil do mercúrio dentro do tubo
-        var fracao = Math.Clamp(tempC / 100.0, 0, 1);
+        var fracao = Math.Clamp(tempC / TetoTemperaturaC, 0, 1);
 
         var caixa = new Grid { Width = largura, Height = altura };
 
@@ -290,7 +304,7 @@ public static class MeterRenderer
         var cor = TempRamp(tempC);
         var tubo = largura;
         var bulbo = tubo * 1.85;
-        var fracao = Math.Clamp(tempC / 100.0, 0, 1);
+        var fracao = Math.Clamp(tempC / TetoTemperaturaC, 0, 1);
 
         var caixa = new Grid
         {
@@ -361,7 +375,7 @@ public static class MeterRenderer
         return caixa;
     }
 
-    /// <summary>Verde até 70 °C, amarelo até 90, vermelho dali até o limite de 100.</summary>
+    /// <summary>Verde até 70 °C, amarelo até 90, vermelho dali até o teto da escala.</summary>
     public static Color TempRamp(double tempC)
     {
         var verde = Color.FromArgb(255, 76, 195, 138);
