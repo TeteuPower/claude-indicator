@@ -56,11 +56,11 @@ public sealed class AppHost
     private DockWindow? _dock;
 
     /// <summary>
-    /// Reaplica a aparência da barra do Windows. Três segundos é curto o bastante para o usuário
-    /// não ver a barra piscando de volta ao normal depois de um reinício do Explorer, e o pedido
-    /// em si é barato: achar as janelas e mandar o atributo.
+    /// Avisos do shell (barra recriada, tela que entra ou sai, compositor reiniciado). É o que
+    /// dispara a reaplicação da aparência da barra do Windows — antes isso era um relógio de três
+    /// segundos, que funcionava mas perguntava sem parar por algo que o Windows avisa.
     /// </summary>
-    private readonly DispatcherTimer _taskbarClock = new() { Interval = TimeSpan.FromSeconds(3) };
+    private ShellWatcher? _shell;
     private readonly HardwareMonitor _hardware = new();
 
     // Indicador por cima do jogo: medição de quadros, detecção e a janela em si.
@@ -109,7 +109,8 @@ public sealed class AppHost
         _timer.Tick += (_, _) => Pulse();
         RestartClock();
 
-        _taskbarClock.Tick += (_, _) =>
+        _shell = new ShellWatcher();
+        _shell.Changed += () =>
         {
             if (Settings.TaskbarLook != TaskbarLook.Sistema)
                 TaskbarStyler.Apply(Settings.TaskbarLook, Settings.TaskbarTint);
@@ -290,13 +291,11 @@ public sealed class AppHost
     {
         if (Settings.TaskbarLook == TaskbarLook.Sistema)
         {
-            _taskbarClock.Stop();
             if (TaskbarStyler.Ativo) TaskbarStyler.Restore();
             return;
         }
 
         TaskbarStyler.Apply(Settings.TaskbarLook, Settings.TaskbarTint);
-        _taskbarClock.Start();
     }
 
     /// <summary>Oculta a barra própria pelo menu dela. Fica guardado: esconder é uma decisão.</summary>
@@ -317,6 +316,13 @@ public sealed class AppHost
 
     /// <summary>A barra própria está na tela agora? Usado pela tela de configurações.</summary>
     public bool DockVisible => _dock is { IsVisible: true };
+
+    /// <summary>
+    /// Estado do fundo fosco da barra própria: null sem fosco pedido, true no ar, false recusado
+    /// pelo Windows. A tela de configuração mostra — e é assim que "não funcionou" deixa de ser
+    /// um mistério e passa a ser uma frase.
+    /// </summary>
+    public bool? DockFoscoAtivo => _dock?.FoscoAtivo;
 
     /// <summary>
     /// (Re)registra os atalhos globais. Solta tudo antes: mudar a combinação sem soltar a anterior
@@ -781,6 +787,11 @@ public sealed class AppHost
     /// </summary>
     private void Pulse()
     {
+        // Rede de segurança da aparência da barra do Windows, de graça: se algum aviso do shell
+        // escapou, o ciclo de consulta que já existe recoloca o efeito. Sem relógio novo.
+        if (Settings.TaskbarLook != TaskbarLook.Sistema)
+            TaskbarStyler.Apply(Settings.TaskbarLook, Settings.TaskbarTint);
+
         // o ciclo encurtado da abertura acabou: daqui em diante, a cadência cheia
         if (_cicloAdiantado)
         {
@@ -972,7 +983,7 @@ public sealed class AppHost
 
         // e a barra do Windows volta ao desenho do sistema: efeito deixado para tras por um
         // programa que morreu so sai reiniciando o Explorer
-        _taskbarClock.Stop();
+        _shell?.Dispose();
         if (TaskbarStyler.Ativo) TaskbarStyler.Restore();
         _main?.Close();
         System.Windows.Application.Current?.Shutdown();
