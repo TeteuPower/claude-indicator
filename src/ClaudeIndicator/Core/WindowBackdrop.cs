@@ -83,16 +83,46 @@ public static class WindowBackdrop
     /// para um fundo opaco, senão a janela fica preta: sem o compositor pintando atrás,
     /// "transparente" não tem nada para revelar.
     /// </summary>
-    public static bool ApplyAcrylic(IntPtr hwnd)
+    /// <summary>
+    /// Fosco com o tom da barra: acrílico quando o Windows tem, desfoque clássico como reserva.
+    /// O <paramref name="tom"/> é o alfa da cor do app sobre o vidro — ele vai no PEDIDO, e não
+    /// pintado pela janela: janela não-layered não tem alfa próprio para compor sobre o efeito, e
+    /// pintar por cima resulta em preto.
+    /// </summary>
+    public static bool ApplyFrosted(IntPtr hwnd, byte tom) =>
+        Apply(hwnd, Efeito.Acrilico, tom, 0x1B, 0x1A, 0x19)
+        || Apply(hwnd, Efeito.Desfoque, tom, 0x1B, 0x1A, 0x19);
+
+    /// <summary>Efeitos que o compositor oferece, do mais leve ao mais forte.</summary>
+    public enum Efeito
+    {
+        /// <summary>Sem efeito: a janela volta a ser o que o Windows desenha por padrão.</summary>
+        Nenhum = 0,
+
+        /// <summary>Só o tom, sem desfoque.</summary>
+        Tom = 1,
+
+        /// <summary>Tom com o fundo revelado, sem desfoque.</summary>
+        Transparente = 2,
+
+        /// <summary>Desfoque clássico, que aceita o tom.</summary>
+        Desfoque = 3,
+
+        /// <summary>Acrílico do Windows 10/11.</summary>
+        Acrilico = 4
+    }
+
+    /// <summary>
+    /// Pede um efeito ao compositor, com o tom em cima dele. Devolve false quando o Windows não
+    /// aceita o pedido.
+    /// </summary>
+    public static bool Apply(IntPtr hwnd, Efeito efeito, byte a, byte r, byte g, byte b)
     {
         if (hwnd == IntPtr.Zero) return false;
 
-        foreach (var estado in new[] { ACCENT_ENABLE_ACRYLICBLURBEHIND, ACCENT_ENABLE_BLURBEHIND })
-        {
-            if (TrySetAccent(hwnd, estado, 0)) return true;
-        }
-
-        return TrySystemBackdrop(hwnd);
+        // 0xAABBGGRR — a ordem dos canais aqui é a do Win32, não a do WPF
+        var cor = (uint)(a << 24 | b << 16 | g << 8 | r);
+        return TrySetAccent(hwnd, (int)efeito, cor);
     }
 
     private static bool TrySetAccent(IntPtr hwnd, int estado, uint cor)

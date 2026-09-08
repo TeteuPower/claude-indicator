@@ -126,17 +126,9 @@ public partial class DockWindow : Window
         var hwnd = new WindowInteropHelper(this).Handle;
         NativeMethods.MakeNoActivate(hwnd);
 
-        // Fosco recusado pelo Windows: o fundo volta a ser opaco, porque "transparente" sem o
-        // compositor pintando atrás é preto — e uma barra preta chapada não é o que foi pedido.
-        if (_fosco && !WindowBackdrop.ApplyAcrylic(hwnd))
-        {
-            _foscoAtivo = false;
-            Root.Background = new SolidColorBrush(Color.FromArgb(255, 0x1B, 0x1A, 0x19));
-        }
-        else if (_fosco)
-        {
-            _foscoAtivo = true;
-        }
+        // O fundo é pintado de novo aqui porque o pedido ao compositor precisa do handle, e o
+        // ApplySettings pode ter rodado antes de a janela existir de fato.
+        if (_fosco) AplicarFundo(_settings);
 
         _hook = HwndSource.FromHwnd(hwnd);
         _hook?.AddHook(OnWindowMessage);
@@ -193,15 +185,40 @@ public partial class DockWindow : Window
     /// o tom por cima dele. Fosco pedido mas recusado pelo Windows volta a opaco, porque
     /// "transparente" sem compositor pintando atrás é preto.
     /// </summary>
+    /// <summary>
+    /// Pinta o fundo conforme o modo.
+    ///
+    /// Sem fosco, o fundo é um pincel do WPF e a opacidade é a dele — com piso de alfa 1, porque em
+    /// janela transparente o Windows decide o hit-test pelo alfa do pixel e 0 deixaria a barra
+    /// clicável-através.
+    ///
+    /// Com fosco, o tom vai <b>no pedido ao compositor</b> e o fundo do WPF fica transparente. Essa
+    /// divisão não é preferência: testei as duas em janelas lado a lado, e pintar o tom no WPF por
+    /// cima do acrílico dá <b>preto</b> — a janela não é layered, então o alfa do WPF não tem o que
+    /// compor. Foi exatamente o que apareceu quando a barra ficou preta.
+    /// </summary>
     private void AplicarFundo(AppSettings s)
     {
-        // O fosco é o que está ATRÁS do fundo, não o fundo: o compositor entrega o desfoque e este
-        // pincel dá o tom em cima. Por isso a régua é a mesma nos dois modos — o mesmo controle de
-        // fundo, com ou sem desfoque. Piso de alfa 1 porque em janela transparente o Windows decide
-        // o hit-test pelo alfa do pixel, e 0 deixaria a barra clicável-através.
-        var alpha = (byte)Math.Clamp(Math.Round(s.DockOpacity * 255), 1, 255);
-        if (_fosco && !_foscoAtivo) alpha = 255;
+        if (_fosco)
+        {
+            var hwnd = new WindowInteropHelper(this).Handle;
+            if (hwnd != IntPtr.Zero)
+            {
+                // O tom tem piso: em 0% a barra viraria vidro puro, sem contorno nenhum, e as
+                // colunas ficariam soltas sobre o que estivesse atrás.
+                var tom = (byte)Math.Clamp(Math.Round(s.DockOpacityEffective * 255), 30, 250);
+                _foscoAtivo = WindowBackdrop.ApplyFrosted(hwnd, tom);
+            }
 
+            // Efeito recusado pelo Windows: fundo opaco. "Transparente" sem o compositor pintando
+            // atrás é preto, e barra preta chapada não é o que foi pedido.
+            Root.Background = _foscoAtivo
+                ? Brushes.Transparent
+                : new SolidColorBrush(Color.FromArgb(255, 0x1B, 0x1A, 0x19));
+            return;
+        }
+
+        var alpha = (byte)Math.Clamp(Math.Round(s.DockOpacityEffective * 255), 1, 255);
         Root.Background = new SolidColorBrush(Color.FromArgb(alpha, 0x1B, 0x1A, 0x19));
     }
 
@@ -209,7 +226,7 @@ public partial class DockWindow : Window
     /// A janela precisa nascer de novo? Só quando o modo do fundo muda: fosco e transparência por
     /// pixel se decidem antes de a janela existir.
     /// </summary>
-    public bool PrecisaRecriar(AppSettings s) => s.DockFrosted != _fosco;
+    public bool PrecisaRecriar(AppSettings s) => s.DockFrostedEffective != _fosco;
 
     public void Render(UsageSnapshot? snap, AppSettings s)
     {
