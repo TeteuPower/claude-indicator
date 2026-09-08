@@ -349,6 +349,12 @@ carga: 50% de uso é meio caminho e sai amarelo, 50 °C é temperatura confortá
 leitura de temperatura o termômetro não é desenhado em vez de aparecer vazio — é o caso da RAM, que
 não tem sensor, e da CPU sem elevação.
 
+Uma **linha separa os dois painéis**: são assuntos diferentes — assinatura e computador — e sem ela
+as colunas viram uma lista só, onde a Fable 5 e a CPU parecem do mesmo grupo. E a espessura mínima
+da barra em pé caiu para **80 unidades**: com o termômetro dentro da coluna e as bolinhas na
+lateral, o conteúdo cabe em bem menos: o piso é onde a linha "27% 68°" ainda cabe inteira, porque
+barra que corta o próprio número não serve para nada.
+
 A **linha do tempo das consultas desce pela lateral direita**, na altura das três colunas de limite,
 em vez de correr no rodapé. Aproveita a largura que sobra numa faixa alta, e mantém as bolinhas
 junto do dado que elas explicam: cada uma é uma consulta que trouxe (ou não) aqueles números. No
