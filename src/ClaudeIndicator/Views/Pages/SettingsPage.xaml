@@ -74,7 +74,7 @@
 
                             <TextBlock x:Name="DockTakeoverHint" Style="{StaticResource Hint}" Margin="0,10,0,0"
                                        TextWrapping="Wrap" Visibility="Collapsed"
-                                       Text="A barra própria está ligada: os dois painéis acima aparecem nela, e não no espaço livre da barra do Windows. O lado de cada um vale para os dois lugares — veja Barra própria."/>
+                                       Text="A barra própria está ligada. Estes interruptores são do espaço livre da barra do Windows; o que aparece na barra própria tem interruptor separado, em Barra própria — dá para ter o mesmo painel nos dois lugares ao mesmo tempo."/>
                         </StackPanel>
                     </Border>
 
@@ -771,7 +771,7 @@
                         <StackPanel>
                             <TextBlock Text="Os painéis dentro dela" Style="{StaticResource Title}"/>
                             <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4" TextWrapping="Wrap"
-                                       Text="Com a barra própria ligada, os painéis mudam de casa: em vez de ocupar o espaço livre da barra do Windows, eles aparecem aqui — com as mesmas preferências, e sem interruptor duplicado. Estes são os mesmos de Painéis: mexer aqui mexe lá."/>
+                                       Text="Estes interruptores são só desta barra: o mesmo painel pode estar aqui e no espaço livre da barra do Windows ao mesmo tempo, cada um no seu lugar. Quais limites e quais sensores entram continua sendo o que está escolhido em Barras e no painel do computador."/>
 
                             <CheckBox x:Name="ChkDockBars" Style="{StaticResource Switch}" Content="Painel da assinatura (limites)"/>
                             <TextBlock Text="Lado dele na barra" Style="{StaticResource FieldLabel}" Margin="27,6,0,5"/>
@@ -799,11 +799,11 @@
                             <CheckBox x:Name="ChkDockRate" Style="{StaticResource Switch}" Content="Velocímetro do ritmo"
                                       Margin="0,16,0,0"/>
                             <TextBlock Style="{StaticResource Hint}" Margin="27,2,0,0" TextWrapping="Wrap"
-                                       Text="Ele acompanha o painel da assinatura, como acompanha na barra de tarefas."/>
+                                       Text="Ele acompanha o painel da assinatura, como acompanha na barra de tarefas, e diz de qual limite é o ritmo — clicar nele troca."/>
 
                             <TextBlock x:Name="DockSideHint" Style="{StaticResource Hint}" Margin="0,14,0,0" TextWrapping="Wrap"/>
                             <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0" TextWrapping="Wrap"
-                                       Text="Quais limites e quais sensores entram continua sendo o que está escolhido em Barras e no painel do computador. A linha do tempo das consultas segue o interruptor em Sistema. Atalhos de aplicativos ficam para depois."/>
+                                       Text="A linha do tempo das consultas segue o interruptor em Sistema, e o botão de trocar o tema do Windows vem junto com os sensores. Atalhos de aplicativos ficam para depois."/>
                         </StackPanel>
                     </Border>
                 </StackPanel>

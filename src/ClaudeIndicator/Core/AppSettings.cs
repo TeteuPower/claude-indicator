@@ -162,11 +162,30 @@ public class AppSettings
     /// <summary>Sair da frente de jogo em tela cheia. Só vale no modo por cima; reservando, o jogo cobre a barra de qualquer forma.</summary>
     public bool DockHideOnFullscreen { get; set; } = true;
 
-    // O que aparece na barra própria NÃO tem interruptor próprio: são os mesmos painéis, com as
-    // mesmas preferências. Com a barra ligada, o painel da IA (ShowTaskbarBar), o do computador
-    // (ShowPcPanel) e o velocímetro (ShowRateTaskbar) mudam de casa em vez de duplicar de opção —
-    // e o lado de cada um continua sendo o TaskbarBarAnchor / PcPanelAnchor, onde "à esquerda"
-    // vira o começo da barra e "junto ao relógio" vira o fim.
+    // O que aparece na barra própria tem interruptor PRÓPRIO, e não herdado dos painéis da barra
+    // de tarefas: os dois lugares convivem, e o mesmo painel pode estar nos dois ao mesmo tempo —
+    // um monitor com a barra própria em pé e a barra do Windows com o painel dela, por exemplo.
+    // Quais limites e quais sensores entram continua sendo o que está escolhido em Barras e no
+    // painel do computador; o que muda aqui é onde os blocos aparecem.
+
+    /// <summary>Painel da assinatura (limites) dentro da barra própria.</summary>
+    public bool DockShowBars { get; set; } = true;
+
+    /// <summary>Painel do computador (sensores) dentro da barra própria.</summary>
+    public bool DockShowHardware { get; set; } = true;
+
+    /// <summary>Velocímetro do ritmo dentro da barra própria.</summary>
+    public bool DockShowRate { get; set; }
+
+    /// <summary>
+    /// Lado do painel da assinatura na barra própria: <c>Left</c> é o começo (esquerda na barra
+    /// deitada, topo na em pé) e <c>Right</c> é o fim. Separado do lado que ele usa na barra de
+    /// tarefas, porque os dois podem estar valendo ao mesmo tempo.
+    /// </summary>
+    public TaskbarAnchor DockBarsSide { get; set; } = TaskbarAnchor.Left;
+
+    /// <summary>Lado do painel do computador na barra própria.</summary>
+    public TaskbarAnchor DockPcSide { get; set; } = TaskbarAnchor.Right;
 
     // ---- Indicador por cima do jogo ----
     /// <summary>Desenhar os indicadores por cima do jogo em primeiro plano.</summary>

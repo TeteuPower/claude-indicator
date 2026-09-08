@@ -162,13 +162,13 @@ public partial class SettingsPage : UserControl
         ChkDockReserve.IsChecked = s.DockReserveSpace;
         ChkDockTopmost.IsChecked = s.DockTopmost;
         ChkDockFullscreen.IsChecked = s.DockHideOnFullscreen;
-        ChkDockBars.IsChecked = s.ShowTaskbarBar;
-        ChkDockHardware.IsChecked = s.ShowPcPanel;
-        ChkDockRate.IsChecked = s.ShowRateTaskbar;
-        DockBarsStart.IsChecked = s.TaskbarBarAnchor == TaskbarAnchor.Left;
-        DockBarsEnd.IsChecked = s.TaskbarBarAnchor == TaskbarAnchor.Right;
-        DockPcStart.IsChecked = s.PcPanelAnchor == TaskbarAnchor.Left;
-        DockPcEnd.IsChecked = s.PcPanelAnchor == TaskbarAnchor.Right;
+        ChkDockBars.IsChecked = s.DockShowBars;
+        ChkDockHardware.IsChecked = s.DockShowHardware;
+        ChkDockRate.IsChecked = s.DockShowRate;
+        DockBarsStart.IsChecked = s.DockBarsSide == TaskbarAnchor.Left;
+        DockBarsEnd.IsChecked = s.DockBarsSide == TaskbarAnchor.Right;
+        DockPcStart.IsChecked = s.DockPcSide == TaskbarAnchor.Left;
+        DockPcEnd.IsChecked = s.DockPcSide == TaskbarAnchor.Right;
         SldDockOpacity.Value = s.DockOpacity;
         SldDockScale.Value = s.DockScale;
         _dockWidth = s.DockWidth;
@@ -291,6 +291,11 @@ public partial class SettingsPage : UserControl
         s.DockReserveSpace = ChkDockReserve.IsChecked == true;
         s.DockTopmost = ChkDockTopmost.IsChecked == true;
         s.DockHideOnFullscreen = ChkDockFullscreen.IsChecked == true;
+        s.DockShowBars = ChkDockBars.IsChecked == true;
+        s.DockShowHardware = ChkDockHardware.IsChecked == true;
+        s.DockShowRate = ChkDockRate.IsChecked == true;
+        s.DockBarsSide = DockBarsEnd.IsChecked == true ? TaskbarAnchor.Right : TaskbarAnchor.Left;
+        s.DockPcSide = DockPcEnd.IsChecked == true ? TaskbarAnchor.Right : TaskbarAnchor.Left;
         s.DockOpacity = SldDockOpacity.Value;
         s.DockScale = SldDockScale.Value;
         s.DockWidth = _dockWidth;
@@ -350,7 +355,6 @@ public partial class SettingsPage : UserControl
     private void WireDirtyTracking()
     {
         WireRateGadgetSync();
-        WireDockPanelSync();
 
         void Hook(ToggleButton t)
         {
@@ -387,43 +391,6 @@ public partial class SettingsPage : UserControl
         // ligar a barra própria muda o que a aba Painéis está dizendo, então o aviso lá acompanha
         ChkDock.Checked += (_, _) => UpdateDockUi();
         ChkDock.Unchecked += (_, _) => UpdateDockUi();
-    }
-
-    /// <summary>
-    /// Os painéis da barra própria e os da barra de tarefas são os MESMOS: mesmo interruptor e
-    /// mesmo lado, aparecendo em duas abas porque em cada uma a pergunta é outra ("o que exibir"
-    /// e "o que vai na barra"). Sem esta sincronia, a mesma preferência apareceria com dois
-    /// valores diferentes na mesma tela — e o último a ser lido ganharia, sem explicação.
-    /// </summary>
-    private void WireDockPanelSync()
-    {
-        Espelhar(ChkTaskbar, ChkDockBars);
-        Espelhar(ChkPcPanel, ChkDockHardware);
-        Espelhar(ChkRateTaskbar, ChkDockRate);
-        Espelhar(TbLeft, DockBarsStart);
-        Espelhar(TbRight, DockBarsEnd);
-        Espelhar(PcLeft, DockPcStart);
-        Espelhar(PcRight, DockPcEnd);
-
-        void Espelhar(ToggleButton a, ToggleButton b)
-        {
-            a.Checked += (_, _) => Copiar(a, b);
-            a.Unchecked += (_, _) => Copiar(a, b);
-            b.Checked += (_, _) => Copiar(b, a);
-            b.Unchecked += (_, _) => Copiar(b, a);
-        }
-
-        void Copiar(ToggleButton de, ToggleButton para)
-        {
-            if (!_ready || para.IsChecked == de.IsChecked) return;
-
-            // sem a trava, cada cópia dispararia a cópia de volta
-            var antes = _ready;
-            _ready = false;
-            para.IsChecked = de.IsChecked;
-            _ready = antes;
-            MarkDirty();
-        }
     }
 
     private string _gameTarget = "";
