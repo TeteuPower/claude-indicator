@@ -23,20 +23,31 @@ public enum TaskbarLook
 }
 
 /// <summary>
-/// Aparência da barra de tarefas do <b>Windows</b>, pela mesma API de composição que o app usa na
-/// barra própria — é o que o TranslucentTB faz, e é o que permite este app substituí-lo em vez de
-/// os dois brigarem pelo mesmo efeito.
+/// Aparência da barra de tarefas do <b>Windows</b>, pela política de acento do compositor
+/// (<c>SetWindowCompositionAttribute</c>) — a API que ficou conhecida justamente por isso.
 ///
-/// Três cuidados que o tipo existe para garantir:
+/// <b>Aviso medido:</b> no Windows 11 build 26200 desta máquina ela <b>não muda a barra</b>. O teste
+/// que decidiu: com a área de trabalho à vista (janelas minimizadas), fotos da faixa da barra mais
+/// 60 px de papel de parede acima, comparando o nativo com os quatro estados (tom, transparente,
+/// desfoque, acrílico), tom de 0 a 65%, aplicados na <c>Shell_TrayWnd</c> <b>e</b> em cada
+/// janela-filha grande dela — a ilha XAML (<c>DesktopWindowContentBridge</c>), a
+/// <c>CoreWindow</c>, a <c>ReBarWindow32</c>, a lista de tarefas. Todas as fotos saíram iguais.
+///
+/// Antes disso eu havia concluído o contrário, comparando a <i>cor média</i> da faixa: a média
+/// mudava, mas por causa do que passava atrás da barra, não do efeito. Métrica cega leva a
+/// conclusão errada com toda a aparência de rigor.
+///
+/// Programas que conseguem hoje, como o TranslucentTB, chegam lá por outro caminho — mexendo na
+/// árvore de composição da barra, não pela política de acento. O tipo fica porque a API continua
+/// valendo onde funciona (Windows 10 e builds anteriores do 11) e porque é a base pronta se o
+/// caminho mais profundo for implementado. A tela avisa que aqui pode não mudar nada.
+///
+/// Dois cuidados que o tipo garante:
 ///
 /// 1. <b>Toda barra, não só a principal.</b> Com "mostrar a barra em todas as telas" ligado existe
-///    uma janela por monitor, e estilizar só a principal deixa as outras destoando.
-/// 2. <b>Reaplicar.</b> O Explorer recria as janelas da barra ao reiniciar (e ele reinicia sozinho
-///    mais do que se imagina), e o efeito não sobrevive à janela antiga. Sem reaplicar, a barra
-///    volta ao normal e parece que o app parou de funcionar.
-/// 3. <b>Devolver.</b> Sair do app tem que devolver a barra ao estado do sistema — e tirar o efeito
-///    <b>não é suficiente</b>: medido, a barra fica escura e a translucidez nativa do Windows 11 não
-///    volta sozinha. Precisa de um empurrão para o shell se redesenhar.
+///    uma janela por monitor, e estilizar só a principal deixaria as outras destoando.
+/// 2. <b>Devolver.</b> Sair do app devolve a barra ao estado do sistema, e tirar o acento pode não
+///    bastar: por precaução, o shell também é avisado para se redesenhar.
 /// </summary>
 public static class TaskbarStyler
 {
@@ -83,12 +94,10 @@ public static class TaskbarStyler
     /// <summary>
     /// Devolve as barras ao desenho do sistema.
     ///
-    /// Tirar o acento sozinho não devolve nada: medindo a cor média da faixa, o nativo é #35303F, com
-    /// desfoque vira #323332, e ao remover o acento fica #313331 — escuro, sem a translucidez do
-    /// Windows. O que traz de volta é avisar o shell para se redesenhar: mensagem de tema na própria
-    /// barra e, principalmente, a difusão de "ImmersiveColorSet", que devolveu exatamente o #35303F
-    /// nativo. Sem isso, quem desligasse a opção ficaria com a barra pior do que antes de instalar o
-    /// app — e sem saber por quê.
+    /// Além de tirar o acento, pede ao shell que se redesenhe: mensagem de tema nas janelas da barra
+    /// e a difusão de "ImmersiveColorSet", que é o que o Windows manda quando o tema muda. Por
+    /// precaução: onde o acento funciona, removê-lo pode deixar a barra sem o material do sistema
+    /// até algo forçar o redesenho, e o app não deve devolver a barra pior do que a pegou.
     /// </summary>
     public static void Restore()
     {

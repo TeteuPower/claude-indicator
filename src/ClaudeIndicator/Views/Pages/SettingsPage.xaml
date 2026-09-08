@@ -820,7 +820,12 @@
                         <StackPanel>
                             <TextBlock Text="Aparência da barra do Windows" Style="{StaticResource Title}"/>
                             <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4" TextWrapping="Wrap"
-                                       Text="O app pede o efeito ao compositor do Windows, a mesma API que a barra própria usa e que programas como o TranslucentTB usam. Se você tem um deles rodando, feche: os dois reaplicando efeitos diferentes na mesma janela ficam brigando."/>
+                                       Text="O app pede o efeito ao compositor do Windows pela política de acento — a API conhecida para isso. Se você tem um programa do gênero rodando (TranslucentTB e afins), feche: dois reaplicando efeitos diferentes na mesma janela ficam brigando."/>
+                            <Border Margin="0,6,0,0" CornerRadius="8" Padding="12,10"
+                                    Background="#22E8B04B" BorderBrush="#55E8B04B" BorderThickness="1">
+                                <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
+                                           Text="Medido no Windows 11 build 26200: esta API NÃO muda a barra. O teste comparou fotos da barra com a área de trabalho à vista, nos quatro efeitos, com tom de 0 a 65%, aplicados na janela da barra e em cada janela-filha dela — todas iguais. Programas que conseguem hoje mexem na árvore de composição da barra, que é outro caminho e ainda não está implementado aqui. As opções continuam porque a API vale no Windows 10 e em builds anteriores do 11."/>
+                            </Border>
 
                             <TextBlock Text="Efeito" Style="{StaticResource FieldLabel}" Margin="0,14,0,5"/>
                             <Border Style="{StaticResource SegmentGroup}">
@@ -852,13 +857,13 @@
                                     <ColumnDefinition Width="70"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="Tom" VerticalAlignment="Center" FontSize="12.5"/>
-                                <Slider x:Name="SldTbTint" Grid.Column="1" Minimum="0.2" Maximum="1" Value="0.65"
+                                <Slider x:Name="SldTbTint" Grid.Column="1" Minimum="0" Maximum="1" Value="0.65"
                                         VerticalAlignment="Center" Margin="8,0" ValueChanged="OnTaskbarTintChanged"/>
                                 <TextBlock x:Name="LblTbTint" Grid.Column="2" Text="65%" VerticalAlignment="Center"
                                            HorizontalAlignment="Right" Foreground="{StaticResource MutedBrush}"/>
                             </Grid>
                             <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0" TextWrapping="Wrap"
-                                       Text="O tom é a cor do app por cima do efeito: quanto mais alto, mais escura a barra e menos o fundo aparece. Em &quot;Opaca&quot; ele não vale — opaca com tom pela metade não seria opaca. O mínimo é 20% porque o efeito entra ATRÁS do fundo que a própria barra do Windows pinta: com tom mais baixo que isso, nada aparece e parece que a opção não funcionou."/>
+                                       Text="O tom é a cor do app por cima do efeito: quanto mais alto, mais escura a barra e menos o fundo aparece. Zero é a barra limpa, sem tom. Em &quot;Opaca&quot; o tom não vale — opaca com tom pela metade não seria opaca."/>
 
                             <CheckBox x:Name="ChkDockFollowTaskbar" Style="{StaticResource Switch}" Margin="0,16,0,0"
                                       Content="A barra própria segue este estilo"/>
@@ -866,7 +871,7 @@
                                        Text="Ligado, as duas barras ficam com o mesmo vidro e o mesmo tom — e os controles de fundo em Barra própria passam a seguir daqui. Desligado, cada uma tem a sua aparência."/>
 
                             <TextBlock Style="{StaticResource Hint}" Margin="0,14,0,0" TextWrapping="Wrap"
-                                       Text="O efeito é reaplicado a cada dois segundos, e isso não é precaução: medido nesta máquina, o shell desfaz o efeito por conta própria entre 10 e 20 segundos, sem avisar. Por isso programas do gênero também reaplicam sem parar. O custo por vez é achar as janelas da barra e mandar um atributo em cada. Também reaplica na hora quando o Windows avisa que recriou a barra, quando as telas mudam e quando o compositor reinicia. Ao desligar ou sair, o app devolve a barra ao desenho do sistema — e tirar o efeito não basta para isso, é preciso pedir ao shell que se redesenhe."/>
+                                       Text="O efeito é reaplicado quando o Windows avisa que recriou a barra (reinício do Explorer), quando as telas mudam e quando o compositor reinicia — por aviso, sem relógio. Vale para as barras de TODAS as telas. Ao desligar ou sair, o app devolve a barra ao desenho do sistema e ainda pede ao shell que se redesenhe, para não deixar a barra pior do que a pegou."/>
                         </StackPanel>
                     </Border>
                 </StackPanel>

@@ -1323,16 +1323,16 @@ public partial class SettingsPage : UserControl
                 : Visibility.Collapsed;
         }
 
-        // O que cada modo faz DE FATO neste Windows, medido pela cor média da faixa: o Windows 11
-        // já desenha a barra translúcida, então "transparente" muda pouco, e o que muda de verdade
-        // é escurecer (desfocada) ou uniformizar (opaca). Prometer transparência que o sistema não
-        // entrega seria a mesma armadilha do tom em 0.
+        // Os textos dizem o que o app PEDE, não o que aparece: nesta build do Windows 11 a política
+        // de acento não muda a barra, e isso está no aviso do topo do cartão. Antes aqui havia uma
+        // descrição do que "de fato" acontecia, tirada de uma medição por cor média que não
+        // distinguia o efeito do que passava atrás da barra.
         TbLookHint.Text = look switch
         {
             TaskbarLook.Sistema => "A barra fica como o Windows a desenha, e o app não toca nela.",
-            TaskbarLook.Transparente => "O fundo aparece com o tom por cima. Muda pouco: no Windows 11 a barra já é translúcida de fábrica, então este modo se parece com o normal do sistema.",
-            TaskbarLook.Desfocada => "Desfoque próprio, sem granulado: é o que mais muda a barra — fica escura e uniforme, perdendo o vidro do sistema.",
-            TaskbarLook.Fosca => "Acrílico próprio: desfoque com granulado fino, mantendo o fundo aparecendo por baixo do tom.",
+            TaskbarLook.Transparente => "Pede a barra limpa, com o tom por cima — tom em 0% é o efeito de vidro dos programas do gênero.",
+            TaskbarLook.Desfocada => "Pede desfoque clássico atrás da barra, com o tom por cima.",
+            TaskbarLook.Fosca => "Pede o acrílico do Windows atrás da barra: desfoque com granulado fino.",
             _ => "Cor cheia, sem nada do fundo aparecendo — útil para uniformizar a barra em telas com papéis de parede diferentes."
         };
     }
