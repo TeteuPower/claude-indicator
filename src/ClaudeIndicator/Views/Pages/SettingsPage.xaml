@@ -71,6 +71,10 @@
                             <CheckBox x:Name="ChkGadget" Style="{StaticResource Switch}" Content="Gadget flutuante"/>
                             <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
                                        Text="Janela arrastável que fica por cima dos outros aplicativos."/>
+
+                            <TextBlock x:Name="DockTakeoverHint" Style="{StaticResource Hint}" Margin="0,10,0,0"
+                                       TextWrapping="Wrap" Visibility="Collapsed"
+                                       Text="A barra própria está ligada: os dois painéis acima aparecem nela, e não no espaço livre da barra do Windows. O lado de cada um vale para os dois lugares — veja Barra própria."/>
                         </StackPanel>
                     </Border>
 
@@ -756,19 +760,50 @@
 
                             <TextBlock Style="{StaticResource Hint}" Margin="0,10,0,0" TextWrapping="Wrap"
                                        Text="Fundo em 0% deixa só o conteúdo, sobre o papel de parede ou a janela que estiver atrás. A espessura é em unidades de tela: 46 vale a mesma altura aparente no monitor de 100% e no de 150%."/>
+
+                            <Button x:Name="BtnDockDefaults" Content="Restaurar padrões" Margin="0,12,0,0"
+                                    HorizontalAlignment="Left" Click="OnDockDefaultsClick"
+                                    ToolTip="Volta espessura, fundo e tamanho do conteúdo aos valores de fábrica."/>
                         </StackPanel>
                     </Border>
 
                     <Border Style="{StaticResource Card}">
                         <StackPanel>
-                            <TextBlock Text="O que aparece na barra" Style="{StaticResource Title}"/>
+                            <TextBlock Text="Os painéis dentro dela" Style="{StaticResource Title}"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4" TextWrapping="Wrap"
+                                       Text="Com a barra própria ligada, os painéis mudam de casa: em vez de ocupar o espaço livre da barra do Windows, eles aparecem aqui — com as mesmas preferências, e sem interruptor duplicado. Estes são os mesmos de Painéis: mexer aqui mexe lá."/>
 
-                            <CheckBox x:Name="ChkDockBars" Style="{StaticResource Switch}" Content="Limites da assinatura"/>
-                            <CheckBox x:Name="ChkDockHardware" Style="{StaticResource Switch}" Content="Sensores do computador"/>
-                            <CheckBox x:Name="ChkDockRate" Style="{StaticResource Switch}" Content="Velocímetro do ritmo"/>
+                            <CheckBox x:Name="ChkDockBars" Style="{StaticResource Switch}" Content="Painel da assinatura (limites)"/>
+                            <TextBlock Text="Lado dele na barra" Style="{StaticResource FieldLabel}" Margin="27,6,0,5"/>
+                            <Border Style="{StaticResource SegmentGroup}" Margin="27,0,0,0" HorizontalAlignment="Left">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton x:Name="DockBarsStart" GroupName="DockBarsSide" Style="{StaticResource Segment}"
+                                                 Content="No começo"/>
+                                    <RadioButton x:Name="DockBarsEnd" GroupName="DockBarsSide" Style="{StaticResource Segment}"
+                                                 Content="No fim"/>
+                                </StackPanel>
+                            </Border>
 
-                            <TextBlock Style="{StaticResource Hint}" Margin="0,10,0,0" TextWrapping="Wrap"
-                                       Text="Quais limites e quais sensores entram é o que já estiver escolhido em Barras e no painel do computador — aqui se decide se o bloco aparece nesta barra. A linha do tempo das consultas segue o interruptor em Sistema. Atalhos de aplicativos ficam para depois."/>
+                            <CheckBox x:Name="ChkDockHardware" Style="{StaticResource Switch}" Content="Painel do computador (sensores)"
+                                      Margin="0,16,0,0"/>
+                            <TextBlock Text="Lado dele na barra" Style="{StaticResource FieldLabel}" Margin="27,6,0,5"/>
+                            <Border Style="{StaticResource SegmentGroup}" Margin="27,0,0,0" HorizontalAlignment="Left">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton x:Name="DockPcStart" GroupName="DockPcSide" Style="{StaticResource Segment}"
+                                                 Content="No começo"/>
+                                    <RadioButton x:Name="DockPcEnd" GroupName="DockPcSide" Style="{StaticResource Segment}"
+                                                 Content="No fim"/>
+                                </StackPanel>
+                            </Border>
+
+                            <CheckBox x:Name="ChkDockRate" Style="{StaticResource Switch}" Content="Velocímetro do ritmo"
+                                      Margin="0,16,0,0"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="27,2,0,0" TextWrapping="Wrap"
+                                       Text="Ele acompanha o painel da assinatura, como acompanha na barra de tarefas."/>
+
+                            <TextBlock x:Name="DockSideHint" Style="{StaticResource Hint}" Margin="0,14,0,0" TextWrapping="Wrap"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                       Text="Quais limites e quais sensores entram continua sendo o que está escolhido em Barras e no painel do computador. A linha do tempo das consultas segue o interruptor em Sistema. Atalhos de aplicativos ficam para depois."/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
