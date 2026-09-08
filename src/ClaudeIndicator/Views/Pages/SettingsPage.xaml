@@ -846,13 +846,13 @@
                                     <ColumnDefinition Width="70"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="Tom" VerticalAlignment="Center" FontSize="12.5"/>
-                                <Slider x:Name="SldTbTint" Grid.Column="1" Minimum="0" Maximum="1" Value="0.65"
+                                <Slider x:Name="SldTbTint" Grid.Column="1" Minimum="0.2" Maximum="1" Value="0.65"
                                         VerticalAlignment="Center" Margin="8,0" ValueChanged="OnTaskbarTintChanged"/>
                                 <TextBlock x:Name="LblTbTint" Grid.Column="2" Text="65%" VerticalAlignment="Center"
                                            HorizontalAlignment="Right" Foreground="{StaticResource MutedBrush}"/>
                             </Grid>
                             <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0" TextWrapping="Wrap"
-                                       Text="O tom é a cor do app por cima do efeito: quanto mais alto, mais escura a barra e menos o fundo aparece. Em &quot;Opaca&quot; ele não vale — opaca com tom pela metade não seria opaca."/>
+                                       Text="O tom é a cor do app por cima do efeito: quanto mais alto, mais escura a barra e menos o fundo aparece. Em &quot;Opaca&quot; ele não vale — opaca com tom pela metade não seria opaca. O mínimo é 20% porque o efeito entra ATRÁS do fundo que a própria barra do Windows pinta: com tom mais baixo que isso, nada aparece e parece que a opção não funcionou."/>
 
                             <CheckBox x:Name="ChkDockFollowTaskbar" Style="{StaticResource Switch}" Margin="0,16,0,0"
                                       Content="A barra própria segue este estilo"/>

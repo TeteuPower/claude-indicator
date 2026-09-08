@@ -180,7 +180,14 @@ public class AppSettings
     /// </summary>
     public TaskbarLook TaskbarLook { get; set; } = TaskbarLook.Sistema;
 
-    /// <summary>Opacidade do tom sobre o efeito da barra do Windows.</summary>
+    /// <summary>
+    /// Opacidade do tom sobre o efeito da barra do Windows.
+    ///
+    /// Tem piso de 0,2, e não é capricho: o efeito entra <b>atrás</b> do fundo que a própria barra
+    /// pinta, então é o tom que de fato aparece. Testado com foto da barra — em 0 as três
+    /// aparências saem idênticas ao sistema, e o usuário conclui, com razão, que a opção não
+    /// funciona.
+    /// </summary>
     public double TaskbarTint { get; set; } = 0.65;
 
     /// <summary>
@@ -554,7 +561,11 @@ public class AppSettings
         DockWidth = Math.Clamp(DockWidth, 72, 420);
         DockHeight = Math.Clamp(DockHeight, 28, 160);
         DockOpacity = Math.Clamp(DockOpacity, 0, 1);
-        TaskbarTint = Math.Clamp(TaskbarTint, 0, 1);
+        // Valor abaixo do piso vem de antes de o piso existir: em vez de encostar no mínimo — que
+        // é discreto — volta ao padrão, o ponto onde o efeito se vê sem dúvida. Quem escolher 20%
+        // de propósito continua com 20%.
+        if (TaskbarTint < 0.2) TaskbarTint = 0.65;
+        TaskbarTint = Math.Clamp(TaskbarTint, 0.2, 1);
         DockScale = Math.Clamp(DockScale, 0.7, 1.8);
     }
 

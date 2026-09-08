@@ -1255,6 +1255,18 @@ public partial class SettingsPage : UserControl
     // Barra própria
     // ------------------------------------------------------------------
 
+    /// <summary>
+    /// O que a barra própria está mostrando agora, quando o fosco está em jogo. Efeito que o
+    /// Windows recusou tem que dizer que recusou: sem isso, "ficou preto" é um mistério em vez de
+    /// uma frase que aponta o culpado.
+    /// </summary>
+    private string EstadoDoFosco() => _host.DockFoscoAtivo switch
+    {
+        true => "\n\nAgora: fosco no ar.",
+        false => "\n\nAgora: o Windows recusou o efeito nesta barra, e o fundo voltou a ser opaco.",
+        _ => ""
+    };
+
     private void OnTaskbarLookChanged(object sender, RoutedEventArgs e)
     {
         if (!_ready) return;
@@ -1379,13 +1391,14 @@ public partial class SettingsPage : UserControl
         if (DockFrostedHint != null && seguindo)
         {
             DockFrostedHint.Text = "A barra própria está seguindo o estilo da barra do Windows: "
-                                   + "o fosco e o tom vêm de lá, em Barra do Windows.";
+                                   + "o fosco e o tom vêm de lá, em Barra do Windows." + EstadoDoFosco();
         }
         else if (DockFrostedHint != null)
         {
-            DockFrostedHint.Text = ChkDockFrosted?.IsChecked == true
-                ? "O desfoque é do compositor do Windows, o mesmo da barra de tarefas do sistema, e fica ATRÁS do fundo: o controle acima continua sendo o tom da barra, agora por cima do vidro. Em 100% o tom cobre o desfoque; perto de 50% a barra fica escura e o efeito ainda aparece."
-                : "Deixa o que está atrás da barra desfocado, em vez de simplesmente translúcido. Ligar ou desligar recria a barra: o desfoque e a transparência por pixel do WPF são exclusivos e se decidem antes de a janela existir.";
+            DockFrostedHint.Text = (ChkDockFrosted?.IsChecked == true
+                ? "O desfoque é do compositor do Windows, o mesmo da barra de tarefas do sistema, e fica ATRÁS do fundo: o controle acima continua sendo o tom da barra, agora por cima do vidro. Em 100% o tom cobre o desfoque."
+                : "Deixa o que está atrás da barra desfocado, em vez de simplesmente translúcido. Ligar ou desligar recria a barra: o desfoque e a transparência por pixel do WPF são exclusivos e se decidem antes de a janela existir.")
+                + EstadoDoFosco();
         }
 
         if (ChkDockFollowTaskbar != null && LblDockOpacity != null)
