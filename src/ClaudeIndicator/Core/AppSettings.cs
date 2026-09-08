@@ -513,7 +513,10 @@ public class AppSettings
 
         // Barra própria: espessura tem piso e teto porque ela sai da área útil da tela. Uma faixa
         // de 4 px não mostra nada e uma de meia tela deixaria o Windows sem espaço para trabalhar.
-        DockWidth = Math.Clamp(DockWidth, 120, 420);
+        // O piso é 80: abaixo disso a linha "27% 68°" não caberia mais, e uma barra que corta o
+        // próprio número não serve para nada. Antes era 120, mas com o termômetro embutido na
+        // coluna e as bolinhas na lateral o conteúdo passou a caber em bem menos.
+        DockWidth = Math.Clamp(DockWidth, 80, 420);
         DockHeight = Math.Clamp(DockHeight, 28, 160);
         DockOpacity = Math.Clamp(DockOpacity, 0, 1);
         DockScale = Math.Clamp(DockScale, 0.7, 1.8);

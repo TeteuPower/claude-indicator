@@ -244,6 +244,11 @@ public partial class DockWindow : Window
             }
 
             Empilhar(grade, deCima, Peso(deCima));
+
+            // linha entre os dois: são assuntos diferentes — assinatura e computador — e sem ela
+            // as seis colunas viram uma lista só, onde a Fable e a CPU parecem do mesmo grupo
+            if (deCima != null && deBaixo != null) Empilhar(grade, PanelStyle.HorizontalDivider(), 0);
+
             Empilhar(grade, deBaixo, Peso(deBaixo));
 
             if (grade.Children.Count > 0)
@@ -279,11 +284,20 @@ public partial class DockWindow : Window
     private static int Peso(UIElement? bloco) =>
         bloco is FrameworkElement fe && fe.Tag is int n && n > 0 ? n : 1;
 
+    /// <summary>
+    /// Mais uma linha na pilha. Peso zero é para o que tem tamanho próprio — o separador —, e o
+    /// resto divide a altura em proporção ao número de indicadores: assim as colunas dos dois
+    /// painéis saem do mesmo tamanho, em vez de o painel com menos indicadores ganhar colunas
+    /// mais altas.
+    /// </summary>
     private static void Empilhar(Grid grade, UIElement? bloco, int peso)
     {
         if (bloco == null) return;
 
-        grade.RowDefinitions.Add(new RowDefinition { Height = new GridLength(peso, GridUnitType.Star) });
+        grade.RowDefinitions.Add(new RowDefinition
+        {
+            Height = peso > 0 ? new GridLength(peso, GridUnitType.Star) : GridLength.Auto
+        });
         Grid.SetRow(bloco, grade.RowDefinitions.Count - 1);
         grade.Children.Add(bloco);
     }

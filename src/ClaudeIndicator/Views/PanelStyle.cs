@@ -332,7 +332,9 @@ public static class PanelStyle
                 RampaAte(Math.Clamp((c.Load.Value ?? 0) / 100.0, 0, 1)), 10 * scale, double.NaN, null,
                 FundoDaTrilha(s), TrilhaBorda, BordaDaTrilha(s)),
             scale,
-            temp != null ? MeterRenderer.Thermometer(temp.Value, 7 * scale, s.PanelOutline) : null,
+            // mesma espessura do trilho de uso: os dois medem o mesmo componente, e um mais
+            // magro que o outro sugeria hierarquia que não existe
+            temp != null ? MeterRenderer.Thermometer(temp.Value, 10 * scale, s.PanelOutline) : null,
             temp != null ? $"{temp.Value:0}°" : null,
             temp != null ? new SolidColorBrush(MeterRenderer.TempRamp(temp.Value)) : null);
 
