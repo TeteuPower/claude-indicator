@@ -442,12 +442,25 @@ entender:
 3. **Devolver ao sair.** Efeito deixado para trás por um programa que já fechou só sai reiniciando o
    Explorer — e a culpa fica com o Windows, não com quem deixou.
 
-A reaplicação é **por aviso, não por relógio**: o app mantém uma janela oculta escutando o
-`TaskbarCreated` (a difusão que o shell manda quando recria a barra), mais mudança de telas, troca de
-tema e reinício do compositor. A primeira versão perguntava a cada três segundos; o custo era
-irrisório — achar três janelas e mandar um atributo — mas perguntar sem parar por algo que o sistema
-avisa é desperdício de princípio. O ciclo de consulta ao consumo, que já existe, reaplica também,
-como rede de segurança sem relógio novo.
+A reaplicação é **por relógio E por aviso**, e o relógio não é precaução: medindo a cor média da
+faixa, o shell **desfaz o efeito sozinho entre 10 e 20 segundos**, sem emitir aviso nenhum. Houve uma
+versão que trocou o relógio por eventos "porque perguntar sem parar é desperdício de princípio" — e o
+efeito passou a durar alguns segundos. O relógio voltou, a dois segundos, e é por isso que programas
+do gênero também reaplicam sem parar. Os avisos continuam: uma janela oculta escuta o
+`TaskbarCreated` (difusão do shell ao recriar a barra), mudança de telas, troca de tema e reinício do
+compositor — para reagir na hora, sem esperar o próximo tique.
+
+**Devolver não é só tirar o efeito.** Medido: o nativo é `#35303F`, com desfoque vira `#323332` e, ao
+remover o acento, fica `#313331` — escuro, sem a translucidez do Windows, que não volta sozinha. O
+que traz de volta é pedir ao shell que se redesenhe: mensagem de tema nas janelas da barra e a
+difusão de `ImmersiveColorSet`, que devolveu exatamente o `#35303F`. Sem isso, desligar a opção
+deixaria a barra pior do que antes de instalar o app.
+
+**O que esperar de cada modo neste Windows.** A barra do Windows 11 já é translúcida de fábrica, e
+isso limita o que a API dá: *Transparente* muda pouco (fica parecido com o normal do sistema),
+*Desfocada* é o que mais muda (escura e uniforme, perdendo o vidro do sistema), *Fosca* mantém o fundo
+aparecendo sob o tom, e *Opaca* uniformiza. Uma barra **mais** transparente que a do sistema não sai
+por esse caminho aqui.
 
 ### Rodar como administrador atrapalha o vidro
 

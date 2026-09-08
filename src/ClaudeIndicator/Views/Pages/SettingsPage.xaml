@@ -866,7 +866,7 @@
                                        Text="Ligado, as duas barras ficam com o mesmo vidro e o mesmo tom — e os controles de fundo em Barra própria passam a seguir daqui. Desligado, cada uma tem a sua aparência."/>
 
                             <TextBlock Style="{StaticResource Hint}" Margin="0,14,0,0" TextWrapping="Wrap"
-                                       Text="O efeito é reaplicado quando o Windows avisa que recriou a barra (reinício do Explorer), quando as telas mudam e quando o compositor reinicia — por aviso, não por relógio. Vale para as barras de TODAS as telas. Ao sair, o app devolve a barra ao desenho do sistema, porque efeito deixado para trás por um programa que já fechou só sai reiniciando o Explorer."/>
+                                       Text="O efeito é reaplicado a cada dois segundos, e isso não é precaução: medido nesta máquina, o shell desfaz o efeito por conta própria entre 10 e 20 segundos, sem avisar. Por isso programas do gênero também reaplicam sem parar. O custo por vez é achar as janelas da barra e mandar um atributo em cada. Também reaplica na hora quando o Windows avisa que recriou a barra, quando as telas mudam e quando o compositor reinicia. Ao desligar ou sair, o app devolve a barra ao desenho do sistema — e tirar o efeito não basta para isso, é preciso pedir ao shell que se redesenhe."/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
