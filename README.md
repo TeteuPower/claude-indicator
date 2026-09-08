@@ -246,6 +246,9 @@ O que continua sendo reação e não escolha:
   - o bloco de sensores usa os mesmos componentes escolhidos para o painel do computador, e ligá-lo
     liga a leitura de sensores mesmo com aquele painel desligado
   - o interruptor do velocímetro é o mesmo que existe em *Ritmo*: mexer em um mexe no outro
+- **Barra própria**: mostrar, borda (topo, esquerda ou direita), tela, reservar espaço na área útil,
+  ficar sempre por cima, sair da frente de jogo em tela cheia, espessura, transparência do fundo,
+  tamanho do conteúdo e quais painéis aparecem nela
 - **Ritmo**: velocímetro no painel da barra e/ou no gadget, de qual limite ele acompanha, a janela
   da média (5 min a 24 h) e a marca do tempo decorrido nas barras
 - **Histórico de consumo**: guardar tudo (padrão) ou apagar registros com mais de N dias
@@ -257,7 +260,8 @@ O que continua sendo reação e não escolha:
 
 As configurações são navegadas por um trilho lateral agrupado por assunto — **Claude** (barras,
 ritmo, conta), **Computador** (painéis, no jogo) e **Aplicativo** (sistema, dados, avançado) — em
-vez de uma fileira de abas genéricas. A troca de painel desliza suavemente e volta ao topo, porque
+vez de uma fileira de abas genéricas — a barra própria fica em *Computador*. A troca de painel
+desliza suavemente e volta ao topo, porque
 cada painel é um assunto novo.
 
 O painel **Desempenho do PC**, na navegação principal, mostra uso, temperatura e watts ao longo do
@@ -273,6 +277,44 @@ A barra de salvar só aparece quando existe alteração pendente, e "Descartar" 
 gravado.
 
 As preferências ficam em `%APPDATA%\ClaudeIndicator\settings.json`.
+
+## Barra própria
+
+Uma **barra de tarefas sua**, encostada numa borda que o Windows deixou livre — topo, esquerda ou
+direita — com os painéis do app dentro. O rodapé não é oferecido de propósito: lá já está a barra do
+Windows, e duas barras na mesma borda só reservam o dobro de espaço.
+
+O que a torna uma barra de verdade, e não uma janela encostada na borda, é o registro como
+**barra de aplicativo** (`SHAppBarMessage`) — a mesma API que a barra do Windows usa e que os docks
+antigos usavam:
+
+- **Reservar espaço na tela**: o shell tira aquela faixa da área útil e janela maximizada para nela,
+  em vez de passar por baixo.
+- **Ficar sempre por cima**: mantém a barra na frente de quem for arrastado para cima dela.
+
+Os dois são independentes e podem valer ao mesmo tempo — que é justamente como a barra do Windows se
+comporta. Só o segundo, e a barra flutua sem mexer na área útil; só o primeiro, e ela cede a frente
+para janelas soltas mas continua com o seu espaço garantido.
+
+Também dá para escolher a **tela** (qualquer uma — a barra própria não depende de haver barra do
+Windows naquele monitor), a **espessura** (guardada em separado para a barra em pé e a deitada), a
+**transparência do fundo** (0% deixa só o conteúdo, sobre o papel de parede) e o **tamanho do
+conteúdo**.
+
+Dentro dela vão os painéis que já existem no app: **limites da assinatura**, **sensores do
+computador** e **velocímetro do ritmo**, cada um com seu interruptor, mais a linha do tempo das
+consultas. Em pé, cada painel é uma linha empilhada, no desenho do gadget; deitada, cada um é uma
+célula lado a lado, no desenho do painel da barra de tarefas. Atalhos de aplicativos ficam para
+depois.
+
+Duas coisas que o código garante, e que faltando quebram a experiência de forma difícil de entender:
+
+1. **Toda medida é em pixels de tela.** O shell fala em pixels e a espessura é escolhida em unidades
+   de tela: 46 unidades viram 46 px no monitor de 100% e 80 px no de 175%, mantendo a mesma altura
+   aparente nos dois.
+2. **Quem reserva, devolve.** Uma faixa reservada por uma janela que morreu fica presa até o
+   Explorer reiniciar. A remoção acontece ao fechar a barra, ao sair do app e no encerramento do
+   processo — e desligar a barra fecha a janela, em vez de apenas escondê-la.
 
 ## Uso no dia a dia
 
@@ -688,7 +730,8 @@ src/ClaudeIndicator/
     SessionState.cs      retrato da última leitura e dos últimos ciclos, para reabrir sabendo
     TranscriptIndex.cs   índice incremental das transcrições do Claude Code
     TrayIconRenderer.cs  desenha o ícone da bandeja em tempo real
-    TaskbarInfo.cs       geometria da barra de tarefas e espaço livre nela
+    TaskbarInfo.cs       geometria da barra de tarefas, dos monitores e espaço livre nela
+    DesktopAppBar.cs     registra a barra própria como appbar do Windows (reserva a faixa)
     EtwSession.cs        sessão de rastreamento do Windows: eventos de quadro apresentado
     FrameRateMonitor.cs  carimbos de quadro -> FPS, tempo de quadro e 1% low por processo
     GameDetector.cs      resolve qual janela recebe o indicador (escolhida ou adivinhada)
@@ -702,6 +745,7 @@ src/ClaudeIndicator/
     MainWindow.xaml      painel: navegação lateral + página escolhida
     GadgetWindow.xaml    gadget transparente, arrastável, sempre por cima
     TaskbarBarWindow.xaml  faixa ancorada no espaço livre da barra de tarefas
+    DockWindow.xaml        a barra própria: borda livre da tela, com os painéis dentro
     GameOverlayWindow.xaml indicadores por cima do jogo, sem foco e sem receber clique
     GamePickerWindow.xaml  lista de janelas abertas para escolher o jogo
     OutlinedText.cs        texto com contorno, legível sobre qualquer fundo
