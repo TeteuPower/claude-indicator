@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Shapes;
@@ -140,6 +141,137 @@ public static class BarRenderer
         Grid.SetColumn(marca, 1);
         grade.Children.Add(marca);
         return grade;
+    }
+
+    /// <summary>
+    /// Trilho <b>em pé</b>, enchendo de baixo para cima, com a marca do tempo atravessando na
+    /// altura do decorrido.
+    ///
+    /// Existe para a barra própria em pé. Numa faixa estreita e alta, trilhos deitados um sobre o
+    /// outro gastam a altura e desperdiçam a largura; em colunas lado a lado, cada limite ganha
+    /// espaço para crescer e a barra sobra para o que vier depois. É a mesma leitura das barras
+    /// deitadas, girada: mesmas cores, mesma trilha, mesma marca de tempo — só o eixo muda.
+    /// </summary>
+    public static UIElement VerticalTrack(double fraction, Brush fill, double width, double height,
+        double? timeFraction)
+    {
+        var raio = width / 2;
+        var track = new Border
+        {
+            Width = width,
+            Height = height,
+            CornerRadius = new CornerRadius(raio),
+            Background = Swatch("TrackBrush"),
+            ClipToBounds = true
+        };
+
+        var grade = new Grid();
+        var f = Math.Clamp(fraction, 0, 1);
+
+        // vazio em cima, cheio embaixo: é o que dá o sentido de "enche subindo"
+        grade.RowDefinitions.Add(new RowDefinition { Height = new GridLength(Math.Max(1 - f, 0.0001), GridUnitType.Star) });
+        grade.RowDefinitions.Add(new RowDefinition { Height = new GridLength(Math.Max(f, 0.0001), GridUnitType.Star) });
+
+        var enchimento = new Border
+        {
+            CornerRadius = new CornerRadius(raio),
+            Background = fill,
+            MinHeight = f > 0 ? 4 : 0
+        };
+        Grid.SetRow(enchimento, 1);
+        grade.Children.Add(enchimento);
+        track.Child = grade;
+
+        if (timeFraction == null) return track;
+
+        var pilha = new Grid { HorizontalAlignment = HorizontalAlignment.Center };
+        pilha.Children.Add(track);
+        pilha.Children.Add(VerticalTimeMarker(timeFraction.Value, width));
+        return pilha;
+    }
+
+    /// <summary>
+    /// Marca do tempo no trilho em pé: uma linha atravessando na altura do que já passou da janela.
+    /// Fica acima do enchimento quando sobra limite e abaixo quando o consumo corre na frente do
+    /// relógio — é a comparação que a marca existe para permitir, num relance.
+    /// </summary>
+    private static UIElement VerticalTimeMarker(double fraction, double trackWidth)
+    {
+        var grade = new Grid { IsHitTestVisible = false };
+
+        var f = Math.Clamp(fraction, 0, 1);
+        grade.RowDefinitions.Add(new RowDefinition { Height = new GridLength(Math.Max(1 - f, 0.0001), GridUnitType.Star) });
+        grade.RowDefinitions.Add(new RowDefinition { Height = new GridLength(Math.Max(f, 0.0001), GridUnitType.Star) });
+
+        var marca = new Border
+        {
+            Height = 4,
+            Width = trackWidth + 6,
+            Background = MarcaClara,
+            BorderBrush = MarcaEscura,
+            BorderThickness = new Thickness(0, 1, 0, 1),
+            VerticalAlignment = VerticalAlignment.Top,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            // meia altura para cima: a marca fica centrada no ponto, e não começando nele
+            Margin = new Thickness(0, -2, 0, 0)
+        };
+        Grid.SetRow(marca, 1);
+        grade.Children.Add(marca);
+        return grade;
+    }
+
+    /// <summary>
+    /// Um limite como coluna, para a barra própria em pé: porcentagem em cima, trilho vertical no
+    /// meio, rótulo embaixo.
+    ///
+    /// O horário de renovação <b>não</b> vira texto aqui: ele já está na marca que atravessa o
+    /// trilho, que diz a mesma coisa ocupando zero linha — e numa coluna de 60 px "reseta em 6d 4h"
+    /// não caberia mesmo. O texto continua no balão, para quem quiser o número exato.
+    /// </summary>
+    public static UIElement BuildColumn(UsageBar bar, AppSettings s, double trackHeight)
+    {
+        var coluna = new StackPanel { Margin = new Thickness(3, 0, 3, 0) };
+
+        coluna.Children.Add(new TextBlock
+        {
+            Text = Math.Round(bar.Percent).ToString("0") + "%",
+            FontSize = 11.5,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = BrushFor(bar.Percent, s),
+            HorizontalAlignment = HorizontalAlignment.Center
+        });
+
+        var trilho = VerticalTrack(bar.Fraction, BrushFor(bar.Percent, s), 12, trackHeight,
+            s.ShowTimeProgress ? bar.TimeFraction() : null);
+        if (trilho is FrameworkElement fe)
+        {
+            fe.HorizontalAlignment = HorizontalAlignment.Center;
+            fe.Margin = new Thickness(0, 5, 0, 0);
+        }
+        coluna.Children.Add(trilho);
+
+        coluna.Children.Add(new TextBlock
+        {
+            Text = s.LabelFor(bar.Kind),
+            FontSize = 10,
+            Foreground = Swatch("MutedBrush"),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            Margin = new Thickness(0, 6, 0, 0)
+        });
+
+        var balao = new StringBuilder();
+        balao.Append(s.LabelFor(bar.Kind)).Append(" · ").Append(Math.Round(bar.Percent)).Append('%');
+        if (bar.ResetsAt != null) balao.Append('\n').Append(bar.ResetText());
+        var decorrido = bar.TimeProgressText();
+        if (decorrido.Length > 0) balao.Append('\n').Append(decorrido);
+
+        return new Border
+        {
+            Child = coluna,
+            Background = Brushes.Transparent,
+            ToolTip = balao.ToString()
+        };
     }
 
     /// <summary>
