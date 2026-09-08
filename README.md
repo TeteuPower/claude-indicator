@@ -248,8 +248,8 @@ O que continua sendo reação e não escolha:
   - o interruptor do velocímetro é o mesmo que existe em *Ritmo*: mexer em um mexe no outro
 - **Barra própria**: mostrar, borda (topo, esquerda ou direita), tela, reservar espaço na área útil,
   ficar sempre por cima, sair da frente de jogo em tela cheia, espessura, transparência do fundo,
-  tamanho do conteúdo (com botão de restaurar padrões) e, para cada painel que mora nela, o lado que
-  ele ocupa — começo ou fim da barra
+  tamanho do conteúdo (com botão de restaurar padrões) e, para cada painel, se ele aparece nela e em
+  qual lado — começo ou fim da barra, independente do lado que ele usa na barra do Windows
 - **Ritmo**: velocímetro no painel da barra e/ou no gadget, de qual limite ele acompanha, a janela
   da média (5 min a 24 h) e a marca do tempo decorrido nas barras
 - **Histórico de consumo**: guardar tudo (padrão) ou apagar registros com mais de N dias
@@ -302,30 +302,44 @@ Windows naquele monitor), a **espessura** (guardada em separado para a barra em 
 **transparência do fundo** (0% deixa só o conteúdo, sobre o papel de parede) e o **tamanho do
 conteúdo**.
 
-### Os painéis mudam de casa
+### Os painéis dentro dela
 
-Com a barra própria ligada, o **painel da assinatura** e o **painel do computador** deixam de ocupar
-o espaço livre da barra do Windows e aparecem dentro dela — os mesmos painéis, com as mesmas
-preferências, sem interruptor duplicado: são os de *Painéis* que continuam mandando, e mexer neles
-em qualquer uma das duas abas mexe no mesmo lugar. Mostrar os dois ao mesmo tempo seria o mesmo
-bloco duas vezes na tela.
+O **painel da assinatura** (limites), o **painel do computador** (sensores) e o **velocímetro do
+ritmo** têm interruptor próprio na barra: os dois lugares convivem, e o mesmo painel pode estar na
+barra própria e no espaço livre da barra do Windows ao mesmo tempo — numa tela cada. Quais limites e
+quais sensores entram continua sendo o que está escolhido em *Barras* e no painel do computador; o
+que se decide aqui é onde os blocos aparecem.
 
-O **lado** de cada painel também viaja com ele: "à esquerda" vira o começo da barra e "junto ao
-relógio" vira o fim. Assim dá para deixar os limites do Claude numa ponta e os sensores na outra,
-com o meio livre — e a mesma escolha volta a valer quando o painel retorna para a barra do Windows.
-O velocímetro do ritmo acompanha o painel da assinatura, como acompanha lá.
+Cada painel escolhe também o seu **lado**: começo ou fim da barra. Na barra deitada isso é esquerda
+e direita; na em pé, topo e rodapé. Dá para deixar os limites do Claude numa ponta e os sensores na
+outra, e esse lado é separado do que o painel usa na barra do Windows, justamente porque os dois
+podem estar valendo juntos. O botão de trocar o tema do Windows vem junto com os sensores, como
+vem lá.
 
 ### Em pé, os indicadores também ficam em pé
 
-Barra vertical pede medidor vertical. Cada limite vira uma **coluna que enche de baixo para cima**,
-com a porcentagem em cima e o rótulo embaixo, e as colunas ficam lado a lado repartindo a largura.
-Trilhos deitados, um sobre o outro, gastariam a altura e desperdiçariam a largura — que é justamente
-o contrário do que uma faixa estreita e alta tem de sobra.
+Barra vertical pede medidor vertical. Cada limite e cada sensor vira uma **coluna que enche de baixo
+para cima**, com o rótulo em cima e a porcentagem embaixo, e as colunas ficam **empilhadas**,
+dividindo toda a altura que a barra tem para dar — trilhos deitados, um sobre o outro, gastariam a
+altura e desperdiçariam a largura, que é o contrário do que uma faixa estreita e alta tem de sobra.
+O velocímetro e o botão do tema ficam numa linha de tamanho próprio no fim do bloco, para não
+valerem uma coluna cada.
 
-Nessas colunas o horário de renovação **não** vira texto: ele já está na marca que atravessa o
-trilho na altura do tempo decorrido, dizendo a mesma coisa sem ocupar linha nenhuma (e "reseta em
-6d 4h" não caberia numa coluna de 60 px). O número exato continua no balão. A marca acima do
-enchimento significa limite sobrando; abaixo, consumo correndo na frente do relógio.
+Do medidor em pé, o que é **novo é só a orientação**: o texto com contorno, a trilha escura com
+borda clara, a régua de cor e a marca de tempo são os mesmos das células deitadas — o desenho mora
+num lugar só (`PanelStyle`), e o painel que aparece na barra própria é o mesmo painel, não um
+parecido. Duas cópias do mesmo elemento divergem, e aqui divergir tem consequência: o usuário
+reconhece o painel pelo desenho.
+
+Nessas colunas o horário de renovação não vira texto: ele já está na marca que atravessa o trilho na
+altura do tempo decorrido, dizendo a mesma coisa sem ocupar linha nenhuma (e "reseta em 6d 4h" não
+caberia numa coluna de 60 px). O número exato continua no balão. A marca acima do enchimento
+significa limite sobrando; abaixo, consumo correndo na frente do relógio.
+
+A régua de cor dos sensores é **recortada no valor lido**: no trilho deitado o gradiente é medido
+sobre a trilha inteira, então o preenchimento mostra só o pedaço da régua que alcançou. Em pé a
+trilha estica com a barra e não há largura absoluta para medir — sem o recorte, todo sensor
+apareceria verde embaixo e vermelho em cima, mesmo a 20%.
 
 A barra deitada segue com as células lado a lado, no mesmo desenho do painel da barra de tarefas.
 Atalhos de aplicativos ficam para depois.
@@ -772,7 +786,8 @@ src/ClaudeIndicator/
     GameOverlayWindow.xaml indicadores por cima do jogo, sem foco e sem receber clique
     GamePickerWindow.xaml  lista de janelas abertas para escolher o jogo
     OutlinedText.cs        texto com contorno, legível sobre qualquer fundo
-    BarRenderer.cs       desenho das barras (gadget e prévia)
+    BarRenderer.cs       desenho das barras (gadget e prévia) + o trilho em pé
+    PanelStyle.cs        o estilo dos painéis: células deitadas e colunas em pé, uma cópia só
     HardwareRenderer.cs  linhas e células de CPU/GPU/memória no gadget, e os textos dos balões
     Pages/
       OverviewPage.xaml  visão geral: restante, ritmo, projeção e top projetos
