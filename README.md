@@ -257,6 +257,8 @@ intervalo: decisão de quem usa, não uma punição que o app aplica sozinho.
   qual lado — começo ou fim da barra, independente do lado que ele usa na barra do Windows
 - **Barra do Windows**: efeito (não mexer, transparente, desfocada, fosca ou opaca), tom do efeito e
   se a barra própria segue o mesmo estilo
+- **Janelas**: deixar janelas de outros programas translúcidas, a opacidade (25% a 100%), o atalho
+  que liga e desliga na janela em foco e a lista de aplicativos que ficam translúcidos sozinhos
 - **Ritmo**: velocímetro no painel da barra e/ou no gadget, de qual limite ele acompanha, a janela
   da média (5 min a 24 h) e a marca do tempo decorrido nas barras
 - **Histórico de consumo**: guardar tudo (padrão) ou apagar registros com mais de N dias
@@ -267,7 +269,7 @@ intervalo: decisão de quem usa, não uma punição que o app aplica sozinho.
 - **Sistema**: iniciar com o Windows, iniciar sem abrir a janela e intervalo mínimo entre consultas
 
 As configurações são navegadas por um trilho lateral agrupado por assunto — **Claude** (barras,
-ritmo, conta), **Computador** (painéis, no jogo) e **Aplicativo** (sistema, dados, avançado) — em
+ritmo, conta), **Computador** (painéis, janelas, no jogo) e **Aplicativo** (sistema, dados, avançado) — em
 vez de uma fileira de abas genéricas — a barra própria fica em *Computador*. A troca de painel
 desliza suavemente e volta ao topo, porque
 cada painel é um assunto novo.
@@ -448,6 +450,44 @@ reinício (descarregá-la com o XAML ainda apontando para ela derrubaria o Explo
 gancho é padrão de coisa maliciosa — então **o antivírus pode reclamar**, como já reclama da medição
 de FPS. É o preço de fazer o que o TranslucentTB faz, dentro do próprio app. Sem o compilador C++ no
 build, a DLL não é embutida e a tela avisa que a barra do Windows fica indisponível.
+
+## Janelas translúcidas
+
+O efeito daqueles utilitários de antigamente (Glass2k e parentes): a janela **inteira** de outro
+programa fica translúcida — conteúdo incluído — e dá para ver o que está atrás dela. É diferente do
+vidro da barra, onde só o fundo desfoca e o texto continua nítido; aqui o conteúdo desbota junto, e
+por isso a opacidade é ajustável. A 100% de transparência a janela vira um fantasma inutilizável.
+
+Duas formas de escolher em quem vale, e elas se somam:
+
+- **Atalho** (padrão `Ctrl+Alt+T`): liga e desliga na janela que estiver na frente, sem gravar nada.
+- **Lista de aplicativos**: os que estiverem nela ficam translúcidos sozinhos, inclusive nas janelas
+  que abrirem depois. Guardado pelo nome do executável. O botão *Adicionar* abre a lista de janelas
+  abertas — e aqui o Explorador de Arquivos aparece, ao contrário da lista do jogo, que o esconde de
+  propósito.
+
+Quando as duas discordam, a mão manda: desligar pelo atalho uma janela de aplicativo listado a
+mantém opaca até ela fechar.
+
+Ao contrário da barra do Windows, isto **não injeta nada** e não tem DLL, gancho nem driver:
+`SetLayeredWindowAttributes` é um atributo de janela que se aplica de fora do processo. Nada aqui
+tem o assunto do antivírus.
+
+### O que fica de fora, e por quê
+
+- **A barra de tarefas e a área de trabalho**, mesmo sendo janelas do mesmo `explorer.exe`. A barra
+  tem tratamento próprio em *Barra do Windows* e este não pode atropelar aquele; a área de trabalho
+  translúcida não mostraria nada atrás. O filtro é por **classe de janela**, não por processo — é a
+  única forma de separar uma janela de pastas do resto do shell. Também ficam de fora o menu
+  Iniciar, a busca, a central de notificações e a visão de tarefas.
+- **Janelas que já são *layered***: programas que se desenham com transparência por pixel usam o
+  mesmo bit, e trocar para alfa uniforme estragaria o desenho deles.
+- Janelas menores que 200×120, invisíveis, de ferramenta, ocultas (aplicativo de loja suspenso) e
+  as do próprio app.
+
+A varredura roda quando outra janela vai para a frente — que é quando janela nova aparece — e não
+por relógio. Cada janela tocada guarda se foi o app que pôs o bit de transparência, para devolvê-lo
+ao sair sem mexer em quem já o tinha; desligar a opção ou fechar o app devolve todas ao normal.
 
 ## Uso no dia a dia
 
@@ -868,8 +908,7 @@ src/ClaudeIndicator/
     TaskbarStyler.cs     aparência da barra de tarefas do Windows: acento + tap, em todas as telas
     ExplorerTap.cs       injeta a DLL nativa no Explorer e conversa com ela (memória compartilhada)
     ShellWatcher.cs      avisos do shell: barra recriada, telas, compositor, tema
-
-  native/ExplorerTap/    a DLL C++ que entra no Explorer: gancho + TAP do XAML da barra
+    WindowGlass.cs       deixa janelas de outros programas translúcidas (alfa da janela inteira)
     EtwSession.cs        sessão de rastreamento do Windows: eventos de quadro apresentado
     FrameRateMonitor.cs  carimbos de quadro -> FPS, tempo de quadro e 1% low por processo
     GameDetector.cs      resolve qual janela recebe o indicador (escolhida ou adivinhada)
@@ -885,7 +924,7 @@ src/ClaudeIndicator/
     TaskbarBarWindow.xaml  faixa ancorada no espaço livre da barra de tarefas
     DockWindow.xaml        a barra própria: borda livre da tela, com os painéis dentro
     GameOverlayWindow.xaml indicadores por cima do jogo, sem foco e sem receber clique
-    GamePickerWindow.xaml  lista de janelas abertas para escolher o jogo
+    GamePickerWindow.xaml  lista de janelas abertas: o jogo, uma exceção ou o vidro
     OutlinedText.cs        texto com contorno, legível sobre qualquer fundo
     BarRenderer.cs       desenho das barras (gadget e prévia) + o trilho em pé
     PanelStyle.cs        o estilo dos painéis: células deitadas e colunas em pé, uma cópia só
@@ -895,6 +934,8 @@ src/ClaudeIndicator/
       HistoryPage.xaml   gráficos do histórico (nível e consumo por hora/dia)
       ProjectsPage.xaml  consumo por projeto e prompts de cada um
       SettingsPage.xaml  configurações por categoria, com salvar sob demanda
+
+native/ExplorerTap/      a DLL C++ que entra no Explorer: gancho + TAP do XAML da barra
 ```
 
 ## Aviso
