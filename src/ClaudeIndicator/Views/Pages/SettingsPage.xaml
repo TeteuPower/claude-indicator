@@ -1,4 +1,4 @@
-<UserControl x:Class="ClaudeIndicator.Views.Pages.SettingsPage"
+﻿<UserControl x:Class="ClaudeIndicator.Views.Pages.SettingsPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Foreground="{StaticResource TextBrush}"
@@ -19,7 +19,8 @@
         -->
         <Grid Grid.Row="1" Margin="26,0,20,10">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="168"/>
+                <!-- 186 e nao 168: "Barra do Windows" nao cabia e vinha cortado no meio -->
+                <ColumnDefinition Width="186"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
@@ -39,6 +40,8 @@
                              Tag="&#xE90C;" Content="Barra própria" Checked="OnTabChanged"/>
                 <RadioButton x:Name="TabTaskbar" GroupName="Tab" Style="{StaticResource NavItem}"
                              Tag="&#xE7F4;" Content="Barra do Windows" Checked="OnTabChanged"/>
+                <RadioButton x:Name="TabGlass" GroupName="Tab" Style="{StaticResource NavItem}"
+                             Tag="&#xE7C4;" Content="Janelas" Checked="OnTabChanged"/>
                 <RadioButton x:Name="TabGame" GroupName="Tab" Style="{StaticResource NavItem}"
                              Tag="&#xE7FC;" Content="No jogo" Checked="OnTabChanged"/>
 
@@ -871,6 +874,80 @@
 
                             <TextBlock Style="{StaticResource Hint}" Margin="0,14,0,0" TextWrapping="Wrap"
                                        Text="O efeito é reaplicado quando o Windows avisa que recriou a barra (reinício do Explorer), quando as telas mudam e quando o compositor reinicia — por aviso, sem relógio. Vale para as barras de TODAS as telas. Ao desligar ou sair, o app devolve a barra ao desenho do sistema e ainda pede ao shell que se redesenhe, para não deixar a barra pior do que a pegou."/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ============ Janelas translucidas ============ -->
+                <StackPanel x:Name="PanelGlass" Visibility="Collapsed">
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Text="Janelas translúcidas" Style="{StaticResource Title}"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4" TextWrapping="Wrap"
+                                       Text="O efeito daqueles utilitários de antigamente: a janela inteira fica translúcida e dá para ver o que está atrás dela. Diferente do vidro da barra, aqui o conteúdo desbota junto — por isso a opacidade é ajustável, porque uma janela transparente demais não dá para usar. Isto não injeta nada em programa nenhum: é um atributo de janela que o Windows aceita de fora."/>
+
+                            <CheckBox x:Name="ChkGlass" Style="{StaticResource Switch}" Margin="0,10,0,0"
+                                      Content="Deixar janelas translúcidas"/>
+
+                            <Grid Margin="0,14,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="70"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Opacidade" VerticalAlignment="Center" FontSize="12.5"/>
+                                <Slider x:Name="SldGlassOpacity" Grid.Column="1" Minimum="0.25" Maximum="1"
+                                        TickFrequency="0.05" IsSnapToTickEnabled="True" Value="0.85"
+                                        VerticalAlignment="Center" Margin="8,0" ValueChanged="OnAnyChanged"/>
+                                <TextBlock x:Name="LblGlassOpacity" Grid.Column="2" Text="85%" VerticalAlignment="Center"
+                                           HorizontalAlignment="Right" Foreground="{StaticResource MutedBrush}"/>
+                            </Grid>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                       Text="100% é a janela normal. O mínimo é 25% porque abaixo disso não se lê mais o que está escrito — e a janela continuaria recebendo os cliques, o que é pior do que não ter o efeito."/>
+
+                            <TextBlock Text="Atalho, na janela em foco" Style="{StaticResource FieldLabel}" Margin="0,16,0,5"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,6" TextWrapping="Wrap"
+                                       Text="Liga e desliga o efeito só na janela que está na frente, sem mexer na lista. Clique no botão e pressione a combinação; Esc cancela e Backspace desliga o atalho."/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="170"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Alternar nesta janela" VerticalAlignment="Center" FontSize="12.5"/>
+                                <Button x:Name="BtnHotkeyGlass" Grid.Column="1" MinWidth="150"
+                                        Click="OnCaptureHotkeyClick" PreviewKeyDown="OnHotkeyKeyDown"
+                                        Tag="glass"/>
+                            </Grid>
+                            <TextBlock x:Name="GlassHotkeyStatus" Style="{StaticResource Hint}" Margin="0,8,0,0"
+                                       TextWrapping="Wrap"/>
+
+                            <TextBlock Text="Sempre translúcidos" Style="{StaticResource FieldLabel}" Margin="0,16,0,5"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,6" TextWrapping="Wrap"
+                                       Text="Estes aplicativos ficam translúcidos sozinhos, inclusive nas janelas que abrirem depois. Guardado pelo nome do executável."/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Background="{StaticResource BgBrush}" CornerRadius="9" Padding="4" MinHeight="86">
+                                    <ListBox x:Name="ListaVidro" Background="Transparent" BorderThickness="0"
+                                             MaxHeight="130" Foreground="{StaticResource TextBrush}"
+                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Top">
+                                    <Button Content="Adicionar…" Click="OnAddGlassAppClick" MinWidth="112"/>
+                                    <Button x:Name="BtnRemoverVidro" Content="Remover" Click="OnRemoveGlassAppClick"
+                                            Margin="0,8,0,0" MinWidth="112"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Border Background="{StaticResource BgBrush}" CornerRadius="9" Padding="14,11" Margin="0,12,0,0">
+                                <TextBlock x:Name="GlassStatusText" Style="{StaticResource Hint}" FontSize="12.5"
+                                           TextWrapping="Wrap"/>
+                            </Border>
+
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,14,0,0" TextWrapping="Wrap"
+                                       Text="A barra de tarefas e a área de trabalho ficam de fora mesmo sendo do Explorer: a barra tem ajuste próprio em &quot;Barra do Windows&quot;, e a área de trabalho translúcida não mostraria nada atrás. Janelas que já se desenham com transparência também ficam de fora, senão o desenho delas quebraria. Ao desligar a opção ou sair, o app devolve todas ao normal."/>
                         </StackPanel>
                     </Border>
                 </StackPanel>

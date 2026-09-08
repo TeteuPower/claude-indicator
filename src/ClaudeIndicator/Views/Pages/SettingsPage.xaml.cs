@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -177,6 +177,11 @@ public partial class SettingsPage : UserControl
         TbLookFosca.IsChecked = s.TaskbarLook == TaskbarLook.Fosca;
         TbLookOpaca.IsChecked = s.TaskbarLook == TaskbarLook.Opaca;
         SldTbTint.Value = s.TaskbarTint;
+        ChkGlass.IsChecked = s.GlassEnabled;
+        SldGlassOpacity.Value = Math.Clamp(s.GlassOpacity, SldGlassOpacity.Minimum, SldGlassOpacity.Maximum);
+        _hotkeyGlass = s.GlassHotkey ?? "";
+        _appsVidro = new List<string>(s.GlassApps ?? new List<string>());
+        UpdateGlassUi();
         SldDockOpacity.Value = s.DockOpacity;
         SldDockScale.Value = s.DockScale;
         _dockWidth = s.DockWidth;
@@ -312,6 +317,10 @@ public partial class SettingsPage : UserControl
             : TbLookOpaca.IsChecked == true ? TaskbarLook.Opaca
             : TaskbarLook.Sistema;
         s.TaskbarTint = SldTbTint.Value;
+        s.GlassEnabled = ChkGlass.IsChecked == true;
+        s.GlassOpacity = Math.Round(SldGlassOpacity.Value, 2);
+        s.GlassHotkey = _hotkeyGlass;
+        s.GlassApps = new List<string>(_appsVidro);
         s.DockOpacity = SldDockOpacity.Value;
         s.DockScale = SldDockScale.Value;
         s.DockWidth = _dockWidth;
@@ -395,7 +404,7 @@ public partial class SettingsPage : UserControl
                      ChkDock, ChkDockReserve, ChkDockTopmost, ChkDockFullscreen,
                      ChkDockBars, ChkDockHardware, ChkDockRate,
                      DockBarsStart, DockBarsEnd, DockPcStart, DockPcEnd, ChkDockFrosted,
-                     ChkDockFollowTaskbar
+                     ChkDockFollowTaskbar, ChkGlass
                  })
         {
             Hook(c);
@@ -419,6 +428,9 @@ public partial class SettingsPage : UserControl
         ChkDockFollowTaskbar.Checked += (_, _) => UpdateDockUi();
         ChkDockFollowTaskbar.Unchecked += (_, _) => UpdateDockUi();
 
+        ChkGlass.Checked += (_, _) => UpdateGlassUi();
+        ChkGlass.Unchecked += (_, _) => UpdateGlassUi();
+
         // ligar a barra própria muda o que a aba Painéis está dizendo, então o aviso lá acompanha
         ChkDock.Checked += (_, _) => UpdateDockUi();
         ChkDock.Unchecked += (_, _) => UpdateDockUi();
@@ -428,6 +440,7 @@ public partial class SettingsPage : UserControl
     private string _hotkeyToggle = "";
     private string _hotkeyCycle = "";
     private string _hotkeyLayout = "";
+    private string _hotkeyGlass = "";
     private Button? _capturando;
 
     /// <summary>
@@ -476,6 +489,7 @@ public partial class SettingsPage : UserControl
     {
         if (Equals(botao.Tag, "toggle")) _hotkeyToggle = valor;
         else if (Equals(botao.Tag, "layout")) _hotkeyLayout = valor;
+        else if (Equals(botao.Tag, "glass")) _hotkeyGlass = valor;
         else _hotkeyCycle = valor;
 
         _capturando = null;
@@ -490,18 +504,25 @@ public partial class SettingsPage : UserControl
         BtnHotkeyToggle.Content = _hotkeyToggle.Length > 0 ? _hotkeyToggle : "sem atalho";
         BtnHotkeyCycle.Content = _hotkeyCycle.Length > 0 ? _hotkeyCycle : "sem atalho";
         BtnHotkeyLayout.Content = _hotkeyLayout.Length > 0 ? _hotkeyLayout : "sem atalho";
+        BtnHotkeyGlass.Content = _hotkeyGlass.Length > 0 ? _hotkeyGlass : "sem atalho";
 
         var recusados = _host.HotkeyFailures;
-        HotkeyStatus.Text = recusados.Count > 0
+        var aviso = recusados.Count > 0
             ? "O Windows recusou " + string.Join(" e ", recusados)
               + ": outro programa já usa essa combinação. Escolha outra."
             : "";
+        HotkeyStatus.Text = aviso;
+        GlassHotkeyStatus.Text = aviso;
+
+        // vazio, o aviso ainda ocuparia uma linha e abriria um buraco antes do proximo campo
+        HotkeyStatus.Visibility = aviso.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        GlassHotkeyStatus.Visibility = HotkeyStatus.Visibility;
     }
     private List<string> _excecoes = new();
 
     private void OnAddExceptionClick(object sender, RoutedEventArgs e)
     {
-        var picker = new GamePickerWindow(paraExcecao: true) { Owner = Window.GetWindow(this) };
+        var picker = new GamePickerWindow(PickerAlvo.Excecao) { Owner = Window.GetWindow(this) };
         if (picker.ShowDialog() != true || picker.ChosenProcess == null) return;
 
         var jaTem = _excecoes.Exists(n => string.Equals(n, picker.ChosenProcess, StringComparison.OrdinalIgnoreCase));
@@ -554,6 +575,89 @@ public partial class SettingsPage : UserControl
         BtnRemoverExcecao.IsEnabled = _excecoes.Count > 0;
     }
 
+
+    private List<string> _appsVidro = new();
+
+    private void OnAddGlassAppClick(object sender, RoutedEventArgs e)
+    {
+        var picker = new GamePickerWindow(PickerAlvo.Vidro) { Owner = Window.GetWindow(this) };
+        if (picker.ShowDialog() != true || picker.ChosenProcess == null) return;
+
+        var jaTem = _appsVidro.Exists(n => string.Equals(n, picker.ChosenProcess, StringComparison.OrdinalIgnoreCase));
+        if (!jaTem) _appsVidro.Add(picker.ChosenProcess);
+
+        UpdateGlassUi();
+        MarkDirty();
+    }
+
+    private void OnRemoveGlassAppClick(object sender, RoutedEventArgs e)
+    {
+        if (ListaVidro.SelectedItem is not ListBoxItem item || item.Tag is not string nome) return;
+
+        _appsVidro.RemoveAll(n => string.Equals(n, nome, StringComparison.OrdinalIgnoreCase));
+        UpdateGlassUi();
+        MarkDirty();
+    }
+
+    /// <summary>
+    /// Acerta a aba inteira: a lista de aplicativos, o que fica aceso e a linha de estado. Os
+    /// controles ficam apagados com a opção desligada porque ajustar opacidade de um efeito que
+    /// não está valendo é convite a achar que ele quebrou.
+    /// </summary>
+    private void UpdateGlassUi()
+    {
+        if (ListaVidro == null) return;
+
+        ListaVidro.Items.Clear();
+        foreach (var nome in _appsVidro)
+        {
+            ListaVidro.Items.Add(new ListBoxItem
+            {
+                Content = new TextBlock { Text = nome + ".exe", FontSize = 12.5 },
+                Tag = nome,
+                Padding = new Thickness(8, 5, 8, 5)
+            });
+        }
+
+        if (ListaVidro.Items.Count == 0)
+        {
+            ListaVidro.Items.Add(new ListBoxItem
+            {
+                Content = new TextBlock
+                {
+                    Text = "nenhum — só as janelas que você ligar pelo atalho",
+                    FontSize = 12,
+                    TextWrapping = TextWrapping.Wrap,
+                    Foreground = BarRenderer.Swatch("MutedBrush")
+                },
+                IsEnabled = false,
+                Padding = new Thickness(8, 5, 8, 5)
+            });
+        }
+
+        var ligado = ChkGlass?.IsChecked == true;
+        BtnRemoverVidro.IsEnabled = ligado && _appsVidro.Count > 0;
+        ListaVidro.IsEnabled = ligado;
+        SldGlassOpacity.IsEnabled = ligado;
+        BtnHotkeyGlass.IsEnabled = ligado;
+
+        if (GlassStatusText == null) return;
+
+        if (!ligado)
+        {
+            GlassStatusText.Text = "Desligado: nenhuma janela é alterada.";
+            return;
+        }
+
+        var ativas = _host.GlassAtivas;
+        var quantas = ativas == 0 ? "Nenhuma janela translúcida agora"
+            : ativas == 1 ? "1 janela translúcida agora"
+            : ativas + " janelas translúcidas agora";
+        var atalho = _hotkeyGlass.Length > 0
+            ? " Use " + _hotkeyGlass + " para ligar ou desligar na janela que estiver na frente."
+            : " Sem atalho definido: só valem os aplicativos da lista.";
+        GlassStatusText.Text = quantas + "." + atalho;
+    }
 
     private void OnPickGameClick(object sender, RoutedEventArgs e)
     {
@@ -820,6 +924,7 @@ public partial class SettingsPage : UserControl
         PanelAccount.Visibility = Vis(TabAccount);
         PanelDock.Visibility = Vis(TabDock);
         PanelTaskbar.Visibility = Vis(TabTaskbar);
+        PanelGlass.Visibility = Vis(TabGlass);
         PanelSystem.Visibility = Vis(TabSystem);
         PanelData.Visibility = Vis(TabData);
         PanelAdvanced.Visibility = Vis(TabAdvanced);
@@ -831,6 +936,7 @@ public partial class SettingsPage : UserControl
         if (TabGame.IsChecked == true) { UpdateGameTargetUi(); UpdateHotkeyUi(); }
         if (TabDock.IsChecked == true) UpdateDockUi();
         if (TabTaskbar.IsChecked == true) UpdateTaskbarUi();
+        if (TabGlass.IsChecked == true) { UpdateGlassUi(); UpdateHotkeyUi(); }
 
         AnimateIn();
     }
@@ -865,6 +971,9 @@ public partial class SettingsPage : UserControl
 
     private StackPanel? PainelVisivel() =>
         TabGame.IsChecked == true ? PanelGame :
+        TabDock.IsChecked == true ? PanelDock :
+        TabTaskbar.IsChecked == true ? PanelTaskbar :
+        TabGlass.IsChecked == true ? PanelGlass :
         TabBars.IsChecked == true ? PanelBars :
         TabRate.IsChecked == true ? PanelRate :
         TabAccount.IsChecked == true ? PanelAccount :
@@ -894,6 +1003,7 @@ public partial class SettingsPage : UserControl
         LblOverlayMargin.Text = Math.Round(SldOverlayMargin.Value) + " px";
         LblOverlayScale.Text = Math.Round(SldOverlayScale.Value * 100) + "%";
         LblOverlayOpacity.Text = Math.Round(SldOverlayOpacity.Value * 100) + "%";
+        LblGlassOpacity.Text = Math.Round(SldGlassOpacity.Value * 100) + "%";
         UpdateElevationUi();
         UpdateOverlayUi();
     }
