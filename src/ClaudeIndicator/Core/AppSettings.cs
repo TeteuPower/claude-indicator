@@ -173,6 +173,34 @@ public class AppSettings
     /// <summary>Sair da frente de jogo em tela cheia. Só vale no modo por cima; reservando, o jogo cobre a barra de qualquer forma.</summary>
     public bool DockHideOnFullscreen { get; set; } = true;
 
+    // ---- Aparência da barra de tarefas do Windows ----
+    /// <summary>
+    /// O que fazer com a barra do Windows. <c>Sistema</c> é não mexer — e é o padrão, porque mexer
+    /// na barra de outro programa é decisão de quem usa, não do app.
+    /// </summary>
+    public TaskbarLook TaskbarLook { get; set; } = TaskbarLook.Sistema;
+
+    /// <summary>Opacidade do tom sobre o efeito da barra do Windows.</summary>
+    public double TaskbarTint { get; set; } = 0.65;
+
+    /// <summary>
+    /// A barra própria copia a aparência escolhida para a barra do Windows. Ligado, as duas ficam
+    /// com o mesmo vidro e o mesmo tom — que é o ponto de o app cuidar das duas.
+    /// </summary>
+    public bool DockFollowTaskbar { get; set; } = true;
+
+    /// <summary>Fosco que a barra própria vai usar de fato, já considerando o "seguir a do Windows".</summary>
+    [JsonIgnore]
+    public bool DockFrostedEffective => DockFollowTaskbar
+        ? TaskbarLook is TaskbarLook.Desfocada or TaskbarLook.Fosca
+        : DockFrosted;
+
+    /// <summary>Tom que a barra própria vai usar de fato, pela mesma regra.</summary>
+    [JsonIgnore]
+    public double DockOpacityEffective => DockFollowTaskbar && TaskbarLook != TaskbarLook.Sistema
+        ? (TaskbarLook == TaskbarLook.Opaca ? 1.0 : TaskbarTint)
+        : DockOpacity;
+
     // O que aparece na barra própria tem interruptor PRÓPRIO, e não herdado dos painéis da barra
     // de tarefas: os dois lugares convivem, e o mesmo painel pode estar nos dois ao mesmo tempo —
     // um monitor com a barra própria em pé e a barra do Windows com o painel dela, por exemplo.
@@ -526,6 +554,7 @@ public class AppSettings
         DockWidth = Math.Clamp(DockWidth, 72, 420);
         DockHeight = Math.Clamp(DockHeight, 28, 160);
         DockOpacity = Math.Clamp(DockOpacity, 0, 1);
+        TaskbarTint = Math.Clamp(TaskbarTint, 0, 1);
         DockScale = Math.Clamp(DockScale, 0.7, 1.8);
     }
 

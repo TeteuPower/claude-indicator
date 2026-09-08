@@ -54,6 +54,13 @@ public sealed class AppHost
 
     /// <summary>Barra de tarefas própria, numa borda que o Windows deixou livre.</summary>
     private DockWindow? _dock;
+
+    /// <summary>
+    /// Reaplica a aparência da barra do Windows. Três segundos é curto o bastante para o usuário
+    /// não ver a barra piscando de volta ao normal depois de um reinício do Explorer, e o pedido
+    /// em si é barato: achar as janelas e mandar o atributo.
+    /// </summary>
+    private readonly DispatcherTimer _taskbarClock = new() { Interval = TimeSpan.FromSeconds(3) };
     private readonly HardwareMonitor _hardware = new();
 
     // Indicador por cima do jogo: medição de quadros, detecção e a janela em si.
@@ -101,6 +108,12 @@ public sealed class AppHost
 
         _timer.Tick += (_, _) => Pulse();
         RestartClock();
+
+        _taskbarClock.Tick += (_, _) =>
+        {
+            if (Settings.TaskbarLook != TaskbarLook.Sistema)
+                TaskbarStyler.Apply(Settings.TaskbarLook, Settings.TaskbarTint);
+        };
 
         _overlayClock.Tick += (_, _) => OverlayTick();
 
@@ -218,6 +231,7 @@ public sealed class AppHost
             _taskbarBar?.HidePanel();
         }
 
+        ApplyTaskbarLook();
         ApplyDock();
         ApplyPcPanel();
         ApplyOverlay();
@@ -247,7 +261,7 @@ public sealed class AppHost
 
             if (_dock is null or { Fechada: true })
             {
-                _dock = new DockWindow(Settings.DockFrosted);
+                _dock = new DockWindow(Settings.DockFrostedEffective);
                 _dock.Closed += (_, _) => _dock = null;
             }
 
@@ -264,6 +278,25 @@ public sealed class AppHost
             _dock = null;
             indoEmbora?.Close();
         }
+    }
+
+    /// <summary>
+    /// Aplica (ou devolve) a aparência da barra de tarefas do Windows, e mantém um relógio curto
+    /// enquanto ela estiver estilizada: o Explorer recria as janelas da barra ao reiniciar, e o
+    /// efeito não sobrevive à janela antiga — sem reaplicar, a barra volta ao normal sozinha e
+    /// parece que o app desistiu.
+    /// </summary>
+    private void ApplyTaskbarLook()
+    {
+        if (Settings.TaskbarLook == TaskbarLook.Sistema)
+        {
+            _taskbarClock.Stop();
+            if (TaskbarStyler.Ativo) TaskbarStyler.Restore();
+            return;
+        }
+
+        TaskbarStyler.Apply(Settings.TaskbarLook, Settings.TaskbarTint);
+        _taskbarClock.Start();
     }
 
     /// <summary>Oculta a barra própria pelo menu dela. Fica guardado: esconder é uma decisão.</summary>
@@ -936,6 +969,11 @@ public sealed class AppHost
 
         // fechar a barra propria devolve ao Windows a faixa que ela reservou
         _dock?.Close();
+
+        // e a barra do Windows volta ao desenho do sistema: efeito deixado para tras por um
+        // programa que morreu so sai reiniciando o Explorer
+        _taskbarClock.Stop();
+        if (TaskbarStyler.Ativo) TaskbarStyler.Restore();
         _main?.Close();
         System.Windows.Application.Current?.Shutdown();
     }

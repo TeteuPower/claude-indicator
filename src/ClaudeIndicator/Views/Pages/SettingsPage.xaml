@@ -37,6 +37,8 @@
                              Tag="&#xE7F4;" Content="Painéis" Checked="OnTabChanged"/>
                 <RadioButton x:Name="TabDock" GroupName="Tab" Style="{StaticResource NavItem}"
                              Tag="&#xE90C;" Content="Barra própria" Checked="OnTabChanged"/>
+                <RadioButton x:Name="TabTaskbar" GroupName="Tab" Style="{StaticResource NavItem}"
+                             Tag="&#xE7F4;" Content="Barra do Windows" Checked="OnTabChanged"/>
                 <RadioButton x:Name="TabGame" GroupName="Tab" Style="{StaticResource NavItem}"
                              Tag="&#xE7FC;" Content="No jogo" Checked="OnTabChanged"/>
 
@@ -808,6 +810,57 @@
                             <TextBlock x:Name="DockSideHint" Style="{StaticResource Hint}" Margin="0,14,0,0" TextWrapping="Wrap"/>
                             <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0" TextWrapping="Wrap"
                                        Text="A linha do tempo das consultas segue o interruptor em Sistema, e o botão de trocar o tema do Windows vem junto com os sensores. Atalhos de aplicativos ficam para depois."/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ============ Barra do Windows ============ -->
+                <StackPanel x:Name="PanelTaskbar" Visibility="Collapsed">
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Text="Aparência da barra do Windows" Style="{StaticResource Title}"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4" TextWrapping="Wrap"
+                                       Text="O app pede o efeito ao compositor do Windows, a mesma API que a barra própria usa e que programas como o TranslucentTB usam. Se você tem um deles rodando, feche: os dois reaplicando efeitos diferentes na mesma janela ficam brigando."/>
+
+                            <TextBlock Text="Efeito" Style="{StaticResource FieldLabel}" Margin="0,14,0,5"/>
+                            <Border Style="{StaticResource SegmentGroup}">
+                                <WrapPanel Orientation="Horizontal" MaxWidth="440">
+                                    <RadioButton x:Name="TbLookSistema" GroupName="TbLook" Style="{StaticResource Segment}"
+                                                 Content="Não mexer" Checked="OnTaskbarLookChanged"/>
+                                    <RadioButton x:Name="TbLookTransparente" GroupName="TbLook" Style="{StaticResource Segment}"
+                                                 Content="Transparente" Checked="OnTaskbarLookChanged"/>
+                                    <RadioButton x:Name="TbLookDesfocada" GroupName="TbLook" Style="{StaticResource Segment}"
+                                                 Content="Desfocada" Checked="OnTaskbarLookChanged"/>
+                                    <RadioButton x:Name="TbLookFosca" GroupName="TbLook" Style="{StaticResource Segment}"
+                                                 Content="Fosca" Checked="OnTaskbarLookChanged"/>
+                                    <RadioButton x:Name="TbLookOpaca" GroupName="TbLook" Style="{StaticResource Segment}"
+                                                 Content="Opaca" Checked="OnTaskbarLookChanged"/>
+                                </WrapPanel>
+                            </Border>
+                            <TextBlock x:Name="TbLookHint" Style="{StaticResource Hint}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+
+                            <Grid Margin="0,14,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="70"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Tom" VerticalAlignment="Center" FontSize="12.5"/>
+                                <Slider x:Name="SldTbTint" Grid.Column="1" Minimum="0" Maximum="1" Value="0.65"
+                                        VerticalAlignment="Center" Margin="8,0" ValueChanged="OnTaskbarTintChanged"/>
+                                <TextBlock x:Name="LblTbTint" Grid.Column="2" Text="65%" VerticalAlignment="Center"
+                                           HorizontalAlignment="Right" Foreground="{StaticResource MutedBrush}"/>
+                            </Grid>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                       Text="O tom é a cor do app por cima do efeito: quanto mais alto, mais escura a barra e menos o fundo aparece. Em &quot;Opaca&quot; ele não vale — opaca com tom pela metade não seria opaca."/>
+
+                            <CheckBox x:Name="ChkDockFollowTaskbar" Style="{StaticResource Switch}" Margin="0,16,0,0"
+                                      Content="A barra própria segue este estilo"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap"
+                                       Text="Ligado, as duas barras ficam com o mesmo vidro e o mesmo tom — e os controles de fundo em Barra própria passam a seguir daqui. Desligado, cada uma tem a sua aparência."/>
+
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,14,0,0" TextWrapping="Wrap"
+                                       Text="O efeito é reaplicado a cada três segundos: o Explorer recria as janelas da barra quando reinicia, e o efeito não sobrevive à janela antiga. Vale para as barras de TODAS as telas. Ao sair, o app devolve a barra ao desenho do sistema — efeito deixado para trás por um programa que já fechou só sai reiniciando o Explorer."/>
                         </StackPanel>
                     </Border>
                 </StackPanel>

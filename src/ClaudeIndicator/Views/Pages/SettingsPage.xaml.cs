@@ -170,6 +170,13 @@ public partial class SettingsPage : UserControl
         DockPcStart.IsChecked = s.DockPcSide == TaskbarAnchor.Left;
         DockPcEnd.IsChecked = s.DockPcSide == TaskbarAnchor.Right;
         ChkDockFrosted.IsChecked = s.DockFrosted;
+        ChkDockFollowTaskbar.IsChecked = s.DockFollowTaskbar;
+        TbLookSistema.IsChecked = s.TaskbarLook == TaskbarLook.Sistema;
+        TbLookTransparente.IsChecked = s.TaskbarLook == TaskbarLook.Transparente;
+        TbLookDesfocada.IsChecked = s.TaskbarLook == TaskbarLook.Desfocada;
+        TbLookFosca.IsChecked = s.TaskbarLook == TaskbarLook.Fosca;
+        TbLookOpaca.IsChecked = s.TaskbarLook == TaskbarLook.Opaca;
+        SldTbTint.Value = s.TaskbarTint;
         SldDockOpacity.Value = s.DockOpacity;
         SldDockScale.Value = s.DockScale;
         _dockWidth = s.DockWidth;
@@ -298,6 +305,13 @@ public partial class SettingsPage : UserControl
         s.DockBarsSide = DockBarsEnd.IsChecked == true ? TaskbarAnchor.Right : TaskbarAnchor.Left;
         s.DockPcSide = DockPcEnd.IsChecked == true ? TaskbarAnchor.Right : TaskbarAnchor.Left;
         s.DockFrosted = ChkDockFrosted.IsChecked == true;
+        s.DockFollowTaskbar = ChkDockFollowTaskbar.IsChecked == true;
+        s.TaskbarLook = TbLookTransparente.IsChecked == true ? TaskbarLook.Transparente
+            : TbLookDesfocada.IsChecked == true ? TaskbarLook.Desfocada
+            : TbLookFosca.IsChecked == true ? TaskbarLook.Fosca
+            : TbLookOpaca.IsChecked == true ? TaskbarLook.Opaca
+            : TaskbarLook.Sistema;
+        s.TaskbarTint = SldTbTint.Value;
         s.DockOpacity = SldDockOpacity.Value;
         s.DockScale = SldDockScale.Value;
         s.DockWidth = _dockWidth;
@@ -380,7 +394,8 @@ public partial class SettingsPage : UserControl
                      LayoutCompact, LayoutGauges,
                      ChkDock, ChkDockReserve, ChkDockTopmost, ChkDockFullscreen,
                      ChkDockBars, ChkDockHardware, ChkDockRate,
-                     DockBarsStart, DockBarsEnd, DockPcStart, DockPcEnd, ChkDockFrosted
+                     DockBarsStart, DockBarsEnd, DockPcStart, DockPcEnd, ChkDockFrosted,
+                     ChkDockFollowTaskbar
                  })
         {
             Hook(c);
@@ -400,6 +415,9 @@ public partial class SettingsPage : UserControl
             UpdateDockUi();
         };
         ChkDockFrosted.Unchecked += (_, _) => UpdateDockUi();
+
+        ChkDockFollowTaskbar.Checked += (_, _) => UpdateDockUi();
+        ChkDockFollowTaskbar.Unchecked += (_, _) => UpdateDockUi();
 
         // ligar a barra própria muda o que a aba Painéis está dizendo, então o aviso lá acompanha
         ChkDock.Checked += (_, _) => UpdateDockUi();
@@ -801,6 +819,7 @@ public partial class SettingsPage : UserControl
         PanelRate.Visibility = Vis(TabRate);
         PanelAccount.Visibility = Vis(TabAccount);
         PanelDock.Visibility = Vis(TabDock);
+        PanelTaskbar.Visibility = Vis(TabTaskbar);
         PanelSystem.Visibility = Vis(TabSystem);
         PanelData.Visibility = Vis(TabData);
         PanelAdvanced.Visibility = Vis(TabAdvanced);
@@ -811,6 +830,7 @@ public partial class SettingsPage : UserControl
         if (TabAdvanced.IsChecked == true) UpdateUpdateUi();
         if (TabGame.IsChecked == true) { UpdateGameTargetUi(); UpdateHotkeyUi(); }
         if (TabDock.IsChecked == true) UpdateDockUi();
+        if (TabTaskbar.IsChecked == true) UpdateTaskbarUi();
 
         AnimateIn();
     }
@@ -1235,6 +1255,49 @@ public partial class SettingsPage : UserControl
     // Barra própria
     // ------------------------------------------------------------------
 
+    private void OnTaskbarLookChanged(object sender, RoutedEventArgs e)
+    {
+        if (!_ready) return;
+        UpdateTaskbarUi();
+        UpdateDockUi();
+        MarkDirty();
+    }
+
+    private void OnTaskbarTintChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (!_ready) return;
+        UpdateTaskbarUi();
+        MarkDirty();
+    }
+
+    /// <summary>
+    /// Explica o efeito escolhido e desliga o que ele torna irrelevante: o tom não vale em "Opaca",
+    /// e "Não mexer" não tem tom nenhum para ajustar. Controle habilitado que não faz nada é pior
+    /// que controle ausente — ele promete.
+    /// </summary>
+    private void UpdateTaskbarUi()
+    {
+        if (SldTbTint == null || TbLookHint == null) return;
+
+        var look = TbLookTransparente.IsChecked == true ? TaskbarLook.Transparente
+            : TbLookDesfocada.IsChecked == true ? TaskbarLook.Desfocada
+            : TbLookFosca.IsChecked == true ? TaskbarLook.Fosca
+            : TbLookOpaca.IsChecked == true ? TaskbarLook.Opaca
+            : TaskbarLook.Sistema;
+
+        LblTbTint.Text = Math.Round(SldTbTint.Value * 100) + "%";
+        SldTbTint.IsEnabled = look is TaskbarLook.Transparente or TaskbarLook.Desfocada or TaskbarLook.Fosca;
+
+        TbLookHint.Text = look switch
+        {
+            TaskbarLook.Sistema => "A barra fica como o Windows a desenha, e o app não toca nela.",
+            TaskbarLook.Transparente => "O que está atrás aparece nítido, com o tom por cima — a janela maximizada some sob a barra.",
+            TaskbarLook.Desfocada => "Desfoque clássico: o fundo aparece embaçado, sem granulado. É o mais escuro e uniforme dos três.",
+            TaskbarLook.Fosca => "Acrílico do Windows: desfoque com granulado fino, o mesmo vidro dos menus do sistema.",
+            _ => "Cor cheia, sem nada do fundo aparecendo — útil para uniformizar a barra em telas com papéis de parede diferentes."
+        };
+    }
+
     private void OnDockEdgeChanged(object sender, RoutedEventArgs e)
     {
         if (!_ready) return;
@@ -1307,12 +1370,26 @@ public partial class SettingsPage : UserControl
                 : Visibility.Collapsed;
         }
 
-        if (DockFrostedHint != null)
+        // seguindo a barra do Windows, o fosco e o tom vêm de lá: os controles daqui ficam
+        // desligados em vez de mentir que mandam em algo
+        var seguindo = ChkDockFollowTaskbar?.IsChecked == true && TbLookSistema?.IsChecked != true;
+        if (ChkDockFrosted != null) ChkDockFrosted.IsEnabled = !seguindo;
+        if (SldDockOpacity != null) SldDockOpacity.IsEnabled = !seguindo;
+
+        if (DockFrostedHint != null && seguindo)
         {
-            DockFrostedHint.Text = ChkDockFrosted.IsChecked == true
+            DockFrostedHint.Text = "A barra própria está seguindo o estilo da barra do Windows: "
+                                   + "o fosco e o tom vêm de lá, em Barra do Windows.";
+        }
+        else if (DockFrostedHint != null)
+        {
+            DockFrostedHint.Text = ChkDockFrosted?.IsChecked == true
                 ? "O desfoque é do compositor do Windows, o mesmo da barra de tarefas do sistema, e fica ATRÁS do fundo: o controle acima continua sendo o tom da barra, agora por cima do vidro. Em 100% o tom cobre o desfoque; perto de 50% a barra fica escura e o efeito ainda aparece."
                 : "Deixa o que está atrás da barra desfocado, em vez de simplesmente translúcido. Ligar ou desligar recria a barra: o desfoque e a transparência por pixel do WPF são exclusivos e se decidem antes de a janela existir.";
         }
+
+        if (ChkDockFollowTaskbar != null && LblDockOpacity != null)
+            LblDockOpacity.Opacity = seguindo ? 0.5 : 1;
 
         DockFullscreenHint.Text = ChkDockReserve.IsChecked == true
             ? "Só vale sem a reserva de espaço: com a faixa reservada, o jogo em tela cheia cobre a barra de qualquer forma."
