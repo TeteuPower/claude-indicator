@@ -169,6 +169,7 @@ public partial class SettingsPage : UserControl
         DockBarsEnd.IsChecked = s.DockBarsSide == TaskbarAnchor.Right;
         DockPcStart.IsChecked = s.DockPcSide == TaskbarAnchor.Left;
         DockPcEnd.IsChecked = s.DockPcSide == TaskbarAnchor.Right;
+        ChkDockFrosted.IsChecked = s.DockFrosted;
         SldDockOpacity.Value = s.DockOpacity;
         SldDockScale.Value = s.DockScale;
         _dockWidth = s.DockWidth;
@@ -296,6 +297,7 @@ public partial class SettingsPage : UserControl
         s.DockShowRate = ChkDockRate.IsChecked == true;
         s.DockBarsSide = DockBarsEnd.IsChecked == true ? TaskbarAnchor.Right : TaskbarAnchor.Left;
         s.DockPcSide = DockPcEnd.IsChecked == true ? TaskbarAnchor.Right : TaskbarAnchor.Left;
+        s.DockFrosted = ChkDockFrosted.IsChecked == true;
         s.DockOpacity = SldDockOpacity.Value;
         s.DockScale = SldDockScale.Value;
         s.DockWidth = _dockWidth;
@@ -378,7 +380,7 @@ public partial class SettingsPage : UserControl
                      LayoutCompact, LayoutGauges,
                      ChkDock, ChkDockReserve, ChkDockTopmost, ChkDockFullscreen,
                      ChkDockBars, ChkDockHardware, ChkDockRate,
-                     DockBarsStart, DockBarsEnd, DockPcStart, DockPcEnd
+                     DockBarsStart, DockBarsEnd, DockPcStart, DockPcEnd, ChkDockFrosted
                  })
         {
             Hook(c);
@@ -387,6 +389,17 @@ public partial class SettingsPage : UserControl
         // o aviso de tela cheia só vale sem a reserva de espaço, então o texto acompanha o interruptor
         ChkDockReserve.Checked += (_, _) => UpdateDockUi();
         ChkDockReserve.Unchecked += (_, _) => UpdateDockUi();
+
+        // Ligar o fosco com o fundo em 92% não mostraria desfoque nenhum: o tom cobriria o efeito e
+        // pareceria que a opção não funciona. Então o tom desce junto, uma vez, à vista de todos no
+        // controle — em vez de o app limitar o valor por dentro e ninguém entender por quê. Os 50%
+        // são o ponto testado onde a barra continua escura e o desfoque ainda aparece.
+        ChkDockFrosted.Checked += (_, _) =>
+        {
+            if (_ready && SldDockOpacity.Value > 0.6) SldDockOpacity.Value = 0.5;
+            UpdateDockUi();
+        };
+        ChkDockFrosted.Unchecked += (_, _) => UpdateDockUi();
 
         // ligar a barra própria muda o que a aba Painéis está dizendo, então o aviso lá acompanha
         ChkDock.Checked += (_, _) => UpdateDockUi();
@@ -1292,6 +1305,13 @@ public partial class SettingsPage : UserControl
             DockTakeoverHint.Visibility = ChkDock.IsChecked == true
                 ? Visibility.Visible
                 : Visibility.Collapsed;
+        }
+
+        if (DockFrostedHint != null)
+        {
+            DockFrostedHint.Text = ChkDockFrosted.IsChecked == true
+                ? "O desfoque é do compositor do Windows, o mesmo da barra de tarefas do sistema, e fica ATRÁS do fundo: o controle acima continua sendo o tom da barra, agora por cima do vidro. Em 100% o tom cobre o desfoque; perto de 50% a barra fica escura e o efeito ainda aparece."
+                : "Deixa o que está atrás da barra desfocado, em vez de simplesmente translúcido. Ligar ou desligar recria a barra: o desfoque e a transparência por pixel do WPF são exclusivos e se decidem antes de a janela existir.";
         }
 
         DockFullscreenHint.Text = ChkDockReserve.IsChecked == true

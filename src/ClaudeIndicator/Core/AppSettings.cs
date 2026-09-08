@@ -160,6 +160,13 @@ public class AppSettings
     /// <summary>Opacidade do fundo. 0 deixa só o conteúdo, sobre o que estiver atrás.</summary>
     public double DockOpacity { get; set; } = 0.92;
 
+    /// <summary>
+    /// Fundo fosco: o desfoque acrílico do Windows atrás da barra, o mesmo da barra de tarefas do
+    /// sistema. Aqui a opacidade passa a ser o <b>tom</b> por cima do desfoque — em 100% ela
+    /// esconde o efeito, então ligar o fosco baixa o tom junto se ele estiver alto.
+    /// </summary>
+    public bool DockFrosted { get; set; }
+
     /// <summary>Tamanho do conteúdo dentro da barra.</summary>
     public double DockScale { get; set; } = 1.0;
 

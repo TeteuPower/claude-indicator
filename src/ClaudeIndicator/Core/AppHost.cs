@@ -236,9 +236,18 @@ public sealed class AppHost
             // Janela fechada não se reaproveita: o WPF recusa Show e até o pedido do handle depois
             // do fechamento, e era isso que estourava dois "erro inesperado" em sequência —
             // um no ApplySettings, que reposiciona, e outro no ShowDock, que mostra.
+            //
+            // Trocar o fundo fosco também pede janela nova: ele e a transparência por pixel do WPF
+            // são exclusivos e se decidem antes de a janela existir.
+            if (_dock is { Fechada: false } atual && atual.PrecisaRecriar(Settings))
+            {
+                _dock = null;
+                atual.Close();
+            }
+
             if (_dock is null or { Fechada: true })
             {
-                _dock = new DockWindow();
+                _dock = new DockWindow(Settings.DockFrosted);
                 _dock.Closed += (_, _) => _dock = null;
             }
 

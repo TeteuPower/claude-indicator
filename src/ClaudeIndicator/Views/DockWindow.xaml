@@ -3,7 +3,6 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Claude Indicator"
         WindowStyle="None"
-        AllowsTransparency="True"
         Background="Transparent"
         Foreground="{StaticResource TextBrush}"
         ShowInTaskbar="False"
