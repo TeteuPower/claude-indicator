@@ -404,44 +404,50 @@ Duas coisas que o código garante, e que faltando quebram a experiência de form
 
 ## A barra do Windows
 
-O app tenta mexer na **aparência da barra de tarefas do Windows** pela política de acento do
-compositor (`SetWindowCompositionAttribute`), a API conhecida para isso. Cinco opções em
-*Configurações › Barra do Windows*: não mexer, transparente, desfocada, fosca e opaca, com um tom
-ajustável por cima (que não vale na opaca — opaca com tom pela metade não seria opaca). Aplica nas
-barras de **todas as telas**, reaplica quando o shell avisa que recriou a barra e devolve tudo ao
-sair.
+O app deixa a **barra de tarefas do Windows** translúcida — o que o TranslucentTB faz —, agora pelo
+mesmo caminho que ele usa. Cinco opções em *Configurações › Barra do Windows*: não mexer,
+transparente, desfocada, fosca e opaca, com um tom ajustável por cima (que não vale na opaca — opaca
+com tom pela metade não seria opaca). Aplica nas barras de **todas as telas**, reafirma a cada 2 s,
+reengancha quando o shell recria a barra e devolve tudo ao sair.
 
-### Medido: nesta build do Windows 11, essa API não muda a barra
+### São duas metades, e só juntas funcionam
 
-O teste que decidiu: com a área de trabalho à vista (janelas minimizadas), fotos da faixa da barra
-mais 60 px de papel de parede acima, comparando o nativo com os quatro efeitos, tom de 0 a 65%,
-aplicados na `Shell_TrayWnd` **e** em cada janela-filha grande dela — a ilha XAML
-(`DesktopWindowContentBridge`), a `CoreWindow`, a `ReBarWindow32`, a lista de tarefas. **Todas as
-fotos saíram iguais.** Build 26200.
+Custou várias rodadas descobrir. No Windows 11 a barra é XAML, e são **duas** coisas:
 
-Antes disso eu havia concluído o contrário duas vezes, e as duas por causa da métrica: comparei a
-**cor média** da faixa. A média mudava mesmo — mas por causa do que passava atrás da barra, não do
-efeito. Daí saíram duas conclusões erradas que chegaram a virar código: um "piso de 20% no tom"
-(que ainda por cima bloqueava o tom 0, justamente o que faz a barra limpa) e um "o shell desfaz o
-efeito em 10–20 segundos, então reaplique a cada 2 s". As duas foram revertidas. Métrica cega dá
-conclusão errada com toda a aparência de rigor.
+1. O **acento** na janela da barra (`SetWindowCompositionAttribute` — transparente, desfoque,
+   acrílico). Sozinho não muda nada: o XAML da barra pinta o próprio fundo por cima.
+2. O **tap**: uma DLL nativa dentro do Explorer que deixa esse fundo XAML transparente. Sozinha,
+   deixa a barra **preta** — sem fundo, o compositor mostra preto.
 
-### Como os programas que conseguem fazem
+Com as duas, o fundo XAML sai da frente e o acento aparece. Medido nesta máquina (build 26200), a
+faixa da barra contra o papel de parede logo acima:
 
-Olhando o que está instalado nesta máquina: o TranslucentTB traz `ExplorerTAP.dll` e
-`ExplorerHooks.dll`, e dentro delas aparecem `SetWindowsHookEx`, `XamlDiagnostics` e
-`Windows.UI.Xaml`. Ou seja: ele **injeta uma DLL nativa dentro do Explorer** e, de lá de dentro, usa
-a API de diagnóstico do XAML para alcançar a árvore visual da barra e trocar o material do fundo. Não
-é a política de acento — é um "tap" no processo do shell.
+| estado | cor da barra |
+|---|---|
+| nativo | (34,36,36) |
+| só o tap (XAML transparente) | (3,4,5) — preto |
+| tap + acrílico na raiz | (48,41,90) — vidro |
+| tap + transparente na raiz | (89,79,189) — o mais aberto |
 
-Replicar isso aqui não é um ajuste: precisaria de um projeto C++ nativo (não dá para injetar uma DLL
-gerenciada no Explorer de forma sã), injeção por hook, COM de diagnóstico do XAML, reinjeção a cada
-reinício do Explorer e a briga com antivírus que vem de brinde — para duplicar um programa de código
-aberto que já faz exatamente isso e é mantido. **A recomendação honesta é usar um deles para a barra
-do Windows** e deixar este app cuidar da barra própria e dos painéis.
+O acento vai na **raiz** `Shell_TrayWnd`, não na ilha XAML filha (`DesktopWindowContentBridge`) — na
+filha o resultado volta a preto. E a ordem importa: acento **antes** de transparentizar o XAML, senão
+há um instante de barra preta ao ligar. Confirmado que o vidro se mantém com a reafirmação de 2 s (o
+Explorer desfaz o acento sozinho em alguns segundos) e que o `Restore` devolve o fundo original.
 
-As opções continuam no app porque a API vale no Windows 10 e em builds anteriores do 11 — e a própria
-tela avisa, com o que foi medido, que nesta build pode não mudar nada.
+### A DLL nativa (`native/ExplorerTap`)
+
+É um projeto C++ à parte, embutido no executável e extraído para `%APPDATA%` em tempo de execução. Um
+gancho de mensagens (`SetWindowsHookEx`) na thread de cada barra carrega a DLL no Explorer; ela liga
+o diagnóstico do XAML (`InitializeXamlDiagnosticsEx`), recebe a árvore visual da barra e troca o
+fundo dos elementos-alvo, guardando o original para devolver. App e DLL conversam por memória
+compartilhada mais uma mensagem registrada (não `WM_COPYDATA`: o app pode estar elevado e a UIPI
+barraria os dados de baixo para cima).
+
+Duas consequências de mexer no Explorer, ditas sem rodeio: a DLL fica no processo dele até o próximo
+reinício (descarregá-la com o XAML ainda apontando para ela derrubaria o Explorer), e injeção por
+gancho é padrão de coisa maliciosa — então **o antivírus pode reclamar**, como já reclama da medição
+de FPS. É o preço de fazer o que o TranslucentTB faz, dentro do próprio app. Sem o compilador C++ no
+build, a DLL não é embutida e a tela avisa que a barra do Windows fica indisponível.
 
 ## Uso no dia a dia
 
@@ -859,8 +865,11 @@ src/ClaudeIndicator/
     TaskbarInfo.cs       geometria da barra de tarefas, dos monitores e espaço livre nela
     DesktopAppBar.cs     registra a barra própria como appbar do Windows (reserva a faixa)
     WindowBackdrop.cs    fundo fosco pelo compositor do Windows (o acrílico da barra)
-    TaskbarStyler.cs     aparência da barra de tarefas do Windows, em todas as telas
+    TaskbarStyler.cs     aparência da barra de tarefas do Windows: acento + tap, em todas as telas
+    ExplorerTap.cs       injeta a DLL nativa no Explorer e conversa com ela (memória compartilhada)
     ShellWatcher.cs      avisos do shell: barra recriada, telas, compositor, tema
+
+  native/ExplorerTap/    a DLL C++ que entra no Explorer: gancho + TAP do XAML da barra
     EtwSession.cs        sessão de rastreamento do Windows: eventos de quadro apresentado
     FrameRateMonitor.cs  carimbos de quadro -> FPS, tempo de quadro e 1% low por processo
     GameDetector.cs      resolve qual janela recebe o indicador (escolhida ou adivinhada)

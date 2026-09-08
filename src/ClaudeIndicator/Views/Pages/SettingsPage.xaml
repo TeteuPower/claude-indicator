@@ -820,11 +820,10 @@
                         <StackPanel>
                             <TextBlock Text="Aparência da barra do Windows" Style="{StaticResource Title}"/>
                             <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4" TextWrapping="Wrap"
-                                       Text="O app pede o efeito ao compositor do Windows pela política de acento — a API conhecida para isso. Se você tem um programa do gênero rodando (TranslucentTB e afins), feche: dois reaplicando efeitos diferentes na mesma janela ficam brigando."/>
-                            <Border Margin="0,6,0,0" CornerRadius="8" Padding="12,10"
+                                       Text="No Windows 11 a barra é XAML e pinta o próprio fundo por cima de qualquer efeito pedido à janela. Por isso o app coloca uma DLL dentro do Explorer — o mesmo desenho do TranslucentTB — que deixa esse fundo transparente; só então o efeito pedido ao compositor aparece. Se você tem um programa do gênero rodando, feche: dois mexendo na mesma barra ficam brigando."/>
+                            <Border x:Name="TbTapAviso" Visibility="Collapsed" Margin="0,6,0,0" CornerRadius="8" Padding="12,10"
                                     Background="#22E8B04B" BorderBrush="#55E8B04B" BorderThickness="1">
-                                <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
-                                           Text="Medido no Windows 11 build 26200: esta API NÃO muda a barra. O teste comparou fotos da barra com a área de trabalho à vista, nos quatro efeitos, com tom de 0 a 65%, aplicados na janela da barra e em cada janela-filha dela — todas iguais. Programas que conseguem hoje mexem na árvore de composição da barra, que é outro caminho e ainda não está implementado aqui. As opções continuam porque a API vale no Windows 10 e em builds anteriores do 11."/>
+                                <TextBlock x:Name="TbTapTexto" Style="{StaticResource Hint}" TextWrapping="Wrap"/>
                             </Border>
 
                             <TextBlock Text="Efeito" Style="{StaticResource FieldLabel}" Margin="0,14,0,5"/>

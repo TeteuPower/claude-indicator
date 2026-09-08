@@ -2,7 +2,7 @@
 ; Gere com: .\build.ps1   (ou abra este arquivo no Inno Setup Compiler)
 
 #define MyAppName "Claude Indicator"
-#define MyAppVersion "2.10.4"
+#define MyAppVersion "2.11.0"
 #define MyAppExe "ClaudeIndicator.exe"
 
 [Setup]

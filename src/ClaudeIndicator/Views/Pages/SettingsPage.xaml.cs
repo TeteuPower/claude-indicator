@@ -1314,25 +1314,30 @@ public partial class SettingsPage : UserControl
         LblTbTint.Text = Math.Round(SldTbTint.Value * 100) + "%";
         SldTbTint.IsEnabled = look is TaskbarLook.Transparente or TaskbarLook.Desfocada or TaskbarLook.Fosca;
 
-        // Elevado + efeito pedido é a combinação que apareceu não funcionando: o aviso diz isso em
-        // vez de deixar o usuário concluir que a opção é quebrada.
-        if (TbElevadoAviso != null)
+        // A elevação deixou de ser suspeita: o gancho de um processo elevado entra no Explorer
+        // normalmente. O que interessa mostrar é o estado do tap — instalado, ou por que não.
+        if (TbElevadoAviso != null) TbElevadoAviso.Visibility = Visibility.Collapsed;
+
+        if (TbTapAviso != null && TbTapTexto != null)
         {
-            TbElevadoAviso.Visibility = HardwareMonitor.IsElevated && look != TaskbarLook.Sistema
-                ? Visibility.Visible
-                : Visibility.Collapsed;
+            var erro = TaskbarStyler.ErroDoTap;
+            var mostrar = look != TaskbarLook.Sistema && erro != null;
+            TbTapAviso.Visibility = mostrar ? Visibility.Visible : Visibility.Collapsed;
+            if (mostrar)
+            {
+                TbTapTexto.Text = "A DLL não entrou no Explorer: " + erro
+                                  + " Sem ela, nesta versão do Windows o efeito não aparece.";
+            }
         }
 
-        // Os textos dizem o que o app PEDE, não o que aparece: nesta build do Windows 11 a política
-        // de acento não muda a barra, e isso está no aviso do topo do cartão. Antes aqui havia uma
-        // descrição do que "de fato" acontecia, tirada de uma medição por cor média que não
-        // distinguia o efeito do que passava atrás da barra.
+        // O que cada modo faz de fato, com a DLL dentro do Explorer deixando o fundo XAML da barra
+        // transparente para o efeito aparecer. Medido nesta máquina, com o papel de parede à vista.
         TbLookHint.Text = look switch
         {
             TaskbarLook.Sistema => "A barra fica como o Windows a desenha, e o app não toca nela.",
-            TaskbarLook.Transparente => "Pede a barra limpa, com o tom por cima — tom em 0% é o efeito de vidro dos programas do gênero.",
-            TaskbarLook.Desfocada => "Pede desfoque clássico atrás da barra, com o tom por cima.",
-            TaskbarLook.Fosca => "Pede o acrílico do Windows atrás da barra: desfoque com granulado fino.",
+            TaskbarLook.Transparente => "O papel de parede atravessa a barra, nítido, com o tom por cima — o vidro mais aberto.",
+            TaskbarLook.Desfocada => "Desfoque atrás da barra: o fundo aparece embaçado e mais escuro que os outros.",
+            TaskbarLook.Fosca => "Acrílico do Windows: desfoque com granulado fino, o mesmo vidro dos menus do sistema.",
             _ => "Cor cheia, sem nada do fundo aparecendo — útil para uniformizar a barra em telas com papéis de parede diferentes."
         };
     }
