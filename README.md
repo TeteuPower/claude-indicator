@@ -404,81 +404,44 @@ Duas coisas que o código garante, e que faltando quebram a experiência de form
 
 ## A barra do Windows
 
-O app também cuida da **aparência da barra de tarefas do Windows**, pela mesma API de composição que
-usa na barra própria. É o que programas como o TranslucentTB fazem — e é por isso que dá para
-substituí-los em vez de os dois brigarem pelo mesmo efeito. Se você tem um deles rodando, feche.
+O app tenta mexer na **aparência da barra de tarefas do Windows** pela política de acento do
+compositor (`SetWindowCompositionAttribute`), a API conhecida para isso. Cinco opções em
+*Configurações › Barra do Windows*: não mexer, transparente, desfocada, fosca e opaca, com um tom
+ajustável por cima (que não vale na opaca — opaca com tom pela metade não seria opaca). Aplica nas
+barras de **todas as telas**, reaplica quando o shell avisa que recriou a barra e devolve tudo ao
+sair.
 
-Cinco opções em *Configurações › Barra do Windows*:
+### Medido: nesta build do Windows 11, essa API não muda a barra
 
-| Efeito | O que acontece |
-|---|---|
-| **Não mexer** | a barra fica como o Windows a desenha; o app não toca nela |
-| **Transparente** | o que está atrás aparece nítido, com o tom por cima |
-| **Desfocada** | desfoque clássico, sem granulado — o mais escuro e uniforme |
-| **Fosca** | acrílico do Windows: desfoque com granulado fino, o vidro dos menus do sistema |
-| **Opaca** | cor cheia, para uniformizar a barra em telas com papéis de parede diferentes |
+O teste que decidiu: com a área de trabalho à vista (janelas minimizadas), fotos da faixa da barra
+mais 60 px de papel de parede acima, comparando o nativo com os quatro efeitos, tom de 0 a 65%,
+aplicados na `Shell_TrayWnd` **e** em cada janela-filha grande dela — a ilha XAML
+(`DesktopWindowContentBridge`), a `CoreWindow`, a `ReBarWindow32`, a lista de tarefas. **Todas as
+fotos saíram iguais.** Build 26200.
 
-O **tom** é a cor do app por cima do efeito: quanto mais alto, mais escura a barra e menos o fundo
-aparece. Em *Opaca* ele não vale — opaca com tom pela metade não seria opaca.
+Antes disso eu havia concluído o contrário duas vezes, e as duas por causa da métrica: comparei a
+**cor média** da faixa. A média mudava mesmo — mas por causa do que passava atrás da barra, não do
+efeito. Daí saíram duas conclusões erradas que chegaram a virar código: um "piso de 20% no tom"
+(que ainda por cima bloqueava o tom 0, justamente o que faz a barra limpa) e um "o shell desfaz o
+efeito em 10–20 segundos, então reaplique a cada 2 s". As duas foram revertidas. Métrica cega dá
+conclusão errada com toda a aparência de rigor.
 
-O tom tem **piso de 20%**, e o motivo é medido: o efeito entra *atrás* do fundo que a própria barra
-do Windows pinta, então é o tom que de fato aparece. Com foto da barra nas três aparências e três
-tons, em tom 0 as nove saem **idênticas ao sistema** — a opção parece quebrada quando na verdade
-está fazendo exatamente o que foi pedido. Valor menor guardado de antes do piso volta ao padrão de
-65%, e não ao mínimo: 20% é discreto, e quem cai ali por acidente conclui a mesma coisa.
+### Como os programas que conseguem fazem
 
-E a **barra própria pode seguir o mesmo estilo** (ligado por padrão): as duas ficam com o mesmo vidro
-e o mesmo tom, que é o ponto de um app só cuidar das duas. Nesse modo os controles de fundo da barra
-própria ficam desabilitados, em vez de prometerem algo que vem de outro lugar.
+Olhando o que está instalado nesta máquina: o TranslucentTB traz `ExplorerTAP.dll` e
+`ExplorerHooks.dll`, e dentro delas aparecem `SetWindowsHookEx`, `XamlDiagnostics` e
+`Windows.UI.Xaml`. Ou seja: ele **injeta uma DLL nativa dentro do Explorer** e, de lá de dentro, usa
+a API de diagnóstico do XAML para alcançar a árvore visual da barra e trocar o material do fundo. Não
+é a política de acento — é um "tap" no processo do shell.
 
-Três cuidados que o código garante, e que faltando quebram a experiência de forma difícil de
-entender:
+Replicar isso aqui não é um ajuste: precisaria de um projeto C++ nativo (não dá para injetar uma DLL
+gerenciada no Explorer de forma sã), injeção por hook, COM de diagnóstico do XAML, reinjeção a cada
+reinício do Explorer e a briga com antivírus que vem de brinde — para duplicar um programa de código
+aberto que já faz exatamente isso e é mantido. **A recomendação honesta é usar um deles para a barra
+do Windows** e deixar este app cuidar da barra própria e dos painéis.
 
-1. **Toda barra, não só a principal.** Com "mostrar a barra em todas as telas" ligado existe uma
-   janela por monitor — aqui são três — e estilizar só a principal deixaria as outras destoando.
-2. **Reaplicar a cada três segundos.** O Explorer recria as janelas da barra quando reinicia, e o
-   efeito não sobrevive à janela antiga: sem reaplicar, a barra volta ao normal sozinha e parece que
-   o app desistiu.
-3. **Devolver ao sair.** Efeito deixado para trás por um programa que já fechou só sai reiniciando o
-   Explorer — e a culpa fica com o Windows, não com quem deixou.
-
-A reaplicação é **por relógio E por aviso**, e o relógio não é precaução: medindo a cor média da
-faixa, o shell **desfaz o efeito sozinho entre 10 e 20 segundos**, sem emitir aviso nenhum. Houve uma
-versão que trocou o relógio por eventos "porque perguntar sem parar é desperdício de princípio" — e o
-efeito passou a durar alguns segundos. O relógio voltou, a dois segundos, e é por isso que programas
-do gênero também reaplicam sem parar. Os avisos continuam: uma janela oculta escuta o
-`TaskbarCreated` (difusão do shell ao recriar a barra), mudança de telas, troca de tema e reinício do
-compositor — para reagir na hora, sem esperar o próximo tique.
-
-**Devolver não é só tirar o efeito.** Medido: o nativo é `#35303F`, com desfoque vira `#323332` e, ao
-remover o acento, fica `#313331` — escuro, sem a translucidez do Windows, que não volta sozinha. O
-que traz de volta é pedir ao shell que se redesenhe: mensagem de tema nas janelas da barra e a
-difusão de `ImmersiveColorSet`, que devolveu exatamente o `#35303F`. Sem isso, desligar a opção
-deixaria a barra pior do que antes de instalar o app.
-
-**O que esperar de cada modo neste Windows.** A barra do Windows 11 já é translúcida de fábrica, e
-isso limita o que a API dá: *Transparente* muda pouco (fica parecido com o normal do sistema),
-*Desfocada* é o que mais muda (escura e uniforme, perdendo o vidro do sistema), *Fosca* mantém o fundo
-aparecendo sob o tom, e *Opaca* uniformiza. Uma barra **mais** transparente que a do sistema não sai
-por esse caminho aqui.
-
-### Rodar como administrador atrapalha o vidro
-
-Vale para os dois lados — a barra do Windows e o fundo fosco da barra própria. Com o app **elevado**,
-o pedido do efeito volta com **sucesso** e o compositor não compõe nada: a barra do Windows fica
-igual e a barra própria fica **preta**, porque em janela não-*layered* o que não é composto é preto.
-O mesmo código, no mesmo computador, rodando sem elevação, entrega o vidro.
-
-Para a própria janela do app não há como contornar: ela pertence ao processo elevado. Então o app
-**diz** — o aviso aparece em *Barra do Windows* e no fundo fosco da barra própria — e a escolha fica
-explícita:
-
-- **Sem administrador**: vidro funciona, e a temperatura e os watts da CPU não são lidos (vêm de
-  registradores do processador, que só um driver de kernel alcança).
-- **Com administrador**: sensores completos, sem vidro.
-
-Deixar as **outras janelas** do sistema translúcidas, como o TranslucentTB também faz, ainda não está
-aqui.
+As opções continuam no app porque a API vale no Windows 10 e em builds anteriores do 11 — e a própria
+tela avisa, com o que foi medido, que nesta build pode não mudar nada.
 
 ## Uso no dia a dia
 
