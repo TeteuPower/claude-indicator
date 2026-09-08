@@ -251,7 +251,8 @@ intervalo: decisão de quem usa, não uma punição que o app aplica sozinho.
     liga a leitura de sensores mesmo com aquele painel desligado
   - o interruptor do velocímetro é o mesmo que existe em *Ritmo*: mexer em um mexe no outro
 - **Barra própria**: mostrar, borda (topo, esquerda ou direita), tela, reservar espaço na área útil,
-  ficar sempre por cima, sair da frente de jogo em tela cheia, espessura, transparência do fundo,
+  ficar sempre por cima, sair da frente de jogo em tela cheia, espessura, transparência e fundo
+  fosco (desfoque do Windows),
   tamanho do conteúdo (com botão de restaurar padrões) e, para cada painel, se ele aparece nela e em
   qual lado — começo ou fim da barra, independente do lado que ele usa na barra do Windows
 - **Ritmo**: velocímetro no painel da barra e/ou no gadget, de qual limite ele acompanha, a janela
@@ -305,6 +306,22 @@ Também dá para escolher a **tela** (qualquer uma — a barra própria não dep
 Windows naquele monitor), a **espessura** (guardada em separado para a barra em pé e a deitada), a
 **transparência do fundo** (0% deixa só o conteúdo, sobre o papel de parede) e o **tamanho do
 conteúdo**.
+
+O **fundo fosco** liga o desfoque acrílico do compositor do Windows atrás da barra — o mesmo efeito
+da barra de tarefas do sistema. Ele fica *atrás* do fundo: o controle de transparência continua
+sendo o tom da barra, agora sobre vidro, e é por isso que ligar o fosco baixa o tom junto se ele
+estiver alto (em 100% o tom cobriria o efeito por completo). Duas coisas que o código precisa
+garantir:
+
+1. **Fosco e transparência por pixel do WPF são exclusivos.** Com `AllowsTransparency=True` o WPF
+   torna a janela *layered* e a desenha inteira por conta própria; aí o compositor não tem onde
+   compor o desfoque. Como isso se decide antes de a janela existir, trocar a preferência **recria**
+   a barra.
+2. **O tom é pintado pelo app, não pedido ao Windows.** O acrílico do Windows 11 ignora a cor que se
+   pede junto do efeito — o mesmo tom escuro a 25% e a 55% dava resultado idêntico, com o papel de
+   parede dominando. Como o efeito respeita o alfa do que a janela desenha, o tom feito no WPF é
+   exato e usa a mesma régua do modo sem fosco. Se o Windows recusar o efeito, o fundo volta a ser
+   opaco: "transparente" sem compositor pintando atrás é preto.
 
 ### Os painéis dentro dela
 
@@ -791,6 +808,7 @@ src/ClaudeIndicator/
     TrayIconRenderer.cs  desenha o ícone da bandeja em tempo real
     TaskbarInfo.cs       geometria da barra de tarefas, dos monitores e espaço livre nela
     DesktopAppBar.cs     registra a barra própria como appbar do Windows (reserva a faixa)
+    WindowBackdrop.cs    fundo fosco pelo compositor do Windows (o acrílico da barra)
     EtwSession.cs        sessão de rastreamento do Windows: eventos de quadro apresentado
     FrameRateMonitor.cs  carimbos de quadro -> FPS, tempo de quadro e 1% low por processo
     GameDetector.cs      resolve qual janela recebe o indicador (escolhida ou adivinhada)
