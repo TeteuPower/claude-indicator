@@ -248,7 +248,8 @@ O que continua sendo reação e não escolha:
   - o interruptor do velocímetro é o mesmo que existe em *Ritmo*: mexer em um mexe no outro
 - **Barra própria**: mostrar, borda (topo, esquerda ou direita), tela, reservar espaço na área útil,
   ficar sempre por cima, sair da frente de jogo em tela cheia, espessura, transparência do fundo,
-  tamanho do conteúdo e quais painéis aparecem nela
+  tamanho do conteúdo (com botão de restaurar padrões) e, para cada painel que mora nela, o lado que
+  ele ocupa — começo ou fim da barra
 - **Ritmo**: velocímetro no painel da barra e/ou no gadget, de qual limite ele acompanha, a janela
   da média (5 min a 24 h) e a marca do tempo decorrido nas barras
 - **Histórico de consumo**: guardar tudo (padrão) ou apagar registros com mais de N dias
@@ -301,11 +302,33 @@ Windows naquele monitor), a **espessura** (guardada em separado para a barra em 
 **transparência do fundo** (0% deixa só o conteúdo, sobre o papel de parede) e o **tamanho do
 conteúdo**.
 
-Dentro dela vão os painéis que já existem no app: **limites da assinatura**, **sensores do
-computador** e **velocímetro do ritmo**, cada um com seu interruptor, mais a linha do tempo das
-consultas. Em pé, cada painel é uma linha empilhada, no desenho do gadget; deitada, cada um é uma
-célula lado a lado, no desenho do painel da barra de tarefas. Atalhos de aplicativos ficam para
-depois.
+### Os painéis mudam de casa
+
+Com a barra própria ligada, o **painel da assinatura** e o **painel do computador** deixam de ocupar
+o espaço livre da barra do Windows e aparecem dentro dela — os mesmos painéis, com as mesmas
+preferências, sem interruptor duplicado: são os de *Painéis* que continuam mandando, e mexer neles
+em qualquer uma das duas abas mexe no mesmo lugar. Mostrar os dois ao mesmo tempo seria o mesmo
+bloco duas vezes na tela.
+
+O **lado** de cada painel também viaja com ele: "à esquerda" vira o começo da barra e "junto ao
+relógio" vira o fim. Assim dá para deixar os limites do Claude numa ponta e os sensores na outra,
+com o meio livre — e a mesma escolha volta a valer quando o painel retorna para a barra do Windows.
+O velocímetro do ritmo acompanha o painel da assinatura, como acompanha lá.
+
+### Em pé, os indicadores também ficam em pé
+
+Barra vertical pede medidor vertical. Cada limite vira uma **coluna que enche de baixo para cima**,
+com a porcentagem em cima e o rótulo embaixo, e as colunas ficam lado a lado repartindo a largura.
+Trilhos deitados, um sobre o outro, gastariam a altura e desperdiçariam a largura — que é justamente
+o contrário do que uma faixa estreita e alta tem de sobra.
+
+Nessas colunas o horário de renovação **não** vira texto: ele já está na marca que atravessa o
+trilho na altura do tempo decorrido, dizendo a mesma coisa sem ocupar linha nenhuma (e "reseta em
+6d 4h" não caberia numa coluna de 60 px). O número exato continua no balão. A marca acima do
+enchimento significa limite sobrando; abaixo, consumo correndo na frente do relógio.
+
+A barra deitada segue com as células lado a lado, no mesmo desenho do painel da barra de tarefas.
+Atalhos de aplicativos ficam para depois.
 
 Duas coisas que o código garante, e que faltando quebram a experiência de forma difícil de entender:
 
