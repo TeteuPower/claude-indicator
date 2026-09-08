@@ -341,6 +341,19 @@ sobre a trilha inteira, então o preenchimento mostra só o pedaço da régua qu
 trilha estica com a barra e não há largura absoluta para medir — sem o recorte, todo sensor
 apareceria verde embaixo e vermelho em cima, mesmo a 20%.
 
+**CPU e GPU ganham o termômetro ao lado do trilho de uso**, o mesmo do indicador no jogo. São duas
+perguntas diferentes e por isso duas formas diferentes: o trilho diz quanto do total está em uso, o
+termômetro diz quão perto do limite físico a peça está — e ficam juntos porque a pergunta que se faz
+é sobre um componente ("como está a GPU?"), não sobre uma grandeza. A régua do termômetro não é a de
+carga: 50% de uso é meio caminho e sai amarelo, 50 °C é temperatura confortável e sai verde. Sem
+leitura de temperatura o termômetro não é desenhado em vez de aparecer vazio — é o caso da RAM, que
+não tem sensor, e da CPU sem elevação.
+
+A **linha do tempo das consultas desce pela lateral direita**, na altura das três colunas de limite,
+em vez de correr no rodapé. Aproveita a largura que sobra numa faixa alta, e mantém as bolinhas
+junto do dado que elas explicam: cada uma é uma consulta que trouxe (ou não) aqueles números. No
+rodapé, depois de um bloco de sensores, a faixa parecia falar da CPU.
+
 A barra deitada segue com as células lado a lado, no mesmo desenho do painel da barra de tarefas.
 Atalhos de aplicativos ficam para depois.
 
