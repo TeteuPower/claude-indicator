@@ -44,8 +44,11 @@ public sealed class WindowGlass
         "MultitaskingViewFrame", "ForegroundStaging", "TaskListThumbnailWnd"
     };
 
-    /// <summary>Janelas que recebemos: o valor diz se fomos nós que pusemos o bit de transparência.</summary>
-    private readonly Dictionary<IntPtr, bool> _tocadas = new();
+    /// <summary>O que foi feito numa janela, para saber como desfazer.</summary>
+    private readonly record struct Tratamento(GlassMode Modo, bool PusemosOBit);
+
+    /// <summary>Janelas que recebemos e o tratamento que cada uma levou.</summary>
+    private readonly Dictionary<IntPtr, Tratamento> _tocadas = new();
 
     /// <summary>Ligadas na mão pelo atalho, mesmo sem o aplicativo estar na lista.</summary>
     private readonly HashSet<IntPtr> _ligadasNaMao = new();
@@ -85,7 +88,11 @@ public sealed class WindowGlass
                 var deve = _ligadasNaMao.Contains(h)
                            || (apps.Contains(processo) && !_desligadasNaMao.Contains(h));
 
-                if (deve) Aplicar(h, alfa);
+                // trocar de modo com a janela já tratada: desfaz o tratamento antigo primeiro,
+                // senão sobra o quadro estendido debaixo do alfa, ou o contrário
+                if (_tocadas.TryGetValue(h, out var antes) && antes.Modo != s.GlassMode) Devolver(h);
+
+                if (deve) Aplicar(h, s, alfa);
                 else if (_tocadas.ContainsKey(h)) Devolver(h);
             }
             catch
@@ -114,7 +121,11 @@ public sealed class WindowGlass
             return $"{processo}: transparência desligada.";
         }
 
-        Aplicar(h, AlfaDe(s));
+        if (!Aplicar(h, s, AlfaDe(s)))
+            return s.GlassMode == GlassMode.SoOFundo
+                ? $"{processo}: esta janela não tem fundo do Windows 11 para deixar translúcido."
+                : $"{processo}: o Windows não deixou mexer nesta janela.";
+
         _desligadasNaMao.Remove(h);
         _ligadasNaMao.Add(h);
         return $"{processo}: transparência ligada.";
@@ -179,48 +190,142 @@ public sealed class WindowGlass
 
     // ------------------------------------------------------------------ uma janela
 
-    private void Aplicar(IntPtr hwnd, byte alfa)
+    private bool Aplicar(IntPtr hwnd, AppSettings s, byte alfa)
+    {
+        return s.GlassMode == GlassMode.SoOFundo
+            ? AplicarFundo(hwnd, s)
+            : AplicarJanelaInteira(hwnd, alfa);
+    }
+
+    /// <summary>
+    /// Só o fundo: estende o quadro do DWM sobre a área de cliente inteira.
+    ///
+    /// É uma chamada só, de fora do processo, e nada é injetado. Funciona porque no Windows 11 a
+    /// janela já tem um <b>material de fundo</b> (Mica) que o DWM desenha; o programa é que pinta
+    /// por cima dele. Estendendo o quadro, o DWM passa a preencher a área toda com esse material, e
+    /// o que o programa desenha — texto, ícones, miniaturas — continua por cima, nítido.
+    ///
+    /// Medido nesta máquina numa janela de pastas, a cor média do fundo:
+    ///
+    /// <code>
+    /// original                    (25, 25, 25)
+    /// quadro estendido            (38, 25, 80)
+    /// quadro estendido + acento  (179, 25,162)
+    /// devolvido                   (25, 25, 25)
+    /// </code>
+    ///
+    /// Daí os dois níveis: só o quadro é o tom discreto do próprio Windows, e somar a política de
+    /// acento abre bem mais. O tom do acento não muda nada aqui — testado com alfa 0x40 e 0x80, a
+    /// cor medida foi a mesma —, então não há controle contínuo para oferecer, e prometer um seria
+    /// mentira.
+    ///
+    /// <b>Só vale em janela que tem material de fundo.</b> Sem ele, estender o quadro deixa a área
+    /// de cliente transparente de verdade: dá para ler a janela de trás através desta, e o texto
+    /// desta quase some. Por isso a guarda em <see cref="TemMaterialDeFundo"/>.
+    /// </summary>
+    private bool AplicarFundo(IntPtr hwnd, AppSettings s)
+    {
+        if (!TemMaterialDeFundo(hwnd)) return false;
+
+        var margens = new Margens { Esquerda = -1, Direita = -1, Cima = -1, Baixo = -1 };
+        if (DwmExtendFrameIntoClientArea(hwnd, ref margens) != 0) return false;
+
+        Acento(hwnd, s.GlassBackdropOpen ? AcentoDesfoque : AcentoDesligado);
+        RedrawWindow(hwnd, IntPtr.Zero, IntPtr.Zero, RdwInvalidate | RdwAllChildren | RdwFrame);
+
+        _tocadas[hwnd] = new Tratamento(GlassMode.SoOFundo, false);
+        return true;
+    }
+
+    private bool AplicarJanelaInteira(IntPtr hwnd, byte alfa)
     {
         if (_tocadas.TryGetValue(hwnd, out _))
         {
             // já é nossa: só acerta o valor, que pode ter mudado nas configurações
             SetLayeredWindowAttributes(hwnd, 0, alfa, LwaAlpha);
-            return;
+            return true;
         }
 
         var estilo = GetWindowLongPtrW(hwnd, GwlExStyle).ToInt64();
 
         // Já era translúcida antes de nós: provavelmente desenha com transparência por pixel, e
         // trocar para alfa uniforme estragaria o desenho. Fica como está.
-        if ((estilo & WsExLayered) != 0) return;
+        if ((estilo & WsExLayered) != 0) return false;
 
         if (SetWindowLongPtrW(hwnd, GwlExStyle, new IntPtr(estilo | WsExLayered)) == IntPtr.Zero
             && Marshal.GetLastWin32Error() != 0)
-            return;
+            return false;
 
         if (!SetLayeredWindowAttributes(hwnd, 0, alfa, LwaAlpha))
         {
             // não deu: desfaz o bit para não deixar a janela num estado que não pedimos
             SetWindowLongPtrW(hwnd, GwlExStyle, new IntPtr(estilo));
-            return;
+            return false;
         }
 
-        _tocadas[hwnd] = true;
+        _tocadas[hwnd] = new Tratamento(GlassMode.JanelaInteira, true);
+        return true;
+    }
+
+    /// <summary>
+    /// A janela tem material de fundo do Windows 11? Só nessas o modo "só o fundo" faz o que
+    /// promete. Mica e Mica Alt valem; "nenhum" e "automático" não, porque aí não há material
+    /// nenhum para o quadro estendido revelar.
+    /// </summary>
+    private static bool TemMaterialDeFundo(IntPtr hwnd)
+    {
+        if (DwmGetWindowAttribute(hwnd, DwmwaSystemBackdropType, out var material, sizeof(int)) != 0)
+            return false;
+
+        return material == DwmsbtMainWindow || material == DwmsbtTabbedWindow;
+    }
+
+    private static void Acento(IntPtr hwnd, int estado)
+    {
+        var politica = new PoliticaAcento
+        {
+            Estado = estado,
+            Bandeiras = 0x1F3,      // desenhar em todas as bordas
+            Gradiente = 0x01000000, // sem tom: aqui ele não muda nada, medido
+            Animacao = 0
+        };
+
+        var tamanho = Marshal.SizeOf<PoliticaAcento>();
+        var ponteiro = Marshal.AllocHGlobal(tamanho);
+        try
+        {
+            Marshal.StructureToPtr(politica, ponteiro, false);
+            var dados = new DadosComposicao { Atributo = WcaAccentPolicy, Dados = ponteiro, Tamanho = tamanho };
+            SetWindowCompositionAttribute(hwnd, ref dados);
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(ponteiro);
+        }
     }
 
     private void Devolver(IntPtr hwnd)
     {
-        if (!_tocadas.TryGetValue(hwnd, out var puseramosOBit)) return;
+        if (!_tocadas.TryGetValue(hwnd, out var tratamento)) return;
         _tocadas.Remove(hwnd);
 
         if (!IsWindow(hwnd)) return;
 
         try
         {
+            if (tratamento.Modo == GlassMode.SoOFundo)
+            {
+                Acento(hwnd, AcentoDesligado);
+                var zeradas = new Margens();
+                DwmExtendFrameIntoClientArea(hwnd, ref zeradas);
+                RedrawWindow(hwnd, IntPtr.Zero, IntPtr.Zero, RdwInvalidate | RdwAllChildren | RdwFrame);
+                return;
+            }
+
             // opaca de novo antes de mexer no estilo, senão sobra um quadro translúcido
             SetLayeredWindowAttributes(hwnd, 0, 255, LwaAlpha);
 
-            if (puseramosOBit)
+            if (tratamento.PusemosOBit)
             {
                 var estilo = GetWindowLongPtrW(hwnd, GwlExStyle).ToInt64();
                 SetWindowLongPtrW(hwnd, GwlExStyle, new IntPtr(estilo & ~WsExLayered));
@@ -334,6 +439,42 @@ public sealed class WindowGlass
     private const uint RdwInvalidate = 0x0001;
     private const uint RdwAllChildren = 0x0080;
     private const uint RdwFrame = 0x0400;
+
+    private const int DwmwaSystemBackdropType = 38;
+    private const int DwmsbtMainWindow = 2;      // Mica
+    private const int DwmsbtTabbedWindow = 4;    // Mica Alt
+    private const int WcaAccentPolicy = 19;
+    private const int AcentoDesligado = 0;
+    private const int AcentoDesfoque = 3;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Margens
+    {
+        public int Esquerda, Direita, Cima, Baixo;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct DadosComposicao
+    {
+        public int Atributo;
+        public IntPtr Dados;
+        public int Tamanho;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct PoliticaAcento
+    {
+        public int Estado;
+        public int Bandeiras;
+        public uint Gradiente;
+        public int Animacao;
+    }
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmExtendFrameIntoClientArea(IntPtr hwnd, ref Margens margens);
+
+    [DllImport("user32.dll")]
+    private static extern int SetWindowCompositionAttribute(IntPtr hwnd, ref DadosComposicao dados);
 
     private delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
 

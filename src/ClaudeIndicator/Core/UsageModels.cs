@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace ClaudeIndicator.Core;
@@ -121,4 +121,20 @@ public class UsageSnapshot
         }
         return list;
     }
+}
+
+/// <summary>Como uma janela de outro programa fica translúcida.</summary>
+public enum GlassMode
+{
+    /// <summary>
+    /// A janela inteira desbota, conteúdo incluído. Vale em qualquer programa, e é o efeito dos
+    /// utilitários antigos.
+    /// </summary>
+    JanelaInteira,
+
+    /// <summary>
+    /// Só o fundo fica translúcido; texto e ícones continuam nítidos. Só funciona em janela que
+    /// tem material de fundo do Windows 11 — o Explorador de Arquivos é a principal.
+    /// </summary>
+    SoOFundo
 }

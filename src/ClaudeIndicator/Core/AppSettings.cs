@@ -260,6 +260,15 @@ public class AppSettings
     /// <summary>Atalho que liga e desliga a transparência na janela em foco.</summary>
     public string GlassHotkey { get; set; } = "Ctrl+Alt+T";
 
+    /// <summary>Como a janela fica translúcida.</summary>
+    public GlassMode GlassMode { get; set; } = GlassMode.SoOFundo;
+
+    /// <summary>
+    /// No modo "só o fundo", quanto o fundo abre. Ligado, o app soma a política de acento ao quadro
+    /// estendido e o fundo fica bem mais aberto; desligado, fica no tom discreto do próprio Windows.
+    /// </summary>
+    public bool GlassBackdropOpen { get; set; } = true;
+
     // ---- Indicador por cima do jogo ----
     /// <summary>Desenhar os indicadores por cima do jogo em primeiro plano.</summary>
     public bool ShowGameOverlay { get; set; }
@@ -595,6 +604,7 @@ public class AppSettings
         // Piso de 25%: abaixo disso a janela some e deixa de ser usável, que é justamente o que a
         // opacidade ajustável existe para evitar.
         GlassOpacity = Math.Clamp(GlassOpacity, 0.25, 1);
+        if (!Enum.IsDefined(GlassMode)) GlassMode = GlassMode.SoOFundo;
         GlassApps ??= new List<string>();
     }
 
