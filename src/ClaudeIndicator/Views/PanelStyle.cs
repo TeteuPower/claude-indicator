@@ -180,6 +180,38 @@ public static class PanelStyle
         track.Child = grid;
         row.Children.Add(track);
 
+        // O mesmo par da coluna em pé, deitado: termômetro em CPU e GPU, barra de disco na memória.
+        // A temperatura já aparece como texto no cabeçalho, mas número não se lê de relance — o
+        // desenho é que diz "está perto do limite" sem ter que ler.
+        if (c.Temperature.HasValue)
+        {
+            var termometro = MeterRenderer.ThermometerFlat(c.Temperature.Value!.Value, largura, 5, s.PanelOutline);
+            if (termometro is FrameworkElement fe) fe.Margin = new Thickness(6 * scale, 0, 0, 0);
+            row.Children.Add(termometro);
+        }
+        else if (rotulo == "RAM" && s.PcShowDisk && hw.Disk.HasAnything)
+        {
+            var barra = PanelStyle.DiskBarFlat(hw.Disk, s, largura, 5);
+            row.Children.Add(new Border
+            {
+                Child = barra,
+                Background = Brushes.Transparent,
+                Margin = new Thickness(6 * scale, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                ToolTip = HardwareRenderer.DescribeDisk(hw.Disk, hw.Processes)
+            });
+
+            row.Children.Add(new OutlinedText
+            {
+                Text = hw.Disk.Busy.Format("%"),
+                FontSize = 10.5 * scale,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(LoadColor(hw.Disk.Busy)),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(5 * scale, 0, 0, 0)
+            });
+        }
+
         cell.Children.Add(row);
 
         return new Border
@@ -733,6 +765,106 @@ public static class PanelStyle
 
         trilha.Child = metades;
         return trilha;
+    }
+
+    /// <summary>
+    /// A barra de disco deitada, para a célula da barra de tarefas: o zero fica no meio, a leitura
+    /// cresce para a direita e a gravação para a esquerda.
+    ///
+    /// Direita para leitura porque é o lado em que as barras de uso já crescem: numa fila deitada,
+    /// "mais" é para a direita, e inverter isso só para o disco confundiria os dois vizinhos.
+    /// </summary>
+    public static UIElement DiskBarFlat(DiskReading d, AppSettings s, double largura, double altura)
+    {
+        var raio = altura / 2;
+        var leitura = Math.Clamp(d.ReadPercent / 100.0, 0, 1);
+        var gravacao = Math.Clamp(d.WritePercent / 100.0, 0, 1);
+
+        var trilha = new Border
+        {
+            Width = largura,
+            Height = altura,
+            CornerRadius = new CornerRadius(raio),
+            Background = FundoDaTrilha(s),
+            BorderBrush = TrilhaBorda,
+            BorderThickness = BordaDaTrilha(s),
+            VerticalAlignment = VerticalAlignment.Center,
+            ClipToBounds = true
+        };
+
+        var metades = new Grid();
+        metades.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        metades.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var esquerda = MetadeDeitada(gravacao, raio, false);
+        Grid.SetColumn(esquerda, 0);
+        metades.Children.Add(esquerda);
+
+        var direita = MetadeDeitada(leitura, raio, true);
+        Grid.SetColumn(direita, 1);
+        metades.Children.Add(direita);
+
+        var meio = new Border
+        {
+            Width = 1,
+            Background = TrilhaBorda,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Stretch
+        };
+        Grid.SetColumnSpan(meio, 2);
+        metades.Children.Add(meio);
+
+        trilha.Child = metades;
+        return trilha;
+    }
+
+    private static UIElement MetadeDeitada(double fracao, double raio, bool paraDireita)
+    {
+        var f = Math.Clamp(fracao, 0, 1);
+
+        var grade = new Grid();
+        var vazio = new GridLength(Math.Max(1 - f, 0.0001), GridUnitType.Star);
+        var cheio = new GridLength(Math.Max(f, 0.0001), GridUnitType.Star);
+
+        grade.ColumnDefinitions.Add(new ColumnDefinition { Width = paraDireita ? cheio : vazio });
+        grade.ColumnDefinitions.Add(new ColumnDefinition { Width = paraDireita ? vazio : cheio });
+
+        var enchimento = new Border
+        {
+            CornerRadius = paraDireita ? new CornerRadius(0, raio, raio, 0) : new CornerRadius(raio, 0, 0, raio),
+            Background = RampaDeitadaAte(f, paraDireita),
+            MinWidth = f > 0 ? 3 : 0
+        };
+        Grid.SetColumn(enchimento, paraDireita ? 0 : 1);
+        grade.Children.Add(enchimento);
+
+        return grade;
+    }
+
+    /// <summary>A régua recortada no valor lido, medida a partir do centro da barra.</summary>
+    private static Brush RampaDeitadaAte(double fracao, bool paraDireita)
+    {
+        var f = Math.Clamp(fracao, 0, 1);
+        var g = new LinearGradientBrush
+        {
+            MappingMode = BrushMappingMode.RelativeToBoundingBox,
+            StartPoint = paraDireita ? new Point(0, 0) : new Point(1, 0),
+            EndPoint = paraDireita ? new Point(1, 0) : new Point(0, 0)
+        };
+
+        g.GradientStops.Add(new GradientStop(Verde, 0.0));
+        if (f <= 0.5)
+        {
+            g.GradientStops.Add(new GradientStop(Mix(Verde, Amarelo, f <= 0 ? 0 : f / 0.5), 1.0));
+        }
+        else
+        {
+            g.GradientStops.Add(new GradientStop(Amarelo, 0.5 / f));
+            g.GradientStops.Add(new GradientStop(Mix(Amarelo, Vermelho, (f - 0.5) / 0.5), 1.0));
+        }
+
+        g.Freeze();
+        return g;
     }
 
     /// <summary>

@@ -606,6 +606,11 @@ O disco é escolhido em *Configurações › Painéis*, na mesma numeração do 
 ("Disco 1 (D:)"), ou o somatório de todos. Com a memória desligada o disco ganha coluna própria,
 em vez de sumir junto com a anfitriã.
 
+No **painel da barra de tarefas**, que é deitado, o mesmo par aparece na horizontal: CPU e GPU
+ganham o termômetro com o bulbo à esquerda, e a memória ganha a barra de disco com o zero no meio —
+leitura para a direita, gravação para a esquerda. Direita para leitura porque numa fila deitada
+"mais" já é para a direita nas barras de uso, e inverter só para o disco confundiria os vizinhos.
+
 #### Não existe 0 a 100% da velocidade de um disco
 
 A pergunta natural é "quanto por cento da capacidade do disco isso é?", e ela **não tem resposta**.

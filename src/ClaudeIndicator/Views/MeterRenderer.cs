@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -370,6 +370,86 @@ public static class MeterRenderer
             Fill = Congelado(cor),
             VerticalAlignment = VerticalAlignment.Bottom,
             HorizontalAlignment = HorizontalAlignment.Center
+        });
+
+        return caixa;
+    }
+
+    /// <summary>
+    /// O mesmo termômetro, deitado: bulbo à esquerda e mercúrio subindo para a direita.
+    ///
+    /// Não é o vertical girado. Girar traria junto o alongamento vertical dele, que numa fila
+    /// horizontal não tem limite e estoura o layout. Aqui as duas medidas são fixas, que é o que a
+    /// célula deitada pede — ela já tem altura conhecida.
+    /// </summary>
+    public static UIElement ThermometerFlat(double tempC, double comprimento, double espessura, bool contorno)
+    {
+        var cor = TempRamp(tempC);
+        var bulbo = espessura * 1.85;
+        var fracao = Math.Clamp(tempC / TetoTemperaturaC, 0, 1);
+
+        var caixa = new Grid
+        {
+            Width = comprimento,
+            Height = bulbo + 2,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+        UIElement Corpo(double engorda, Color c, bool preenchido) => new Border
+        {
+            Height = espessura + engorda,
+            CornerRadius = new CornerRadius((espessura + engorda) / 2),
+            Background = preenchido ? Congelado(c) : null,
+            BorderBrush = preenchido ? null : Congelado(c),
+            BorderThickness = preenchido ? default : new Thickness(1.2),
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Margin = new Thickness(bulbo / 2 - engorda / 2, 0, 0, 0)
+        };
+
+        if (contorno)
+        {
+            caixa.Children.Add(Corpo(3, Color.FromArgb(0xB3, 0, 0, 0), true));
+            caixa.Children.Add(new Ellipse
+            {
+                Width = bulbo + 3,
+                Height = bulbo + 3,
+                Fill = Congelado(Color.FromArgb(0xB3, 0, 0, 0)),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+        }
+
+        caixa.Children.Add(Corpo(0, Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF), false));
+
+        // o mercúrio ocupa a fração do tubo, medida da esquerda para a direita
+        var interior = new Grid
+        {
+            Margin = new Thickness(bulbo * 0.75, 0, 2, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+        interior.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(fracao, 0.0001), GridUnitType.Star) });
+        interior.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(1 - fracao, 0.0001), GridUnitType.Star) });
+
+        var mercurio = new Border
+        {
+            Height = espessura * 0.55,
+            CornerRadius = new CornerRadius(espessura * 0.275),
+            Background = Congelado(cor),
+            MinWidth = 2
+        };
+        Grid.SetColumn(mercurio, 0);
+        interior.Children.Add(mercurio);
+        caixa.Children.Add(interior);
+
+        caixa.Children.Add(new Ellipse
+        {
+            Width = bulbo,
+            Height = bulbo,
+            Fill = Congelado(cor),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center
         });
 
         return caixa;
