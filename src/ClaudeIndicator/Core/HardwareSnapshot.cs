@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace ClaudeIndicator.Core;
 
@@ -61,6 +61,67 @@ public sealed class ComponentReading
     public bool HasAnything => Load.HasValue || Temperature.HasValue || Power.HasValue || MemoryUsed.HasValue;
 }
 
+/// <summary>
+/// Leituras de um disco físico.
+///
+/// Tipo próprio em vez de mais um <see cref="ComponentReading"/> porque as perguntas são outras.
+/// Um disco não tem "uso" de um recurso finito como memória ou núcleos: tem tempo ocupado e uma
+/// direção. E a direção é o que interessa ver — ler e gravar são trabalhos diferentes, e uma
+/// leitura de 400 MB/s não significa a mesma coisa que uma gravação de 400 MB/s.
+/// </summary>
+public sealed class DiskReading
+{
+    /// <summary>Como o Gerenciador de Tarefas escreveria: "Disco 1 (D:)".</summary>
+    public string Name { get; init; } = "";
+
+    /// <summary>A instância do contador, no formato "1 D:".</summary>
+    public string Instance { get; init; } = "";
+
+    /// <summary>
+    /// Fração do tempo em que o disco teve pelo menos um pedido em andamento, de 0 a 100. É o
+    /// "Tempo de atividade" do Gerenciador — e é a única porcentagem honesta que um disco tem.
+    /// </summary>
+    public Reading Busy { get; init; } = Reading.None;
+
+    /// <summary>Quanto do tempo ocupado é leitura, de 0 a 1. O resto é gravação.</summary>
+    public Reading ReadShare { get; init; } = Reading.None;
+
+    /// <summary>Bytes lidos por segundo.</summary>
+    public Reading ReadBytes { get; init; } = Reading.None;
+
+    /// <summary>Bytes gravados por segundo.</summary>
+    public Reading WriteBytes { get; init; } = Reading.None;
+
+    public bool HasAnything => Busy.HasValue;
+
+    /// <summary>A parcela do tempo ocupado que é leitura, de 0 a 100.</summary>
+    public double ReadPercent => Fatia(true);
+
+    /// <summary>A parcela do tempo ocupado que é gravação, de 0 a 100.</summary>
+    public double WritePercent => Fatia(false);
+
+    private double Fatia(bool leitura)
+    {
+        if (!Busy.HasValue) return 0;
+
+        var ocupado = Math.Clamp(Busy.Value!.Value, 0, 100);
+        var parte = ReadShare.HasValue ? Math.Clamp(ReadShare.Value!.Value, 0, 1) : 0.5;
+        return ocupado * (leitura ? parte : 1 - parte);
+    }
+
+    /// <summary>Taxa em texto curto, na maior unidade que ainda mostra um número legível.</summary>
+    public static string Taxa(Reading bytesPorSegundo)
+    {
+        if (!bytesPorSegundo.HasValue) return "—";
+
+        var v = Math.Max(0, bytesPorSegundo.Value!.Value);
+        if (v >= 1024d * 1024 * 1024) return (v / (1024d * 1024 * 1024)).ToString("0.0") + " GB/s";
+        if (v >= 1024d * 1024) return (v / (1024d * 1024)).ToString("0") + " MB/s";
+        if (v >= 1024) return (v / 1024).ToString("0") + " KB/s";
+        return v > 0 ? "<1 KB/s" : "0";
+    }
+}
+
 /// <summary>Retrato do hardware num instante.</summary>
 public sealed class HardwareSnapshot
 {
@@ -68,6 +129,9 @@ public sealed class HardwareSnapshot
     public ComponentReading Cpu { get; init; } = new();
     public ComponentReading Gpu { get; init; } = new();
     public ComponentReading Ram { get; init; } = new();
+
+    /// <summary>O disco escolhido nas configurações.</summary>
+    public DiskReading Disk { get; init; } = new();
 
     /// <summary>
     /// O app está elevado? Sem elevação, temperatura e potência da CPU não têm leitura — os
