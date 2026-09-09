@@ -162,7 +162,6 @@ public static class PanelStyle
             BorderBrush = TrilhaBorda,
             BorderThickness = BordaDaTrilha(s),
             VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(5, 0, 0, 0),
             ClipToBounds = true
         };
         var grid = new Grid();
@@ -178,26 +177,35 @@ public static class PanelStyle
         Grid.SetColumn(fill, 0);
         grid.Children.Add(fill);
         track.Child = grid;
-        row.Children.Add(track);
 
-        // O mesmo par da coluna em pé, deitado: termômetro em CPU e GPU, barra de disco na memória.
-        // A temperatura já aparece como texto no cabeçalho, mas número não se lê de relance — o
+        // O par fica um SOBRE o outro, e não lado a lado. Lado a lado, as duas trilhas viravam uma
+        // fita comprida só e não se lia onde uma acabava e a outra começava; empilhadas, elas
+        // partem da mesma margem esquerda e a comparação entre as duas é imediata. De quebra a
+        // célula encurta, que é o que a barra de tarefas tem de sobra em altura e não em largura.
+        var par = new StackPanel
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(5 * scale, 0, 0, 0)
+        };
+        par.Children.Add(track);
+        row.Children.Add(par);
+
+        // O mesmo par da coluna em pé: termômetro em CPU e GPU, barra de disco na memória. A
+        // temperatura já aparece como texto no cabeçalho, mas número não se lê de relance — o
         // desenho é que diz "está perto do limite" sem ter que ler.
         if (c.Temperature.HasValue)
         {
-            var termometro = MeterRenderer.ThermometerFlat(c.Temperature.Value!.Value, largura, 5, s.PanelOutline);
-            if (termometro is FrameworkElement fe) fe.Margin = new Thickness(6 * scale, 0, 0, 0);
-            row.Children.Add(termometro);
+            var termometro = MeterRenderer.ThermometerFlat(c.Temperature.Value!.Value, largura, 4, s.PanelOutline);
+            if (termometro is FrameworkElement fe) fe.Margin = new Thickness(0, 2 * scale, 0, 0);
+            par.Children.Add(termometro);
         }
         else if (rotulo == "RAM" && s.PcShowDisk && hw.Disk.HasAnything)
         {
-            var barra = PanelStyle.DiskBarFlat(hw.Disk, s, largura, 5);
-            row.Children.Add(new Border
+            par.Children.Add(new Border
             {
-                Child = barra,
+                Child = DiskBarFlat(hw.Disk, s, largura, 5),
                 Background = Brushes.Transparent,
-                Margin = new Thickness(6 * scale, 0, 0, 0),
-                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 3 * scale, 0, 0),
                 ToolTip = HardwareRenderer.DescribeDisk(hw.Disk, hw.Processes)
             });
 

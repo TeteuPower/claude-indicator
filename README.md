@@ -611,6 +611,11 @@ ganham o termômetro com o bulbo à esquerda, e a memória ganha a barra de disc
 leitura para a direita, gravação para a esquerda. Direita para leitura porque numa fila deitada
 "mais" já é para a direita nas barras de uso, e inverter só para o disco confundiria os vizinhos.
 
+As duas trilhas de cada par ficam **uma sobre a outra**, não lado a lado. Lado a lado elas viravam
+uma fita comprida só e não se lia onde uma acabava e a outra começava; empilhadas, partem da mesma
+margem esquerda e a comparação é imediata. De quebra a célula encurta bastante, que é o que a barra
+de tarefas tem de sobra em altura e não em largura.
+
 #### Não existe 0 a 100% da velocidade de um disco
 
 A pergunta natural é "quanto por cento da capacidade do disco isso é?", e ela **não tem resposta**.
