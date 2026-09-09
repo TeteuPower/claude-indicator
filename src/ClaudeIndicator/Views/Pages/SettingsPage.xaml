@@ -203,6 +203,13 @@
                             <TextBlock Style="{StaticResource Hint}" Margin="27,2,0,0"
                                        Text="A GPU entrega tudo sem driver e sem elevação. O uso da CPU e a memória também."/>
                             <CheckBox x:Name="ChkPcRam" Style="{StaticResource Switch}" Content="Memória (uso e GB)"/>
+                            <CheckBox x:Name="ChkPcDisk" Style="{StaticResource Switch}"
+                                      Content="Disco, ao lado da memória" Margin="27,9,0,0"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="27,2,0,0" TextWrapping="Wrap"
+                                       Text="Uma barra só, com o zero na linha do meio: leitura cresce para cima, gravação para baixo. A altura é o tempo em que o disco esteve ocupado, o mesmo &quot;Tempo de atividade&quot; do Gerenciador de Tarefas — e não porcentagem da velocidade máxima, que é um número que não existe. Por enquanto só aparece na barra própria em pé."/>
+                            <Border Style="{StaticResource SegmentGroup}" Margin="27,8,0,0">
+                                <WrapPanel x:Name="PcDisks" Orientation="Horizontal" MaxWidth="420"/>
+                            </Border>
                             <CheckBox x:Name="ChkThemeToggle" Style="{StaticResource Switch}"
                                       Content="Botão de trocar o tema claro/escuro do Windows"/>
                             <TextBlock Style="{StaticResource Hint}" Margin="27,2,0,0" TextWrapping="Wrap"

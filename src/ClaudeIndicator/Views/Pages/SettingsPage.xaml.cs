@@ -74,6 +74,8 @@ public partial class SettingsPage : UserControl
         ChkPcCpuSensors.IsChecked = s.PcCpuSensors;
         ChkPcGpu.IsChecked = s.PcShowGpu;
         ChkPcRam.IsChecked = s.PcShowRam;
+        ChkPcDisk.IsChecked = s.PcShowDisk;
+        BuildDiskChoices(s.PcDiskInstance);
         ChkThemeToggle.IsChecked = s.ShowThemeToggle;
         SldPcInterval.Value = s.PcIntervalSeconds;
 
@@ -226,6 +228,8 @@ public partial class SettingsPage : UserControl
         s.PcCpuSensors = ChkPcCpuSensors.IsChecked == true;
         s.PcShowGpu = ChkPcGpu.IsChecked == true;
         s.PcShowRam = ChkPcRam.IsChecked == true;
+        s.PcShowDisk = ChkPcDisk.IsChecked == true;
+        s.PcDiskInstance = _pcDisk;
         s.ShowThemeToggle = ChkThemeToggle.IsChecked == true;
         s.PcIntervalSeconds = (int)Math.Round(SldPcInterval.Value);
 
@@ -394,6 +398,7 @@ public partial class SettingsPage : UserControl
                      OrientVertical, OrientHorizontal, TbLeft, TbRight,
                      GadgetVertical, GadgetHorizontal, ChkCheckUpdates,
                      ChkPcPanel, PcLeft, PcRight, ChkPcCpu, ChkPcCpuSensors, ChkPcGpu, ChkPcRam,
+                     ChkPcDisk,
                      ChkThemeToggle,
                      ChkRateTaskbar, ChkRateGadget, ChkGadgetRate, ChkGadgetHardware,
                      RateWeekly, RateSession, RateFable,
@@ -708,6 +713,50 @@ public partial class SettingsPage : UserControl
     /// A lista é montada na hora, a partir dos monitores que o Windows enxerga agora — e não de
     /// uma lista fixa —, então plugar ou tirar uma tela e reabrir as configurações já reflete.
     /// </summary>
+    private string _pcDisk = "";
+
+    /// <summary>
+    /// As opções de disco, no mesmo formato de pílulas das telas. A lista é montada na hora porque
+    /// pendrive entra e sai: guardar as opções da abertura mostraria disco que já foi embora.
+    /// </summary>
+    private void BuildDiskChoices(string? atual)
+    {
+        _pcDisk = atual ?? "";
+        if (PcDisks == null) return;
+
+        PcDisks.Children.Clear();
+        var discos = DiskMonitor.Discos();
+        var conhecido = discos.Exists(d => string.Equals(d.Instancia, _pcDisk, StringComparison.OrdinalIgnoreCase));
+
+        foreach (var (instancia, apelido) in discos)
+        {
+            var ehTodos = instancia == DiskMonitor.Todos;
+            var botao = new RadioButton
+            {
+                GroupName = "PcDisk",
+                Content = ehTodos ? "Todos" : apelido.Replace("Disco ", ""),
+                IsChecked = conhecido
+                    ? string.Equals(instancia, _pcDisk, StringComparison.OrdinalIgnoreCase)
+                    : ehTodos,
+                Style = (Style)FindResource("Segment"),
+                ToolTip = ehTodos
+                    ? "Soma a atividade de todos os discos."
+                    : apelido + " — a mesma numeração que o Gerenciador de Tarefas usa.",
+                Tag = instancia == DiskMonitor.Todos ? "" : instancia
+            };
+            botao.Checked += (sender, _) =>
+            {
+                if (!_ready) return;
+                if (sender is RadioButton r && r.Tag is string disco)
+                {
+                    _pcDisk = disco;
+                    MarkDirty();
+                }
+            };
+            PcDisks.Children.Add(botao);
+        }
+    }
+
     private void BuildMonitorChoices(string? aiDevice, string? pcDevice, string? dockDevice = null)
     {
         _tbMonitor = aiDevice ?? "";
