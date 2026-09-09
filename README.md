@@ -255,6 +255,8 @@ intervalo: decisão de quem usa, não uma punição que o app aplica sozinho.
   fosco (desfoque do Windows),
   tamanho do conteúdo (com botão de restaurar padrões) e, para cada painel, se ele aparece nela e em
   qual lado — começo ou fim da barra, independente do lado que ele usa na barra do Windows
+- **Disco**: indicador de disco ao lado da memória, e qual disco ele acompanha (um específico ou o
+  somatório de todos)
 - **Barra do Windows**: efeito (não mexer, transparente, desfocada, fosca ou opaca), tom do efeito e
   se a barra própria segue o mesmo estilo
 - **Janelas**: deixar janelas de outros programas translúcidas, a opacidade (25% a 100%), o atalho
@@ -541,6 +543,51 @@ Quase tudo é lido **sem driver e sem elevação**:
 | CPU: uso | contador de desempenho do Windows | não |
 | CPU: temperatura | zona térmica ACPI, por contador de desempenho | não |
 | **CPU: watts** | registradores do processador | **sim** |
+| Disco: tempo ativo e taxas | contadores `PhysicalDisk` | não |
+
+### O disco, em paralelo à memória
+
+CPU e GPU têm um par: o trilho de uso e, ao lado, o termômetro. A memória não tem sensor de
+temperatura e a vaga ficava vazia. É onde entra o **disco**, na barra própria em pé.
+
+Uma trilha só, com o **zero na linha do meio**: leitura cresce para cima, gravação para baixo.
+Ler e gravar disputam o mesmo aparelho, e saindo da mesma linha o equilíbrio entre os dois se lê
+sem comparar alturas em lugares diferentes. A régua de cor é a das outras trilhas, espelhada:
+verde encostado no centro, vermelho nas pontas.
+
+O disco é escolhido em *Configurações › Painéis*, na mesma numeração do Gerenciador de Tarefas
+("Disco 1 (D:)"), ou o somatório de todos. Com a memória desligada o disco ganha coluna própria,
+em vez de sumir junto com a anfitriã.
+
+#### Não existe 0 a 100% da velocidade de um disco
+
+A pergunta natural é "quanto por cento da capacidade do disco isso é?", e ela **não tem resposta**.
+O Windows não sabe o teto do aparelho, e esse teto nem é um número fixo: o mesmo NVMe entrega
+alguns GB/s em leitura sequencial e algumas dezenas de MB/s em aleatória de 4 KB, e ainda
+desacelera quando o cache SLC enche no meio de uma gravação longa. Não há régua contra a qual
+dividir.
+
+O que existe e é porcentagem de verdade é o **tempo ativo**: a fração do tempo em que o disco teve
+pelo menos um pedido em andamento. É o número que o Gerenciador de Tarefas mostra como "Tempo de
+atividade", e é o que a barra desenha e o número exibe.
+
+O contador que *parece* ser o certo não serve. Medido nesta máquina:
+
+| contador | leitura num mesmo instante |
+|---|---|
+| `% Disk Time` | 392,3% |
+| `100 - % Idle Time` | 27,9% |
+
+O primeiro conta fila, não tempo, e passa de 100% sem esforço — uma barra alimentada por ele
+estaria cheia quase sempre e não diria nada. Os irmãos dele por direção têm o mesmo defeito, mas a
+**razão** entre `% Disk Read Time` e `% Disk Write Time` continua honesta, e é dela que sai a
+repartição do tempo ativo entre as duas metades da barra.
+
+Vale saber que num disco rápido a barra é discreta: 826 MB/s de leitura sequencial medidos aqui
+mantiveram o tempo ativo bem abaixo da metade, porque o disco passou a maior parte do tempo ocioso
+entre rajadas. Não é a barra falhando, é o disco sendo rápido demais para o trabalho pedido.
+
+Os **MB/s** ficam no balão, com quem está lendo e gravando mais.
 
 ### Quem está consumindo mais
 
@@ -555,6 +602,13 @@ De onde saem os números, e por que não pela via óbvia:
 |---|---|---|---|
 | Memória e CPU | `NtQuerySystemInformation` | ~7 ms, todos os processos | `Process.TotalProcessorTime` abre um handle por processo; sem elevação, 187 de 377 negaram acesso aqui — e são justamente os do sistema, que às vezes lideram a lista |
 | GPU | contadores `GPU Engine`, por consulta PDH com curinga | ~2 ms por leitura | pela classe `PerformanceCounter` a mesma leitura levava **6,3 s** (773 instâncias, uma consulta cada) |
+| Disco | os mesmos bytes da chamada acima, nos contadores de E/S da estrutura | zero, vem de carona | os contadores `Process` por PDH custariam outra varredura para dados que o kernel já entregou; os deslocamentos foram conferidos contra `GetProcessIoCounters` e bateram em 161 de 161 processos |
+
+A lista do disco tem uma ressalva que a coluna "Disco" do Gerenciador de Tarefas também tem: ela
+conta **toda** a E/S de cada programa — arquivo, rede e dispositivo —, e não só o disco escolhido.
+Ela também não distingue leitura que veio do disco de leitura que veio do cache do Windows, então
+um programa pode aparecer lendo GB/s enquanto o disco físico mal se mexe. São medidas de coisas
+diferentes, e as duas estão certas.
 
 Tudo isso roda na thread de leitura, junto dos sensores: **5–12 ms por leitura**, medidos, e nada
 na interface — o balão só formata o que já está pronto. Uso de CPU é diferença entre duas leituras,
@@ -909,6 +963,7 @@ src/ClaudeIndicator/
     ExplorerTap.cs       injeta a DLL nativa no Explorer e conversa com ela (memória compartilhada)
     ShellWatcher.cs      avisos do shell: barra recriada, telas, compositor, tema
     WindowGlass.cs       deixa janelas de outros programas translúcidas (alfa da janela inteira)
+    DiskMonitor.cs       tempo ativo e direção de um disco, pelos contadores PhysicalDisk
     EtwSession.cs        sessão de rastreamento do Windows: eventos de quadro apresentado
     FrameRateMonitor.cs  carimbos de quadro -> FPS, tempo de quadro e 1% low por processo
     GameDetector.cs      resolve qual janela recebe o indicador (escolhida ou adivinhada)
