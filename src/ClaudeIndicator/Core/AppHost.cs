@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -517,7 +517,9 @@ public sealed class AppHost
             }
 
             _hardware.SetInterval(Settings.PcIntervalSeconds);
-            _hardware.Start(Settings.PcIntervalSeconds, Settings.PcCpuSensors && SystemGuard.CanReadCpuSensors);
+            _hardware.SetDisk(Settings.PcDiskInstance);
+            _hardware.Start(Settings.PcIntervalSeconds, Settings.PcCpuSensors && SystemGuard.CanReadCpuSensors,
+                            Settings.PcDiskInstance);
         }
         else
         {

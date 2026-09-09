@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -114,6 +114,18 @@ public class AppSettings
     public bool PcShowCpu { get; set; } = true;
     public bool PcShowGpu { get; set; } = true;
     public bool PcShowRam { get; set; } = true;
+
+    /// <summary>
+    /// Indicador de disco, em paralelo à memória. Mede tempo ocupado e direção — leitura para cima,
+    /// gravação para baixo. Por enquanto só aparece na barra própria em pé.
+    /// </summary>
+    public bool PcShowDisk { get; set; } = true;
+
+    /// <summary>
+    /// Qual disco o indicador acompanha, no formato do contador ("1 D:"). Vazio significa o
+    /// somatório de todos, que é a resposta menos surpreendente para quem ainda não escolheu.
+    /// </summary>
+    public string PcDiskInstance { get; set; } = "";
 
     /// <summary>
     /// Ler temperatura e watts da CPU. Desligado por padrão de propósito: isso carrega um driver
@@ -532,7 +544,8 @@ public class AppSettings
         if (Array.IndexOf(ConsumptionRate.WindowChoices, RateWindowMinutes) < 0) RateWindowMinutes = 20;
         if (PcIntervalSeconds < 1) PcIntervalSeconds = 1;
         if (PcIntervalSeconds > 30) PcIntervalSeconds = 30;
-        if (!PcShowCpu && !PcShowGpu && !PcShowRam) PcShowCpu = true;
+        if (!PcShowCpu && !PcShowGpu && !PcShowRam && !PcShowDisk) PcShowCpu = true;
+        PcDiskInstance ??= "";
 
         OverlayExcluded ??= new List<string>();
         // sem espaços, sem repetidos, sem vazios: a lista é comparada nome a nome

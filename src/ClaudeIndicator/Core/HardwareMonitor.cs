@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -30,6 +30,7 @@ public sealed class HardwareMonitor : IDisposable
     private PerformanceCounter? _cpuLoad;
     private PerformanceCounter? _thermalZone;
     private readonly ProcessSampler _processos = new();
+    private readonly DiskMonitor _disco = new();
 
     public HardwareSnapshot Current { get; private set; } = HardwareSnapshot.Empty;
 
@@ -57,10 +58,11 @@ public sealed class HardwareMonitor : IDisposable
     /// kernel, o que exige elevação, dispara alerta de antivírus e é barrado pela Integridade de
     /// Memória. Desligado, o uso da CPU ainda é lido — por contador de desempenho, sem driver.
     /// </param>
-    public void Start(int intervalSeconds, bool cpuSensors)
+    public void Start(int intervalSeconds, bool cpuSensors, string diskInstance = "")
     {
         _intervalMs = Math.Clamp(intervalSeconds, 1, 60) * 1000;
         _cpuSensors = cpuSensors;
+        _disco.Apontar(diskInstance);
         if (_running) return;
 
         _running = true;
@@ -75,6 +77,12 @@ public sealed class HardwareMonitor : IDisposable
 
     public void SetInterval(int intervalSeconds) =>
         _intervalMs = Math.Clamp(intervalSeconds, 1, 60) * 1000;
+
+    /// <summary>
+    /// Troca o disco lido sem derrubar o resto. Os contadores são por instância, então mudar de
+    /// disco é abrir contadores novos — e não vale reiniciar a leitura de CPU e GPU por isso.
+    /// </summary>
+    public void SetDisk(string instancia) => _disco.Apontar(instancia);
 
     public void Stop()
     {
@@ -94,6 +102,7 @@ public sealed class HardwareMonitor : IDisposable
             _computer = null;
         }
         _processos.Dispose();
+        _disco.Dispose();
         Current = HardwareSnapshot.Empty;
     }
 
@@ -286,6 +295,7 @@ public sealed class HardwareMonitor : IDisposable
             Elevated = elevado,
             CpuSensorsEnabled = _cpuSensors,
             CpuTemperatureFromThermalZone = daZona.HasValue,
+            Disk = LerDisco(),
             Processes = LerProcessos()
         };
     }
@@ -295,6 +305,19 @@ public sealed class HardwareMonitor : IDisposable
     /// coleta PDH), aqui na thread de leitura — a interface só formata o resultado. Falha não
     /// interrompe o retrato: sem a lista, os balões voltam a mostrar apenas os totais.
     /// </summary>
+    private DiskReading LerDisco()
+    {
+        try
+        {
+            return _disco.Ler();
+        }
+        catch
+        {
+            // contador de disco fora do ar não pode derrubar a leitura dos outros sensores
+            return new DiskReading();
+        }
+    }
+
     private ProcessTops LerProcessos()
     {
         try
