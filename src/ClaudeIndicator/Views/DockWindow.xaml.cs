@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -548,15 +548,22 @@ public partial class DockWindow : Window
 
         if (vertical)
         {
-            var colunas = new UniformGrid { Columns = 1, Rows = sensores.Count };
+            // o disco viaja junto da memória; sem ela, ganha coluna própria em vez de sumir
+            var discoSozinho = _settings.PcShowDisk && !_settings.PcShowRam && _hardware.Disk.HasAnything;
+            var quantas = sensores.Count + (discoSozinho ? 1 : 0);
+
+            var colunas = new UniformGrid { Columns = 1, Rows = quantas };
             foreach (var (rotulo, leitura) in sensores)
                 colunas.Children.Add(PanelStyle.HardwareColumn(rotulo, leitura, _settings, _hardware, 1.0, compacto));
+
+            if (discoSozinho)
+                colunas.Children.Add(PanelStyle.DiskColumn(_hardware.Disk, _settings, _hardware, 1.0, compacto));
 
             var extra = _settings.ShowThemeToggle
                 ? PanelStyle.ThemeCell(_settings, 1.0, Rebuild)
                 : null;
 
-            return Empilhado(colunas, extra, sensores.Count);
+            return Empilhado(colunas, extra, quantas);
         }
 
         var linha = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };

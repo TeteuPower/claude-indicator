@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Windows;
@@ -68,6 +68,48 @@ public static class HardwareRenderer
     /// vem depois de "está em 75%": foi o navegador, foi a compilação, foi o jogo? Os processos são
     /// somados por nome, senão o Chrome ocuparia a lista inteira com as suas próprias abas.
     /// </summary>
+    /// <summary>
+    /// O balão da barra de disco: quanto o disco está ocupado, em que direção, e quem está
+    /// mexendo com ele.
+    /// </summary>
+    public static string DescribeDisk(DiskReading d, ProcessTops tops)
+    {
+        var sb = new StringBuilder();
+        sb.Append(d.Name.Length > 0 ? d.Name : "Disco");
+
+        if (!d.Busy.HasValue)
+        {
+            sb.Append("\nSem leitura dos contadores de disco.");
+            return sb.ToString();
+        }
+
+        sb.Append("\nTempo de atividade: ").Append(d.Busy.Format("%"));
+        sb.Append("\nLeitura: ").Append(DiskReading.Taxa(d.ReadBytes));
+        sb.Append("\nGravação: ").Append(DiskReading.Taxa(d.WriteBytes));
+
+        // Dito de propósito: a barra parece uma barra de uso, e alguém vai ler os 30% como
+        // "está a 30% da velocidade do disco". Não é isso, e esse número não existe.
+        sb.Append("\n\nA barra mede o tempo em que o disco esteve ocupado: para cima em leitura, ");
+        sb.Append("para baixo em gravação. Não é porcentagem da velocidade máxima — o Windows ");
+        sb.Append("não sabe o teto do aparelho, e ele muda conforme o tipo de acesso.");
+
+        if (tops.Disk.Count > 0)
+        {
+            sb.Append("\n\nQuem está mexendo mais:");
+            foreach (var uso in tops.Disk)
+            {
+                sb.Append("\n · ").Append(uso.Name).Append(" — ");
+                sb.Append(DiskReading.Taxa(new Reading(uso.Read))).Append(" lendo, ");
+                sb.Append(DiskReading.Taxa(new Reading(uso.Write))).Append(" gravando");
+            }
+
+            sb.Append("\n\nEssa lista conta toda a E/S de cada programa, inclusive rede e ");
+            sb.Append("outros discos — é a mesma medida da coluna \"Disco\" do Gerenciador de Tarefas.");
+        }
+
+        return sb.ToString();
+    }
+
     private static void Consumidores(StringBuilder sb, string rotulo, ProcessTops tops)
     {
         var lista = rotulo switch

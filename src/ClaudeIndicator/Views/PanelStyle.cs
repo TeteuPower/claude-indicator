@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -324,6 +324,34 @@ public static class PanelStyle
     {
         var temp = c.Temperature.HasValue ? c.Temperature.Value!.Value : (double?)null;
 
+        // O vizinho da coluna: o termômetro em CPU e GPU, a barra de disco na memória. A memória
+        // não tem sensor de temperatura e a vaga ficava vazia; o disco é a medida que faltava e
+        // que ninguém tinha onde pôr.
+        UIElement? vizinho = null;
+        string? textoVizinho = null;
+        Brush? corVizinho = null;
+
+        if (temp != null)
+        {
+            // mesma espessura do trilho de uso: os dois medem o mesmo componente, e um mais
+            // magro que o outro sugeria hierarquia que não existe
+            vizinho = MeterRenderer.Thermometer(temp.Value, 10 * scale, s.PanelOutline);
+            textoVizinho = $"{temp.Value:0}°";
+            corVizinho = new SolidColorBrush(MeterRenderer.TempRamp(temp.Value));
+        }
+        else if (rotulo == "RAM" && s.PcShowDisk && hw.Disk.HasAnything)
+        {
+            vizinho = ComBalao(DiskBar(hw.Disk, s, 10 * scale),
+                               HardwareRenderer.DescribeDisk(hw.Disk, hw.Processes));
+
+            // O número é o mesmo tempo de atividade que a coluna "Disco" do Gerenciador de Tarefas
+            // mostra, e é exatamente o que a barra desenha. Antes aqui vinha a taxa em MB/s, que
+            // obrigava a saber de cor o que o disco aguenta para dizer se 800 era muito ou pouco.
+            // Os MB/s continuam no balão, onde há espaço para dizer de que direção eles são.
+            textoVizinho = hw.Disk.Busy.Format("%");
+            corVizinho = new SolidColorBrush(LoadColor(hw.Disk.Busy));
+        }
+
         var conteudo = ColunaBase(
             rotulo,
             c.Load.Format("%"),
@@ -332,11 +360,9 @@ public static class PanelStyle
                 RampaAte(Math.Clamp((c.Load.Value ?? 0) / 100.0, 0, 1)), 10 * scale, double.NaN, null,
                 FundoDaTrilha(s), TrilhaBorda, BordaDaTrilha(s)),
             scale,
-            // mesma espessura do trilho de uso: os dois medem o mesmo componente, e um mais
-            // magro que o outro sugeria hierarquia que não existe
-            temp != null ? MeterRenderer.Thermometer(temp.Value, 10 * scale, s.PanelOutline) : null,
-            temp != null ? $"{temp.Value:0}°" : null,
-            temp != null ? new SolidColorBrush(MeterRenderer.TempRamp(temp.Value)) : null,
+            vizinho,
+            textoVizinho,
+            corVizinho,
             compacto);
 
         return new Border
@@ -609,6 +635,141 @@ public static class PanelStyle
     }
 
     /// <summary>
+    /// O disco como coluna inteira, para quando ele não tem a memória de anfitriã.
+    ///
+    /// Existe porque desligar a memória não pode fazer o disco sumir junto: um esconde o outro
+    /// sem dizer, e quem desligou a memória não tem como adivinhar que perdeu o disco também.
+    /// </summary>
+    public static UIElement DiskColumn(DiskReading d, AppSettings s, HardwareSnapshot hw,
+        double scale, bool compacto = false)
+    {
+        var conteudo = ColunaBase(
+            "DISCO",
+            d.Busy.Format("%"),
+            new SolidColorBrush(LoadColor(d.Busy)),
+            DiskBar(d, s, 10 * scale),
+            scale,
+            compacto: compacto);
+
+        return new Border
+        {
+            Child = conteudo,
+            Background = Brushes.Transparent,
+            ToolTip = HardwareRenderer.DescribeDisk(d, hw.Processes)
+        };
+    }
+
+    /// <summary>
+    /// Embrulha um elemento com balão próprio. O WPF mostra o balão do elemento mais interno sob o
+    /// ponteiro, então a barra de disco fala de disco mesmo morando dentro da coluna da memória.
+    /// </summary>
+    private static UIElement ComBalao(UIElement elemento, string texto)
+    {
+        return new Border
+        {
+            Child = elemento,
+            Background = Brushes.Transparent,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            ToolTip = texto
+        };
+    }
+
+    /// <summary>
+    /// A barra de disco: uma trilha só, com o zero na linha do meio. A leitura cresce do centro
+    /// para cima, a gravação do centro para baixo.
+    ///
+    /// <b>Por que duas direções e não duas barras.</b> Ler e gravar disputam o mesmo aparelho, e o
+    /// que se quer saber olhando de relance é "quanto" e "fazendo o quê". Duas colunas separadas
+    /// responderiam as duas perguntas, mas obrigariam a comparar alturas em lugares diferentes.
+    /// Saindo da mesma linha, o equilíbrio entre as duas se lê sem comparar nada.
+    ///
+    /// <b>O que a altura significa.</b> Cada metade vale de 0 a 100% do tempo em que o disco esteve
+    /// ocupado. Metade de cima cheia é disco totalmente ocupado lendo. Não é porcentagem da
+    /// velocidade máxima do disco: esse número não existe, e o porquê está em <see cref="DiskMonitor"/>.
+    ///
+    /// A régua de cor é a mesma das outras trilhas, espelhada: verde encostado no centro, vermelho
+    /// nas pontas.
+    /// </summary>
+    public static UIElement DiskBar(DiskReading d, AppSettings s, double largura)
+    {
+        var raio = largura / 2;
+        var leitura = Math.Clamp(d.ReadPercent / 100.0, 0, 1);
+        var gravacao = Math.Clamp(d.WritePercent / 100.0, 0, 1);
+
+        var trilha = new Border
+        {
+            Width = largura,
+            CornerRadius = new CornerRadius(raio),
+            Background = FundoDaTrilha(s),
+            BorderBrush = TrilhaBorda,
+            BorderThickness = BordaDaTrilha(s),
+            VerticalAlignment = VerticalAlignment.Stretch,
+            ClipToBounds = true
+        };
+
+        var metades = new Grid();
+        metades.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        metades.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+        var cima = Metade(leitura, raio, true);
+        Grid.SetRow(cima, 0);
+        metades.Children.Add(cima);
+
+        var baixo = Metade(gravacao, raio, false);
+        Grid.SetRow(baixo, 1);
+        metades.Children.Add(baixo);
+
+        // A linha do zero, sempre visível. Sem ela uma barra parada seria indistinguível de uma
+        // trilha vazia qualquer, e o sentido de "sobe e desce a partir daqui" se perderia.
+        var meio = new Border
+        {
+            Height = 1,
+            Background = TrilhaBorda,
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+        Grid.SetRowSpan(meio, 2);
+        metades.Children.Add(meio);
+
+        trilha.Child = metades;
+        return trilha;
+    }
+
+    /// <summary>
+    /// Uma das metades da barra de disco. O preenchimento encosta no centro e cresce para longe
+    /// dele, então a linha elástica vazia fica do lado de fora.
+    /// </summary>
+    private static UIElement Metade(double fracao, double raio, bool paraCima)
+    {
+        var f = Math.Clamp(fracao, 0, 1);
+
+        var grade = new Grid();
+        var vazio = new GridLength(Math.Max(1 - f, 0.0001), GridUnitType.Star);
+        var cheio = new GridLength(Math.Max(f, 0.0001), GridUnitType.Star);
+
+        grade.RowDefinitions.Add(new RowDefinition { Height = paraCima ? vazio : cheio });
+        grade.RowDefinitions.Add(new RowDefinition { Height = paraCima ? cheio : vazio });
+
+        // Arredonda só a ponta de fora. Com as quatro pontas redondas as duas metades se
+        // encostavam por dois arcos e abriam um estrangulamento no centro, que lia como duas
+        // barras separadas em vez de uma medida saindo do zero.
+        var canto = paraCima
+            ? new CornerRadius(raio, raio, 0, 0)
+            : new CornerRadius(0, 0, raio, raio);
+
+        var enchimento = new Border
+        {
+            CornerRadius = canto,
+            Background = RampaAte(f, paraCima),
+            MinHeight = f > 0 ? 3 : 0
+        };
+        Grid.SetRow(enchimento, paraCima ? 1 : 0);
+        grade.Children.Add(enchimento);
+
+        return grade;
+    }
+
+    /// <summary>
     /// A régua recortada no ponto onde a barra parou, de baixo para cima.
     ///
     /// No trilho deitado o gradiente é medido sobre a trilha inteira em unidades absolutas, então
@@ -617,14 +778,21 @@ public static class PanelStyle
     /// preenchimento, <b>todo</b> sensor apareceria verde embaixo e vermelho em cima, mesmo a 20%.
     /// Recortar a régua no valor lido devolve exatamente a mesma leitura do trilho deitado.
     /// </summary>
-    private static Brush RampaAte(double fracao)
+    private static Brush RampaAte(double fracao) => RampaAte(fracao, true);
+
+    /// <param name="doFundoParaCima">
+    /// Falso espelha a régua: o verde nasce em cima e o vermelho cresce para baixo. É o que a
+    /// metade de gravação da barra de disco precisa, para que as duas direções saiam do centro
+    /// verdes e fiquem quentes conforme se afastam dele.
+    /// </param>
+    private static Brush RampaAte(double fracao, bool doFundoParaCima)
     {
         var f = Math.Clamp(fracao, 0, 1);
         var g = new LinearGradientBrush
         {
             MappingMode = BrushMappingMode.RelativeToBoundingBox,
-            StartPoint = new Point(0, 1),
-            EndPoint = new Point(0, 0)
+            StartPoint = doFundoParaCima ? new Point(0, 1) : new Point(0, 0),
+            EndPoint = doFundoParaCima ? new Point(0, 0) : new Point(0, 1)
         };
 
         g.GradientStops.Add(new GradientStop(Verde, 0.0));
