@@ -180,6 +180,9 @@ public partial class SettingsPage : UserControl
         TbLookOpaca.IsChecked = s.TaskbarLook == TaskbarLook.Opaca;
         SldTbTint.Value = s.TaskbarTint;
         ChkGlass.IsChecked = s.GlassEnabled;
+        GlassSoFundo.IsChecked = s.GlassMode == GlassMode.SoOFundo;
+        GlassTudo.IsChecked = s.GlassMode == GlassMode.JanelaInteira;
+        ChkGlassOpen.IsChecked = s.GlassBackdropOpen;
         SldGlassOpacity.Value = Math.Clamp(s.GlassOpacity, SldGlassOpacity.Minimum, SldGlassOpacity.Maximum);
         _hotkeyGlass = s.GlassHotkey ?? "";
         _appsVidro = new List<string>(s.GlassApps ?? new List<string>());
@@ -322,6 +325,8 @@ public partial class SettingsPage : UserControl
             : TaskbarLook.Sistema;
         s.TaskbarTint = SldTbTint.Value;
         s.GlassEnabled = ChkGlass.IsChecked == true;
+        s.GlassMode = GlassTudo.IsChecked == true ? GlassMode.JanelaInteira : GlassMode.SoOFundo;
+        s.GlassBackdropOpen = ChkGlassOpen.IsChecked == true;
         s.GlassOpacity = Math.Round(SldGlassOpacity.Value, 2);
         s.GlassHotkey = _hotkeyGlass;
         s.GlassApps = new List<string>(_appsVidro);
@@ -409,7 +414,7 @@ public partial class SettingsPage : UserControl
                      ChkDock, ChkDockReserve, ChkDockTopmost, ChkDockFullscreen,
                      ChkDockBars, ChkDockHardware, ChkDockRate,
                      DockBarsStart, DockBarsEnd, DockPcStart, DockPcEnd, ChkDockFrosted,
-                     ChkDockFollowTaskbar, ChkGlass
+                     ChkDockFollowTaskbar, ChkGlass, ChkGlassOpen, GlassSoFundo, GlassTudo
                  })
         {
             Hook(c);
@@ -435,6 +440,8 @@ public partial class SettingsPage : UserControl
 
         ChkGlass.Checked += (_, _) => UpdateGlassUi();
         ChkGlass.Unchecked += (_, _) => UpdateGlassUi();
+        GlassSoFundo.Checked += (_, _) => UpdateGlassUi();
+        GlassTudo.Checked += (_, _) => UpdateGlassUi();
 
         // ligar a barra própria muda o que a aba Painéis está dizendo, então o aviso lá acompanha
         ChkDock.Checked += (_, _) => UpdateDockUi();
@@ -641,10 +648,27 @@ public partial class SettingsPage : UserControl
         }
 
         var ligado = ChkGlass?.IsChecked == true;
+        var soFundo = GlassSoFundo?.IsChecked == true;
+
         BtnRemoverVidro.IsEnabled = ligado && _appsVidro.Count > 0;
         ListaVidro.IsEnabled = ligado;
-        SldGlassOpacity.IsEnabled = ligado;
         BtnHotkeyGlass.IsEnabled = ligado;
+        GlassSoFundo.IsEnabled = ligado;
+        GlassTudo.IsEnabled = ligado;
+
+        // cada modo tem o seu controle, e o do outro fica apagado em vez de sumir: some, ninguém
+        // descobre que existe; apagado, dá para ver que ele volta ao trocar de modo
+        ChkGlassOpen.IsEnabled = ligado && soFundo;
+        SldGlassOpacity.IsEnabled = ligado && !soFundo;
+
+        GlassModoHint.Text = soFundo
+            ? "Só o fundo da janela fica translúcido; texto, ícones e miniaturas continuam nítidos. "
+              + "Nada é injetado em programa nenhum: é o próprio Windows que desenha o fundo, e o app "
+              + "só pede que ele cubra a janela toda. Em troca, só funciona em janela que tem esse "
+              + "fundo — o Explorador de Arquivos é a principal. Programa que pinta a janela inteira "
+              + "por conta própria continua igual."
+            : "A janela inteira desbota, conteúdo incluído — é o efeito dos utilitários antigos. "
+              + "Vale em qualquer programa, e é a opção quando \"só o fundo\" não muda nada.";
 
         if (GlassStatusText == null) return;
 

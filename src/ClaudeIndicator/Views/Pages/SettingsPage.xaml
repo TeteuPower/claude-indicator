@@ -891,10 +891,26 @@
                         <StackPanel>
                             <TextBlock Text="Janelas translúcidas" Style="{StaticResource Title}"/>
                             <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4" TextWrapping="Wrap"
-                                       Text="O efeito daqueles utilitários de antigamente: a janela inteira fica translúcida e dá para ver o que está atrás dela. Diferente do vidro da barra, aqui o conteúdo desbota junto — por isso a opacidade é ajustável, porque uma janela transparente demais não dá para usar. Isto não injeta nada em programa nenhum: é um atributo de janela que o Windows aceita de fora."/>
+                                       Text="Deixa janelas de outros programas translúcidas, do jeito que aqueles utilitários de antigamente faziam. Há dois caminhos, e eles resolvem problemas diferentes: um deixa só o fundo passar e mantém o texto nítido, o outro desbota a janela inteira. Nenhum dos dois injeta nada em programa nenhum — são atributos de janela que o Windows aceita de fora."/>
 
                             <CheckBox x:Name="ChkGlass" Style="{StaticResource Switch}" Margin="0,10,0,0"
                                       Content="Deixar janelas translúcidas"/>
+
+                            <TextBlock Text="O que fica translúcido" Style="{StaticResource FieldLabel}" Margin="0,14,0,5"/>
+                            <Border Style="{StaticResource SegmentGroup}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton x:Name="GlassSoFundo" GroupName="GlassModo" Style="{StaticResource Segment}"
+                                                 Content="Só o fundo"/>
+                                    <RadioButton x:Name="GlassTudo" GroupName="GlassModo" Style="{StaticResource Segment}"
+                                                 Content="A janela inteira"/>
+                                </StackPanel>
+                            </Border>
+                            <TextBlock x:Name="GlassModoHint" Style="{StaticResource Hint}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+
+                            <CheckBox x:Name="ChkGlassOpen" Style="{StaticResource Switch}" Margin="0,10,0,0"
+                                      Content="Abrir mais o fundo"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="27,2,0,0" TextWrapping="Wrap"
+                                       Text="Desligado, o fundo fica no tom discreto do próprio Windows. Ligado, abre bem mais. São dois níveis e não um controle contínuo porque o Windows não oferece o meio-termo aqui."/>
 
                             <Grid Margin="0,14,0,0">
                                 <Grid.ColumnDefinitions>
