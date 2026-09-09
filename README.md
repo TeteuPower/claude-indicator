@@ -460,6 +460,14 @@ programa fica translúcida — conteúdo incluído — e dá para ver o que est�
 vidro da barra, onde só o fundo desfoca e o texto continua nítido; aqui o conteúdo desbota junto, e
 por isso a opacidade é ajustável. A 100% de transparência a janela vira um fantasma inutilizável.
 
+### Dois modos, para dois problemas diferentes
+
+**Só o fundo** (padrão) deixa passar apenas o fundo da janela; texto, ícones e miniaturas continuam
+nítidos. É o que se pede quando se diz "quero o Explorador transparente".
+
+**A janela inteira** desbota tudo junto, conteúdo incluído, com opacidade ajustável. É o efeito dos
+utilitários antigos, e vale em qualquer programa.
+
 Duas formas de escolher em quem vale, e elas se somam:
 
 - **Atalho** (padrão `Ctrl+Alt+T`): liga e desliga na janela que estiver na frente, sem gravar nada.
@@ -471,9 +479,40 @@ Duas formas de escolher em quem vale, e elas se somam:
 Quando as duas discordam, a mão manda: desligar pelo atalho uma janela de aplicativo listado a
 mantém opaca até ela fechar.
 
-Ao contrário da barra do Windows, isto **não injeta nada** e não tem DLL, gancho nem driver:
-`SetLayeredWindowAttributes` é um atributo de janela que se aplica de fora do processo. Nada aqui
-tem o assunto do antivírus.
+Ao contrário da barra do Windows, isto **não injeta nada** e não tem DLL, gancho nem driver: os dois
+modos são atributos de janela que se aplicam de fora do processo. Nada aqui tem o assunto do
+antivírus.
+
+### Como "só o fundo" funciona, e por que é uma chamada só
+
+No Windows 11 a janela já tem um **material de fundo** (Mica) que o DWM desenha; o programa é que
+pinta por cima dele. `DwmExtendFrameIntoClientArea` com margens de −1 faz o DWM preencher a área de
+cliente inteira com esse material, e o que o programa desenha continua por cima, nítido. Nada entra
+no processo alheio.
+
+Medido numa janela de pastas nesta máquina, a cor média do fundo:
+
+| estado | cor do fundo |
+|---|---|
+| original | (25, 25, 25) |
+| quadro estendido | (38, 25, 80) |
+| quadro estendido + acento | (179, 25, 162) |
+| devolvido | (25, 25, 25) |
+
+Daí os dois níveis do interruptor "abrir mais o fundo", e daí também não haver controle contínuo: o
+tom da política de acento não muda nada aqui — testado com alfa 0x40 e 0x80, a cor medida foi a
+mesma. Oferecer um controle contínuo seria oferecer um botão que não faz nada.
+
+O caminho que **não** funcionou, para quem for mexer nisto depois: trocar o material com
+`DWMWA_SYSTEMBACKDROP_TYPE`. Sem estender o quadro não muda nada, e com o quadro estendido qualquer
+valor posto de fora (inclusive o mesmo que já estava) troca o material por transparência crua — dá
+para ler a janela de trás através desta. O acerto é estender o quadro e **não tocar** no material.
+
+Também não serve o caminho da barra de tarefas. O Explorador de Arquivos roda num `explorer.exe`
+separado do da barra e desenha em WinUI (`Microsoft.UI.Xaml`), que não exporta
+`InitializeXamlDiagnosticsEx` — confirmado pelas exportações da DLL. A árvore visual dele veio
+vazia pela API de diagnóstico do XAML do sistema. Ou seja: para o Explorador o TAP não alcança, e
+felizmente não precisa.
 
 ### O que fica de fora, e por quê
 
@@ -486,6 +525,8 @@ tem o assunto do antivírus.
   mesmo bit, e trocar para alfa uniforme estragaria o desenho deles.
 - Janelas menores que 200×120, invisíveis, de ferramenta, ocultas (aplicativo de loja suspenso) e
   as do próprio app.
+- No modo "só o fundo", janela **sem material de fundo** do Windows 11. Sem material, estender o
+  quadro deixaria a área de cliente transparente de verdade, com o texto quase sumindo.
 
 A varredura roda quando outra janela vai para a frente — que é quando janela nova aparece — e não
 por relógio. Cada janela tocada guarda se foi o app que pôs o bit de transparência, para devolvê-lo
@@ -962,7 +1003,7 @@ src/ClaudeIndicator/
     TaskbarStyler.cs     aparência da barra de tarefas do Windows: acento + tap, em todas as telas
     ExplorerTap.cs       injeta a DLL nativa no Explorer e conversa com ela (memória compartilhada)
     ShellWatcher.cs      avisos do shell: barra recriada, telas, compositor, tema
-    WindowGlass.cs       deixa janelas de outros programas translúcidas (alfa da janela inteira)
+    WindowGlass.cs       deixa janelas de outros programas translúcidas (só o fundo ou tudo)
     DiskMonitor.cs       tempo ativo e direção de um disco, pelos contadores PhysicalDisk
     EtwSession.cs        sessão de rastreamento do Windows: eventos de quadro apresentado
     FrameRateMonitor.cs  carimbos de quadro -> FPS, tempo de quadro e 1% low por processo
