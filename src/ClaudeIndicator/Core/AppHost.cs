@@ -69,10 +69,17 @@ public sealed class AppHost
     private readonly DispatcherTimer _taskbarClock = new() { Interval = TimeSpan.FromSeconds(2) };
 
     /// <summary>
-    /// Transparência das janelas de outros programas. Sem relógio: a varredura roda quando outra
-    /// janela vai para a frente, que é quando janela nova aparece.
+    /// Transparência das janelas de outros programas. A varredura roda quando outra janela vai
+    /// para a frente, que é quando janela nova aparece.
     /// </summary>
     private readonly WindowGlass _glass = new();
+
+    /// <summary>
+    /// Repõe o quadro estendido do modo "só o fundo". O Windows o desfaz quando a janela é movida
+    /// ou maximizada, e nesse momento nenhum aviso de troca de foco chega — a janela já estava na
+    /// frente. Só roda enquanto existe janela nesse modo para manter.
+    /// </summary>
+    private readonly DispatcherTimer _glassClock = new() { Interval = TimeSpan.FromSeconds(1) };
 
     private readonly HardwareMonitor _hardware = new();
 
@@ -129,6 +136,7 @@ public sealed class AppHost
         _shell = new ShellWatcher();
         _shell.Changed += ReaplicarBarraDoWindows;
         _taskbarClock.Tick += (_, _) => ReafirmarBarraDoWindows();
+        _glassClock.Tick += (_, _) => ReafirmarVidroDasJanelas();
 
         _overlayClock.Tick += (_, _) => OverlayTick();
 
@@ -328,6 +336,24 @@ public sealed class AppHost
         catch
         {
             // janela alheia sumindo no meio do caminho não pode derrubar o app
+        }
+
+        // o relógio só existe para o modo "só o fundo", e só enquanto há janela nele
+        if (Settings.GlassEnabled && Settings.GlassMode == GlassMode.SoOFundo && _glass.TemFundoParaManter)
+            _glassClock.Start();
+        else
+            _glassClock.Stop();
+    }
+
+    private void ReafirmarVidroDasJanelas()
+    {
+        try
+        {
+            _glass.Reafirmar(Settings);
+        }
+        catch
+        {
+            // idem: janela alheia morrendo não derruba o app
         }
     }
 
@@ -1058,6 +1084,7 @@ public sealed class AppHost
 
         // janela alheia deixada translucida por um programa que ja fechou so volta ao normal
         // quando ela mesma for reaberta: devolver na saida e obrigacao
+        _glassClock.Stop();
         _glass.DevolverTudo();
         _main?.Close();
         System.Windows.Application.Current?.Shutdown();

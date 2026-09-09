@@ -503,6 +503,12 @@ Daí os dois níveis do interruptor "abrir mais o fundo", e daí também não ha
 tom da política de acento não muda nada aqui — testado com alfa 0x40 e 0x80, a cor medida foi a
 mesma. Oferecer um controle contínuo seria oferecer um botão que não faz nada.
 
+O efeito é **reposto por um relógio de 1 s** enquanto houver janela nesse modo. Não é enfeite: numa
+execução real uma janela apareceu sem o efeito depois de ter sido restaurada e movida por outro
+processo. Num teste controlado depois, o efeito sobreviveu a maximizar, restaurar e redimensionar,
+então a causa não foi isolada — e repor custa 0,077 ms por passagem com duas janelas, medido, sem
+percorrer as janelas do sistema. Barato o bastante para não valer a pena descobrir.
+
 O caminho que **não** funcionou, para quem for mexer nisto depois: trocar o material com
 `DWMWA_SYSTEMBACKDROP_TYPE`. Sem estender o quadro não muda nada, e com o quadro estendido qualquer
 valor posto de fora (inclusive o mesmo que já estava) troca o material por transparência crua — dá

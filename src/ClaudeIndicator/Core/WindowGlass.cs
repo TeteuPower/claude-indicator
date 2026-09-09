@@ -59,6 +59,55 @@ public sealed class WindowGlass
     /// <summary>Quantas janelas estão com vidro agora, para a tela de configurações dizer.</summary>
     public int Ativas => _tocadas.Count;
 
+    /// <summary>Há alguma janela no modo "só o fundo"? É o que decide se vale manter o relógio.</summary>
+    public bool TemFundoParaManter
+    {
+        get
+        {
+            foreach (var t in _tocadas.Values)
+                if (t.Modo == GlassMode.SoOFundo) return true;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Repõe o quadro estendido nas janelas que já o têm.
+    ///
+    /// Existe por prudência, e vale dizer com precisão o que se sabe. Numa execução com o app de
+    /// verdade, uma janela de pastas apareceu <b>sem</b> o efeito depois de ter sido restaurada e
+    /// movida por outro processo. Num teste controlado depois, o efeito sobreviveu a maximizar,
+    /// restaurar e redimensionar — ou seja, <b>a causa não foi isolada</b>.
+    ///
+    /// Diante disso, repor é a decisão barata: a varredura por evento não cobre o caso, porque a
+    /// janela já está em primeiro plano quando muda de tamanho e nenhum aviso de troca de foco
+    /// chega. Medido, repor custa <b>0,077 ms</b> por passagem com duas janelas tratadas, e o
+    /// relógio só roda enquanto existe janela neste modo. Não percorre as janelas do sistema:
+    /// mexe apenas nas que já estão na lista.
+    /// </summary>
+    public void Reafirmar(AppSettings s)
+    {
+        if (!s.GlassEnabled || s.GlassMode != GlassMode.SoOFundo) return;
+
+        List<IntPtr>? mortas = null;
+        foreach (var (hwnd, tratamento) in _tocadas)
+        {
+            if (tratamento.Modo != GlassMode.SoOFundo) continue;
+
+            if (!IsWindow(hwnd)) { (mortas ??= new List<IntPtr>()).Add(hwnd); continue; }
+
+            var margens = new Margens { Esquerda = -1, Direita = -1, Cima = -1, Baixo = -1 };
+            DwmExtendFrameIntoClientArea(hwnd, ref margens);
+        }
+
+        if (mortas == null) return;
+        foreach (var h in mortas)
+        {
+            _tocadas.Remove(h);
+            _ligadasNaMao.Remove(h);
+            _desligadasNaMao.Remove(h);
+        }
+    }
+
     // ------------------------------------------------------------------ varredura
 
     /// <summary>
