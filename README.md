@@ -684,11 +684,23 @@ De onde saem os números, e por que não pela via óbvia:
 | GPU | contadores `GPU Engine`, por consulta PDH com curinga | ~2 ms por leitura | pela classe `PerformanceCounter` a mesma leitura levava **6,3 s** (773 instâncias, uma consulta cada) |
 | Disco | os mesmos bytes da chamada acima, nos contadores de E/S da estrutura | zero, vem de carona | os contadores `Process` por PDH custariam outra varredura para dados que o kernel já entregou; os deslocamentos foram conferidos contra `GetProcessIoCounters` e bateram em 161 de 161 processos |
 
-A lista do disco tem uma ressalva que a coluna "Disco" do Gerenciador de Tarefas também tem: ela
-conta **toda** a E/S de cada programa — arquivo, rede e dispositivo —, e não só o disco escolhido.
-Ela também não distingue leitura que veio do disco de leitura que veio do cache do Windows, então
-um programa pode aparecer lendo GB/s enquanto o disco físico mal se mexe. São medidas de coisas
-diferentes, e as duas estão certas.
+Cada programa da lista do disco vem com a **fatia** dele, que é o que responde "quem está fazendo
+isso com o meu disco". A fatia é medida sobre tudo que se moveu, e não só sobre os cinco da lista:
+sobre os cinco escolhidos, o primeiro sairia sempre com uma fatia enorme mesmo numa máquina parada,
+e o número diria mais sobre o corte da lista que sobre o disco. Por isso a soma dos que aparecem
+não fecha 100%.
+
+A lista tem uma ressalva que a coluna "Disco" do Gerenciador de Tarefas também tem: ela conta
+**toda** a E/S de cada programa — arquivo, rede e dispositivo —, e não só o disco escolhido. Ela
+também não distingue leitura que veio do disco de leitura que veio do **cache do Windows**, e essa
+diferença chega a apontar o culpado errado. Medido num ensaio: um programa relendo um arquivo já em
+memória apareceu com **1,1 GB/s e fatia de 100%** enquanto o disco físico movia 14 MB/s, e quem de
+fato o tocava ficou com 0%.
+
+Como calar sobre isso seria pior que não ter o número, o balão **compara os dois totais**: quando a
+E/S dos programas passa do dobro do que o disco moveu, ele diz que a diferença foi atendida pelo
+cache e que as fatias não apontam quem está ocupando o disco naquele instante. Quando os dois
+batem, que é o caso comum, nenhum aviso aparece e a fatia vale.
 
 Tudo isso roda na thread de leitura, junto dos sensores: **5–12 ms por leitura**, medidos, e nada
 na interface — o balão só formata o que já está pronto. Uso de CPU é diferença entre duas leituras,

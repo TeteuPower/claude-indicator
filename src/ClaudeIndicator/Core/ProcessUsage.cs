@@ -12,9 +12,19 @@ public sealed record ProcessUse(string Name, double Value);
 /// Um programa e a E/S dele, em bytes por segundo. Dois números e não um: ler e gravar são
 /// trabalhos diferentes, e somar os dois esconderia justamente o que se quer saber.
 /// </summary>
-public sealed record ProcessIo(string Name, double Read, double Write)
+public sealed record ProcessIo(string Name, double Read, double Write, double Share = 0)
 {
     public double Total => Read + Write;
+
+    /// <summary>
+    /// Quanto este programa representa da E/S de <b>todos</b> os programas naquele instante, de 0
+    /// a 1. É a resposta para "quem está fazendo isso com o meu disco".
+    ///
+    /// A soma dos que aparecem na lista não fecha 100% de propósito: o resto está espalhado entre
+    /// dezenas de programas que movem pouco cada um, e forçar o fechamento inventaria peso para
+    /// quem apareceu.
+    /// </summary>
+    public double Share { get; init; } = Share;
 }
 
 /// <summary>
@@ -38,6 +48,16 @@ public sealed class ProcessTops
     /// Gerenciador de Tarefas usa, com a mesma ressalva.
     /// </summary>
     public IReadOnlyList<ProcessIo> Disk { get; init; } = Array.Empty<ProcessIo>();
+
+    /// <summary>
+    /// Bytes por segundo somados de <b>todos</b> os programas, e não só dos que entram na lista.
+    ///
+    /// Serve para uma comparação que muda a leitura: se este total for muito maior que o que o
+    /// disco de fato moveu, a maior parte da E/S foi atendida pelo cache do Windows e não encostou
+    /// no disco. Sem essa comparação, um programa lendo do cache aparece com a fatia inteira e o
+    /// culpado de verdade aparece com zero.
+    /// </summary>
+    public double DiskBytes { get; init; }
 
     /// <summary>
     /// Os contadores de GPU por processo responderam? Sem isso, lista vazia significaria
@@ -111,11 +131,13 @@ public sealed class ProcessSampler : IDisposable
         // pelo tempo. Sem leitura anterior a lista sai vazia em vez de mostrar o total desde que o
         // programa abriu, que seria um número enorme e sem sentido nenhum.
         var disco = new List<ProcessIo>();
+        var discoTotal = 0.0;
         var ioAntes = _ioAnterior;
         if (ioAntes != null && decorridoMs > 200)
         {
             var segundos = decorridoMs / 1000.0;
-            disco = processos
+
+            var porPrograma = processos
                 .Where(p => ioAntes.ContainsKey(p.Pid))
                 .Select(p =>
                 {
@@ -124,13 +146,23 @@ public sealed class ProcessSampler : IDisposable
                         Math.Max(0, p.LeituraBytes - antes.Leitura) / segundos,
                         Math.Max(0, p.EscritaBytes - antes.Escrita) / segundos);
                 })
+                .GroupBy(u => u.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(g => new ProcessIo(g.Key, g.Sum(u => u.Read), g.Sum(u => u.Write)))
+                .ToList();
+
+            // A fatia é medida sobre TUDO que se moveu, e não só sobre o que entra na lista. Sobre
+            // os cinco escolhidos, o primeiro sairia sempre com uma fatia enorme mesmo numa máquina
+            // parada, e o número diria mais sobre o corte da lista que sobre o disco.
+            var tudo = porPrograma.Sum(u => u.Total);
+            discoTotal = tudo;
+
+            disco = porPrograma
                 // meio MB/s é o piso do que vale mencionar: abaixo disso a lista vira ruído de
                 // fundo de programa parado tocando o próprio arquivo de log
                 .Where(u => u.Total > 512 * 1024)
-                .GroupBy(u => u.Name, StringComparer.OrdinalIgnoreCase)
-                .Select(g => new ProcessIo(g.Key, g.Sum(u => u.Read), g.Sum(u => u.Write)))
                 .OrderByDescending(u => u.Total)
                 .Take(Quantos)
+                .Select(u => u with { Share = tudo > 0 ? u.Total / tudo : 0 })
                 .ToList();
         }
 
@@ -140,7 +172,11 @@ public sealed class ProcessSampler : IDisposable
 
         var (gpu, gpuOk) = LerGpu(processos);
 
-        return new ProcessTops { Cpu = cpu, Ram = ram, Gpu = gpu, GpuOk = gpuOk, Disk = disco };
+        return new ProcessTops
+        {
+            Cpu = cpu, Ram = ram, Gpu = gpu, GpuOk = gpuOk,
+            Disk = disco, DiskBytes = discoTotal
+        };
     }
 
     // ------------------------------------------------------------------

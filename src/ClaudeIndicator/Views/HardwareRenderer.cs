@@ -104,8 +104,28 @@ public static class HardwareRenderer
             foreach (var uso in tops.Disk)
             {
                 sb.Append("\n · ").Append(uso.Name).Append(" — ");
+                sb.Append(Math.Round(uso.Share * 100)).Append("% · ");
                 sb.Append(DiskReading.Taxa(new Reading(uso.Read))).Append(" lendo, ");
                 sb.Append(DiskReading.Taxa(new Reading(uso.Write))).Append(" gravando");
+            }
+
+            sb.Append("\n\nA porcentagem é a fatia da E/S de todos os programas naquele ");
+            sb.Append("instante, e não do tempo do disco. A soma não fecha 100% porque o resto está ");
+            sb.Append("espalhado em dezenas de programas que movem pouco cada um.");
+
+            // Quando os programas movem muito mais do que o disco moveu, a diferença veio do cache
+            // do Windows. Sem dizer isso, um programa relendo o que já está na memória aparece com a
+            // fatia inteira e quem está de fato castigando o disco aparece com zero — foi o que
+            // aconteceu num ensaio: 1,1 GB/s num programa contra 14 MB/s no disco.
+            var doDisco = (d.ReadBytes.Value ?? 0) + (d.WriteBytes.Value ?? 0);
+            if (tops.DiskBytes > doDisco * 2 && tops.DiskBytes > 8 * 1024 * 1024)
+            {
+                sb.Append("\n\nAtenção: os programas movimentaram ")
+                  .Append(DiskReading.Taxa(new Reading(tops.DiskBytes)))
+                  .Append(" enquanto o disco moveu ")
+                  .Append(DiskReading.Taxa(new Reading(doDisco)))
+                  .Append(". A diferença foi atendida pelo cache do Windows e não chegou ao disco, ")
+                  .Append("então estas fatias não apontam quem está ocupando o disco agora.");
             }
 
             sb.Append("\n\nEssa lista conta toda a E/S de cada programa, inclusive rede e ");
