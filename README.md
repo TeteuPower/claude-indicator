@@ -256,7 +256,7 @@ intervalo: decisão de quem usa, não uma punição que o app aplica sozinho.
   tamanho do conteúdo (com botão de restaurar padrões) e, para cada painel, se ele aparece nela e em
   qual lado — começo ou fim da barra, independente do lado que ele usa na barra do Windows
 - **Disco**: indicador de disco ao lado da memória, e qual disco ele acompanha (um específico ou o
-  somatório de todos)
+  mais ocupado do momento)
 - **Barra do Windows**: efeito (não mexer, transparente, desfocada, fosca ou opaca), tom do efeito e
   se a barra própria segue o mesmo estilo
 - **Janelas**: deixar janelas de outros programas translúcidas, a opacidade (25% a 100%), o atalho
@@ -597,24 +597,41 @@ Quase tudo é lido **sem driver e sem elevação**:
 CPU e GPU têm um par: o trilho de uso e, ao lado, o termômetro. A memória não tem sensor de
 temperatura e a vaga ficava vazia. É onde entra o **disco**, na barra própria em pé.
 
-Uma trilha só, com o **zero na linha do meio**: leitura cresce para cima, gravação para baixo.
-Ler e gravar disputam o mesmo aparelho, e saindo da mesma linha o equilíbrio entre os dois se lê
-sem comparar alturas em lugares diferentes. A régua de cor é a das outras trilhas, espelhada:
-verde encostado no centro, vermelho nas pontas.
+Uma trilha de **0 a 100**, na mesma régua das de CPU, GPU e memória, mostrando o tempo de
+atividade. As taxas de leitura e gravação ficam no balão.
+
+A primeira versão tinha duas direções na mesma trilha, leitura para cima e gravação para baixo.
+Ficava bonito e não servia: quem olha o indicador quer saber se o disco está no limite, e repartir
+a altura entre as duas direções deixava a barra pela metade justamente quando o disco estava
+saturado lendo.
 
 O disco é escolhido em *Configurações › Painéis*, na mesma numeração do Gerenciador de Tarefas
-("Disco 1 (D:)"), ou o somatório de todos. Com a memória desligada o disco ganha coluna própria,
-em vez de sumir junto com a anfitriã.
+("Disco 1 (D:)"), ou **o mais ocupado**. Com a memória desligada o disco ganha coluna própria, em
+vez de sumir junto com a anfitriã.
 
 No **painel da barra de tarefas**, que é deitado, o mesmo par aparece na horizontal: CPU e GPU
-ganham o termômetro com o bulbo à esquerda, e a memória ganha a barra de disco com o zero no meio —
-leitura para a direita, gravação para a esquerda. Direita para leitura porque numa fila deitada
-"mais" já é para a direita nas barras de uso, e inverter só para o disco confundiria os vizinhos.
+ganham o termômetro com o bulbo à esquerda, e a memória ganha a barra de disco. As duas trilhas de
+cada par ficam **uma sobre a outra**, não lado a lado. Lado a lado elas viravam uma fita comprida
+só e não se lia onde uma acabava e a outra começava; empilhadas, partem da mesma margem esquerda e
+a comparação é imediata. De quebra a célula encurta bastante, que é o que a barra de tarefas tem de
+sobra em altura e não em largura.
 
-As duas trilhas de cada par ficam **uma sobre a outra**, não lado a lado. Lado a lado elas viravam
-uma fita comprida só e não se lia onde uma acabava e a outra começava; empilhadas, partem da mesma
-margem esquerda e a comparação é imediata. De quebra a célula encurta bastante, que é o que a barra
-de tarefas tem de sobra em altura e não em largura.
+#### "O mais ocupado" e não a média
+
+A instância `_Total` do Windows reparte a atividade entre os discos, e isso apaga exatamente o que
+se quer ver. Medido nesta máquina com o disco do sistema saturado:
+
+| instância | tempo de atividade |
+|---|---|
+| `_Total` | 25,0% |
+| Disco 0 (C:) | 100,0% |
+| Disco 1 (D:) | 0,0% |
+| Disco 2 (E:) | 0,0% |
+
+Um disco travado virava 25% na barra, que é o mesmo que não avisar — e foi assim que um gargalo
+real passou despercebido até alguém abrir o Gerenciador de Tarefas. Quem olha o indicador quer
+saber se **algum** disco está no limite, então o número é o do disco mais ocupado e o balão diz
+qual é.
 
 #### Não existe 0 a 100% da velocidade de um disco
 
@@ -628,6 +645,11 @@ O que existe e é porcentagem de verdade é o **tempo ativo**: a fração do tem
 pelo menos um pedido em andamento. É o número que o Gerenciador de Tarefas mostra como "Tempo de
 atividade", e é o que a barra desenha e o número exibe.
 
+Vale dizer que tempo ativo e vazão são coisas diferentes, e é por isso que a vazão não serviria:
+medido aqui, 24 leituras simultâneas de arquivos do disco do sistema mantiveram **100% de tempo
+ativo com apenas 28 MB/s**, porque eram acessos espalhados. Uma barra de vazão mostraria quase
+nada no momento exato em que o disco era o gargalo.
+
 O contador que *parece* ser o certo não serve. Medido nesta máquina:
 
 | contador | leitura num mesmo instante |
@@ -640,9 +662,10 @@ estaria cheia quase sempre e não diria nada. Os irmãos dele por direção têm
 **razão** entre `% Disk Read Time` e `% Disk Write Time` continua honesta, e é dela que sai a
 repartição do tempo ativo entre as duas metades da barra.
 
-Vale saber que num disco rápido a barra é discreta: 826 MB/s de leitura sequencial medidos aqui
+Vale saber que num disco rápido a barra fica discreta em leitura sequencial: 826 MB/s medidos aqui
 mantiveram o tempo ativo bem abaixo da metade, porque o disco passou a maior parte do tempo ocioso
-entre rajadas. Não é a barra falhando, é o disco sendo rápido demais para o trabalho pedido.
+entre rajadas. Não é a barra falhando, é o disco sendo rápido demais para o trabalho pedido — e é o
+caso oposto do acesso espalhado, que satura o tempo com pouca vazão.
 
 Os **MB/s** ficam no balão, com quem está lendo e gravando mais.
 
