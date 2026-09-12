@@ -64,10 +64,9 @@ public sealed class ComponentReading
 /// <summary>
 /// Leituras de um disco físico.
 ///
-/// Tipo próprio em vez de mais um <see cref="ComponentReading"/> porque as perguntas são outras.
-/// Um disco não tem "uso" de um recurso finito como memória ou núcleos: tem tempo ocupado e uma
-/// direção. E a direção é o que interessa ver — ler e gravar são trabalhos diferentes, e uma
-/// leitura de 400 MB/s não significa a mesma coisa que uma gravação de 400 MB/s.
+/// Tipo próprio em vez de mais um <see cref="ComponentReading"/> porque a pergunta é outra. Um
+/// disco não tem "uso" de um recurso finito como memória ou núcleos: tem tempo ocupado, e as taxas
+/// de leitura e gravação são medidas separadas, em bytes por segundo.
 /// </summary>
 public sealed class DiskReading
 {
@@ -83,31 +82,19 @@ public sealed class DiskReading
     /// </summary>
     public Reading Busy { get; init; } = Reading.None;
 
-    /// <summary>Quanto do tempo ocupado é leitura, de 0 a 1. O resto é gravação.</summary>
-    public Reading ReadShare { get; init; } = Reading.None;
-
     /// <summary>Bytes lidos por segundo.</summary>
     public Reading ReadBytes { get; init; } = Reading.None;
 
     /// <summary>Bytes gravados por segundo.</summary>
     public Reading WriteBytes { get; init; } = Reading.None;
 
+    /// <summary>
+    /// Quantos discos entraram na conta. Maior que um significa que esta leitura é a do <b>mais
+    /// ocupado</b> entre eles, e o balão diz qual.
+    /// </summary>
+    public int Total { get; init; } = 1;
+
     public bool HasAnything => Busy.HasValue;
-
-    /// <summary>A parcela do tempo ocupado que é leitura, de 0 a 100.</summary>
-    public double ReadPercent => Fatia(true);
-
-    /// <summary>A parcela do tempo ocupado que é gravação, de 0 a 100.</summary>
-    public double WritePercent => Fatia(false);
-
-    private double Fatia(bool leitura)
-    {
-        if (!Busy.HasValue) return 0;
-
-        var ocupado = Math.Clamp(Busy.Value!.Value, 0, 100);
-        var parte = ReadShare.HasValue ? Math.Clamp(ReadShare.Value!.Value, 0, 1) : 0.5;
-        return ocupado * (leitura ? parte : 1 - parte);
-    }
 
     /// <summary>Taxa em texto curto, na maior unidade que ainda mostra um número legível.</summary>
     public static string Taxa(Reading bytesPorSegundo)

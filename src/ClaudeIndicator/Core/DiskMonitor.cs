@@ -6,7 +6,7 @@ using System.Linq;
 namespace ClaudeIndicator.Core;
 
 /// <summary>
-/// Leitura de um disco físico: quanto ele está ocupado e em que direção.
+/// Leitura de disco: quanto o disco está ocupado, na mesma régua do Gerenciador de Tarefas.
 ///
 /// <b>Por que "tempo ativo" e não "porcentagem da velocidade máxima".</b> Não existe 0 a 100% da
 /// capacidade de um disco. O Windows não sabe o teto do aparelho, e esse teto nem é um número
@@ -15,44 +15,49 @@ namespace ClaudeIndicator.Core;
 /// Não há régua contra a qual dividir.
 ///
 /// O que existe e é porcentagem de verdade é o <b>tempo ativo</b>: a fração do tempo em que o
-/// disco teve pelo menos um pedido em andamento. É o que o Gerenciador de Tarefas mostra como
-/// "Tempo de atividade", e sai de <c>% Idle Time</c> invertido.
+/// disco teve pelo menos um pedido em andamento. É o número que o Gerenciador mostra como "Tempo
+/// de atividade", e sai de <c>% Idle Time</c> invertido.
 ///
 /// O contador que <i>parece</i> ser o certo, <c>% Disk Time</c>, não serve: ele conta fila, não
 /// tempo, e passa de 100% sem esforço. Medido neste projeto, num instante em que o tempo ativo era
-/// 27,9%, o <c>% Disk Time</c> marcou 392,3%. Uma barra alimentada por ele estaria cheia quase
-/// sempre e não diria nada. O mesmo vale para os irmãos dele por direção.
+/// 27,9%, o <c>% Disk Time</c> marcou 392,3%.
 ///
-/// A <b>direção</b> vem da proporção entre <c>% Disk Read Time</c> e <c>% Disk Write Time</c>.
-/// Individualmente eles estouram os 100% como o pai, mas a razão entre os dois continua honesta —
-/// e é só disso que se precisa para repartir o tempo ativo entre leitura e gravação.
+/// <b>"Todos os discos" é o mais ocupado, e não a média.</b> A instância <c>_Total</c> do Windows
+/// reparte entre os discos, e isso apaga exatamente o que se quer ver. Medido nesta máquina com o
+/// disco do sistema saturado:
+///
+/// <code>
+/// _Total          25,0%
+/// Disco 0 (C:)   100,0%
+/// Disco 1 (D:)     0,0%
+/// Disco 2 (E:)     0,0%
+/// </code>
+///
+/// Um disco travado virava 25% na barra, que é o mesmo que não avisar. Quem olha o indicador quer
+/// saber se <b>algum</b> disco está no limite, então o número é o do disco mais ocupado, e o balão
+/// diz qual é.
 ///
 /// Os nomes dos contadores ficam em inglês de propósito, mesmo num Windows em português: é assim
 /// que o .NET os resolve, e é o que o resto do projeto já faz com "% Processor Utility".
 /// </summary>
 public sealed class DiskMonitor : IDisposable
 {
-    /// <summary>A instância que soma todos os discos.</summary>
-    public const string Todos = "_Total";
+    /// <summary>Valor guardado nas configurações para "acompanhe o disco mais ocupado".</summary>
+    public const string Todos = "";
 
     private readonly object _trava = new();
+    private readonly List<Alvo> _alvos = new();
+    private string _escolha = Todos;
 
-    private string _instancia = "";
-    private PerformanceCounter? _ocioso;
-    private PerformanceCounter? _tempoLeitura;
-    private PerformanceCounter? _tempoGravacao;
-    private PerformanceCounter? _bytesLeitura;
-    private PerformanceCounter? _bytesGravacao;
-
-    /// <summary>Qual disco está sendo lido agora.</summary>
+    /// <summary>Qual disco está sendo acompanhado, ou vazio para o mais ocupado.</summary>
     public string Instancia
     {
-        get { lock (_trava) return _instancia; }
+        get { lock (_trava) return _escolha; }
     }
 
     /// <summary>
-    /// Aponta para um disco. Instância vazia ou desconhecida cai no somatório de todos, que é a
-    /// resposta menos surpreendente quando o disco escolhido foi removido ou renomeado.
+    /// Aponta para um disco, ou para todos. Instância desconhecida cai em "todos", que é a resposta
+    /// menos surpreendente quando o disco escolhido foi removido ou renomeado.
     /// </summary>
     public void Apontar(string instancia)
     {
@@ -60,78 +65,70 @@ public sealed class DiskMonitor : IDisposable
 
         lock (_trava)
         {
-            if (_instancia == querida && _ocioso != null) return;
+            if (_escolha == querida && _alvos.Count > 0) return;
 
             Soltar();
-            _instancia = querida;
+            _escolha = querida;
 
-            try
-            {
-                _ocioso = new PerformanceCounter("PhysicalDisk", "% Idle Time", querida, true);
-                _tempoLeitura = new PerformanceCounter("PhysicalDisk", "% Disk Read Time", querida, true);
-                _tempoGravacao = new PerformanceCounter("PhysicalDisk", "% Disk Write Time", querida, true);
-                _bytesLeitura = new PerformanceCounter("PhysicalDisk", "Disk Read Bytes/sec", querida, true);
-                _bytesGravacao = new PerformanceCounter("PhysicalDisk", "Disk Write Bytes/sec", querida, true);
+            var quais = querida.Length > 0
+                ? new[] { querida }
+                : Instancias().Where(n => n != "_Total").ToArray();
 
-                // contador de taxa precisa de uma primeira amostra para ter de onde derivar
-                foreach (var c in Contadores()) c.NextValue();
-            }
-            catch
+            foreach (var nome in quais)
             {
-                Soltar();
+                var alvo = Alvo.Abrir(nome);
+                if (alvo != null) _alvos.Add(alvo);
             }
         }
     }
 
-    /// <summary>A leitura atual, ou uma leitura vazia se os contadores não responderam.</summary>
+    /// <summary>
+    /// A leitura atual. Com "todos", devolve o disco <b>mais ocupado</b> — é ele que denuncia
+    /// gargalo, e a média entre discos esconderia um deles no limite.
+    /// </summary>
     public DiskReading Ler()
     {
         lock (_trava)
         {
-            if (_ocioso == null) return new DiskReading { Instance = _instancia, Name = Apelido(_instancia) };
+            if (_alvos.Count == 0) return new DiskReading { Instance = _escolha, Name = Apelido(_escolha) };
 
-            try
+            DiskReading? melhor = null;
+            var quantos = 0;
+
+            foreach (var alvo in _alvos)
             {
-                var ativo = Math.Clamp(100 - _ocioso.NextValue(), 0, 100);
-                var tLer = Math.Max(0, _tempoLeitura!.NextValue());
-                var tGrav = Math.Max(0, _tempoGravacao!.NextValue());
-                var bLer = Math.Max(0, _bytesLeitura!.NextValue());
-                var bGrav = Math.Max(0, _bytesGravacao!.NextValue());
+                var leitura = alvo.Ler(_alvos.Count);
+                if (leitura == null) continue;
 
-                // A razão entre os tempos é a repartição natural. Quando os dois zeram mas há bytes
-                // andando — acontece em rajada curta, que o contador de tempo arredonda para zero —
-                // os bytes decidem. Sem nenhum dos dois a barra fica no centro, que é o certo: não
-                // há direção quando não há movimento.
-                var somaTempo = tLer + tGrav;
-                var somaBytes = bLer + bGrav;
-                var fatiaLeitura =
-                    somaTempo > 0 ? tLer / somaTempo :
-                    somaBytes > 0 ? bLer / somaBytes : 0.5;
-
-                return new DiskReading
-                {
-                    Instance = _instancia,
-                    Name = Apelido(_instancia),
-                    Busy = new Reading(ativo),
-                    ReadShare = new Reading(Math.Clamp(fatiaLeitura, 0, 1)),
-                    ReadBytes = new Reading(bLer),
-                    WriteBytes = new Reading(bGrav)
-                };
+                quantos++;
+                if (melhor == null || Ocupacao(leitura) > Ocupacao(melhor)) melhor = leitura;
             }
-            catch
+
+            if (melhor == null)
             {
-                // disco removido no meio da leitura: melhor leitura vazia que número inventado
                 Soltar();
-                return new DiskReading { Instance = _instancia, Name = Apelido(_instancia) };
+                return new DiskReading { Instance = _escolha, Name = Apelido(_escolha) };
             }
+
+            return quantos == melhor.Total ? melhor : new DiskReading
+            {
+                Name = melhor.Name,
+                Instance = melhor.Instance,
+                Busy = melhor.Busy,
+                ReadBytes = melhor.ReadBytes,
+                WriteBytes = melhor.WriteBytes,
+                Total = quantos
+            };
         }
     }
+
+    private static double Ocupacao(DiskReading d) => d.Busy.HasValue ? d.Busy.Value!.Value : -1;
 
     // ------------------------------------------------------------------ instâncias
 
     /// <summary>
-    /// Os discos que o Windows tem para oferecer, na ordem em que aparecem no Gerenciador de
-    /// Tarefas. O somatório vem primeiro, porque é o padrão.
+    /// Os discos que o Windows tem para oferecer, na ordem do Gerenciador de Tarefas. A opção de
+    /// acompanhar o mais ocupado vem primeiro, porque é o padrão.
     /// </summary>
     public static List<(string Instancia, string Apelido)> Discos()
     {
@@ -139,7 +136,7 @@ public sealed class DiskMonitor : IDisposable
 
         foreach (var nome in Instancias())
         {
-            if (nome == Todos) continue;
+            if (nome == "_Total") continue;
             lista.Add((nome, Apelido(nome)));
         }
 
@@ -166,7 +163,7 @@ public sealed class DiskMonitor : IDisposable
         if (string.IsNullOrWhiteSpace(instancia)) return Todos;
 
         var achada = Instancias().FirstOrDefault(n => string.Equals(n, instancia, StringComparison.OrdinalIgnoreCase));
-        return achada ?? Todos;
+        return achada != null && achada != "_Total" ? achada : Todos;
     }
 
     /// <summary>
@@ -175,7 +172,7 @@ public sealed class DiskMonitor : IDisposable
     /// </summary>
     public static string Apelido(string instancia)
     {
-        if (string.IsNullOrWhiteSpace(instancia) || instancia == Todos) return "Todos os discos";
+        if (string.IsNullOrWhiteSpace(instancia)) return "O disco mais ocupado";
 
         var espaco = instancia.IndexOf(' ');
         if (espaco <= 0) return "Disco " + instancia;
@@ -185,29 +182,77 @@ public sealed class DiskMonitor : IDisposable
         return letras.Length > 0 ? $"Disco {numero} ({letras})" : "Disco " + numero;
     }
 
-    // ------------------------------------------------------------------
+    // ------------------------------------------------------------------ um disco
 
-    private IEnumerable<PerformanceCounter> Contadores()
+    private sealed class Alvo : IDisposable
     {
-        if (_ocioso != null) yield return _ocioso;
-        if (_tempoLeitura != null) yield return _tempoLeitura;
-        if (_tempoGravacao != null) yield return _tempoGravacao;
-        if (_bytesLeitura != null) yield return _bytesLeitura;
-        if (_bytesGravacao != null) yield return _bytesGravacao;
+        private readonly string _instancia;
+        private readonly PerformanceCounter _ocioso;
+        private readonly PerformanceCounter _bytesLeitura;
+        private readonly PerformanceCounter _bytesGravacao;
+
+        private Alvo(string instancia, PerformanceCounter ocioso, PerformanceCounter leitura, PerformanceCounter gravacao)
+        {
+            _instancia = instancia;
+            _ocioso = ocioso;
+            _bytesLeitura = leitura;
+            _bytesGravacao = gravacao;
+        }
+
+        public static Alvo? Abrir(string instancia)
+        {
+            try
+            {
+                var ocioso = new PerformanceCounter("PhysicalDisk", "% Idle Time", instancia, true);
+                var leitura = new PerformanceCounter("PhysicalDisk", "Disk Read Bytes/sec", instancia, true);
+                var gravacao = new PerformanceCounter("PhysicalDisk", "Disk Write Bytes/sec", instancia, true);
+
+                // contador de taxa precisa de uma primeira amostra para ter de onde derivar
+                ocioso.NextValue();
+                leitura.NextValue();
+                gravacao.NextValue();
+
+                return new Alvo(instancia, ocioso, leitura, gravacao);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public DiskReading? Ler(int total)
+        {
+            try
+            {
+                return new DiskReading
+                {
+                    Instance = _instancia,
+                    Name = Apelido(_instancia),
+                    Busy = new Reading(Math.Clamp(100 - _ocioso.NextValue(), 0, 100)),
+                    ReadBytes = new Reading(Math.Max(0, _bytesLeitura.NextValue())),
+                    WriteBytes = new Reading(Math.Max(0, _bytesGravacao.NextValue())),
+                    Total = total
+                };
+            }
+            catch
+            {
+                // disco removido no meio da leitura: melhor nada que número inventado
+                return null;
+            }
+        }
+
+        public void Dispose()
+        {
+            try { _ocioso.Dispose(); } catch { }
+            try { _bytesLeitura.Dispose(); } catch { }
+            try { _bytesGravacao.Dispose(); } catch { }
+        }
     }
 
     private void Soltar()
     {
-        foreach (var c in Contadores())
-        {
-            try { c.Dispose(); } catch { }
-        }
-
-        _ocioso = null;
-        _tempoLeitura = null;
-        _tempoGravacao = null;
-        _bytesLeitura = null;
-        _bytesGravacao = null;
+        foreach (var alvo in _alvos) alvo.Dispose();
+        _alvos.Clear();
     }
 
     public void Dispose()
