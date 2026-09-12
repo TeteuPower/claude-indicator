@@ -69,8 +69,7 @@ public static class HardwareRenderer
     /// somados por nome, senão o Chrome ocuparia a lista inteira com as suas próprias abas.
     /// </summary>
     /// <summary>
-    /// O balão da barra de disco: quanto o disco está ocupado, em que direção, e quem está
-    /// mexendo com ele.
+    /// O balão da barra de disco: quanto ele está ocupado, as taxas, e quem está mexendo com ele.
     /// </summary>
     public static string DescribeDisk(DiskReading d, ProcessTops tops)
     {
@@ -87,10 +86,16 @@ public static class HardwareRenderer
         sb.Append("\nLeitura: ").Append(DiskReading.Taxa(d.ReadBytes));
         sb.Append("\nGravação: ").Append(DiskReading.Taxa(d.WriteBytes));
 
+        // Com mais de um disco, o número é o do mais ocupado. Sem dizer isso, alguém veria 100%
+        // na barra e procuraria o problema no disco errado.
+        if (d.Total > 1)
+            sb.Append("\n\nÉ o mais ocupado dos ").Append(d.Total)
+              .Append(" discos. Para acompanhar um só, escolha em Configurações › Painéis.");
+
         // Dito de propósito: a barra parece uma barra de uso, e alguém vai ler os 30% como
         // "está a 30% da velocidade do disco". Não é isso, e esse número não existe.
-        sb.Append("\n\nA barra mede o tempo em que o disco esteve ocupado: para cima em leitura, ");
-        sb.Append("para baixo em gravação. Não é porcentagem da velocidade máxima — o Windows ");
+        sb.Append("\n\nA barra mede o tempo em que o disco esteve ocupado, na mesma régua ");
+        sb.Append("do Gerenciador de Tarefas. Não é porcentagem da velocidade máxima — o Windows ");
         sb.Append("não sabe o teto do aparelho, e ele muda conforme o tipo de acesso.");
 
         if (tops.Disk.Count > 0)

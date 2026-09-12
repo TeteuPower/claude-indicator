@@ -206,7 +206,7 @@
                             <CheckBox x:Name="ChkPcDisk" Style="{StaticResource Switch}"
                                       Content="Disco, ao lado da memória" Margin="27,9,0,0"/>
                             <TextBlock Style="{StaticResource Hint}" Margin="27,2,0,0" TextWrapping="Wrap"
-                                       Text="Uma barra só, com o zero na linha do meio: leitura cresce para cima, gravação para baixo. A altura é o tempo em que o disco esteve ocupado, o mesmo &quot;Tempo de atividade&quot; do Gerenciador de Tarefas — e não porcentagem da velocidade máxima, que é um número que não existe. Por enquanto só aparece na barra própria em pé."/>
+                                       Text="Uma barra de 0 a 100, na mesma régua do Gerenciador de Tarefas: é o &quot;Tempo de atividade&quot;, a fração do tempo em que o disco teve pedido em andamento. Não é porcentagem da velocidade máxima, que é um número que não existe. As taxas de leitura e gravação ficam no balão, ao repousar o mouse."/>
                             <Border Style="{StaticResource SegmentGroup}" Margin="27,8,0,0">
                                 <WrapPanel x:Name="PcDisks" Orientation="Horizontal" MaxWidth="420"/>
                             </Border>

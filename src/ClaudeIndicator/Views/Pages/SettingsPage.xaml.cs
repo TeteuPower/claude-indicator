@@ -758,13 +758,15 @@ public partial class SettingsPage : UserControl
             var botao = new RadioButton
             {
                 GroupName = "PcDisk",
-                Content = ehTodos ? "Todos" : apelido.Replace("Disco ", ""),
+                Content = ehTodos ? "Mais ocupado" : apelido.Replace("Disco ", ""),
                 IsChecked = conhecido
                     ? string.Equals(instancia, _pcDisk, StringComparison.OrdinalIgnoreCase)
                     : ehTodos,
                 Style = (Style)FindResource("Segment"),
                 ToolTip = ehTodos
-                    ? "Soma a atividade de todos os discos."
+                    ? "Mostra sempre o disco que estiver mais ocupado, e o balão diz qual é. "
+                      + "A média entre discos não serve: um disco travado e dois parados dariam 25%, "
+                      + "que é o mesmo que não avisar."
                     : apelido + " — a mesma numeração que o Gerenciador de Tarefas usa.",
                 Tag = instancia == DiskMonitor.Todos ? "" : instancia
             };

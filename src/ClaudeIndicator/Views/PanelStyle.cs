@@ -715,78 +715,27 @@ public static class PanelStyle
     }
 
     /// <summary>
-    /// A barra de disco: uma trilha só, com o zero na linha do meio. A leitura cresce do centro
-    /// para cima, a gravação do centro para baixo.
+    /// A barra de disco em pé: uma trilha de 0 a 100, igual às de CPU, GPU e memória.
     ///
-    /// <b>Por que duas direções e não duas barras.</b> Ler e gravar disputam o mesmo aparelho, e o
-    /// que se quer saber olhando de relance é "quanto" e "fazendo o quê". Duas colunas separadas
-    /// responderiam as duas perguntas, mas obrigariam a comparar alturas em lugares diferentes.
-    /// Saindo da mesma linha, o equilíbrio entre as duas se lê sem comparar nada.
-    ///
-    /// <b>O que a altura significa.</b> Cada metade vale de 0 a 100% do tempo em que o disco esteve
-    /// ocupado. Metade de cima cheia é disco totalmente ocupado lendo. Não é porcentagem da
-    /// velocidade máxima do disco: esse número não existe, e o porquê está em <see cref="DiskMonitor"/>.
-    ///
-    /// A régua de cor é a mesma das outras trilhas, espelhada: verde encostado no centro, vermelho
-    /// nas pontas.
+    /// Antes eram duas direções na mesma trilha, leitura para cima e gravação para baixo. Ficava
+    /// bonito e não servia: quem olha o indicador quer saber se o disco está no limite, e repartir
+    /// a altura entre as duas direções deixava a barra pela metade justamente quando o disco
+    /// estava saturado lendo. Uma trilha só, na mesma régua do Gerenciador de Tarefas, responde a
+    /// pergunta. As taxas de leitura e gravação continuam no balão.
     /// </summary>
     public static UIElement DiskBar(DiskReading d, AppSettings s, double largura)
     {
-        var raio = largura / 2;
-        var leitura = Math.Clamp(d.ReadPercent / 100.0, 0, 1);
-        var gravacao = Math.Clamp(d.WritePercent / 100.0, 0, 1);
+        var fracao = Math.Clamp((d.Busy.Value ?? 0) / 100.0, 0, 1);
 
-        var trilha = new Border
-        {
-            Width = largura,
-            CornerRadius = new CornerRadius(raio),
-            Background = FundoDaTrilha(s),
-            BorderBrush = TrilhaBorda,
-            BorderThickness = BordaDaTrilha(s),
-            VerticalAlignment = VerticalAlignment.Stretch,
-            ClipToBounds = true
-        };
-
-        var metades = new Grid();
-        metades.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        metades.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-
-        var cima = Metade(leitura, raio, true);
-        Grid.SetRow(cima, 0);
-        metades.Children.Add(cima);
-
-        var baixo = Metade(gravacao, raio, false);
-        Grid.SetRow(baixo, 1);
-        metades.Children.Add(baixo);
-
-        // A linha do zero, sempre visível. Sem ela uma barra parada seria indistinguível de uma
-        // trilha vazia qualquer, e o sentido de "sobe e desce a partir daqui" se perderia.
-        var meio = new Border
-        {
-            Height = 1,
-            Background = TrilhaBorda,
-            VerticalAlignment = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Stretch
-        };
-        Grid.SetRowSpan(meio, 2);
-        metades.Children.Add(meio);
-
-        trilha.Child = metades;
-        return trilha;
+        return BarRenderer.VerticalTrack(fracao, RampaAte(fracao), largura, double.NaN, null,
+                                         FundoDaTrilha(s), TrilhaBorda, BordaDaTrilha(s));
     }
 
-    /// <summary>
-    /// A barra de disco deitada, para a célula da barra de tarefas: o zero fica no meio, a leitura
-    /// cresce para a direita e a gravação para a esquerda.
-    ///
-    /// Direita para leitura porque é o lado em que as barras de uso já crescem: numa fila deitada,
-    /// "mais" é para a direita, e inverter isso só para o disco confundiria os dois vizinhos.
-    /// </summary>
+    /// <summary>A mesma trilha, deitada, para a célula do painel da barra de tarefas.</summary>
     public static UIElement DiskBarFlat(DiskReading d, AppSettings s, double largura, double altura)
     {
         var raio = altura / 2;
-        var leitura = Math.Clamp(d.ReadPercent / 100.0, 0, 1);
-        var gravacao = Math.Clamp(d.WritePercent / 100.0, 0, 1);
+        var fracao = Math.Clamp((d.Busy.Value ?? 0) / 100.0, 0, 1);
 
         var trilha = new Border
         {
@@ -800,113 +749,21 @@ public static class PanelStyle
             ClipToBounds = true
         };
 
-        var metades = new Grid();
-        metades.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        metades.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        var grade = new Grid();
+        grade.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(fracao, 0.0001), GridUnitType.Star) });
+        grade.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(1 - fracao, 0.0001), GridUnitType.Star) });
 
-        var esquerda = MetadeDeitada(gravacao, raio, false);
-        Grid.SetColumn(esquerda, 0);
-        metades.Children.Add(esquerda);
-
-        var direita = MetadeDeitada(leitura, raio, true);
-        Grid.SetColumn(direita, 1);
-        metades.Children.Add(direita);
-
-        var meio = new Border
+        var enchimento = new Border
         {
-            Width = 1,
-            Background = TrilhaBorda,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Stretch
+            CornerRadius = new CornerRadius(raio),
+            Background = ScaleGradient(largura),
+            MinWidth = fracao > 0 ? 3 : 0
         };
-        Grid.SetColumnSpan(meio, 2);
-        metades.Children.Add(meio);
+        Grid.SetColumn(enchimento, 0);
+        grade.Children.Add(enchimento);
+        trilha.Child = grade;
 
-        trilha.Child = metades;
         return trilha;
-    }
-
-    private static UIElement MetadeDeitada(double fracao, double raio, bool paraDireita)
-    {
-        var f = Math.Clamp(fracao, 0, 1);
-
-        var grade = new Grid();
-        var vazio = new GridLength(Math.Max(1 - f, 0.0001), GridUnitType.Star);
-        var cheio = new GridLength(Math.Max(f, 0.0001), GridUnitType.Star);
-
-        grade.ColumnDefinitions.Add(new ColumnDefinition { Width = paraDireita ? cheio : vazio });
-        grade.ColumnDefinitions.Add(new ColumnDefinition { Width = paraDireita ? vazio : cheio });
-
-        var enchimento = new Border
-        {
-            CornerRadius = paraDireita ? new CornerRadius(0, raio, raio, 0) : new CornerRadius(raio, 0, 0, raio),
-            Background = RampaDeitadaAte(f, paraDireita),
-            MinWidth = f > 0 ? 3 : 0
-        };
-        Grid.SetColumn(enchimento, paraDireita ? 0 : 1);
-        grade.Children.Add(enchimento);
-
-        return grade;
-    }
-
-    /// <summary>A régua recortada no valor lido, medida a partir do centro da barra.</summary>
-    private static Brush RampaDeitadaAte(double fracao, bool paraDireita)
-    {
-        var f = Math.Clamp(fracao, 0, 1);
-        var g = new LinearGradientBrush
-        {
-            MappingMode = BrushMappingMode.RelativeToBoundingBox,
-            StartPoint = paraDireita ? new Point(0, 0) : new Point(1, 0),
-            EndPoint = paraDireita ? new Point(1, 0) : new Point(0, 0)
-        };
-
-        g.GradientStops.Add(new GradientStop(Verde, 0.0));
-        if (f <= 0.5)
-        {
-            g.GradientStops.Add(new GradientStop(Mix(Verde, Amarelo, f <= 0 ? 0 : f / 0.5), 1.0));
-        }
-        else
-        {
-            g.GradientStops.Add(new GradientStop(Amarelo, 0.5 / f));
-            g.GradientStops.Add(new GradientStop(Mix(Amarelo, Vermelho, (f - 0.5) / 0.5), 1.0));
-        }
-
-        g.Freeze();
-        return g;
-    }
-
-    /// <summary>
-    /// Uma das metades da barra de disco. O preenchimento encosta no centro e cresce para longe
-    /// dele, então a linha elástica vazia fica do lado de fora.
-    /// </summary>
-    private static UIElement Metade(double fracao, double raio, bool paraCima)
-    {
-        var f = Math.Clamp(fracao, 0, 1);
-
-        var grade = new Grid();
-        var vazio = new GridLength(Math.Max(1 - f, 0.0001), GridUnitType.Star);
-        var cheio = new GridLength(Math.Max(f, 0.0001), GridUnitType.Star);
-
-        grade.RowDefinitions.Add(new RowDefinition { Height = paraCima ? vazio : cheio });
-        grade.RowDefinitions.Add(new RowDefinition { Height = paraCima ? cheio : vazio });
-
-        // Arredonda só a ponta de fora. Com as quatro pontas redondas as duas metades se
-        // encostavam por dois arcos e abriam um estrangulamento no centro, que lia como duas
-        // barras separadas em vez de uma medida saindo do zero.
-        var canto = paraCima
-            ? new CornerRadius(raio, raio, 0, 0)
-            : new CornerRadius(0, 0, raio, raio);
-
-        var enchimento = new Border
-        {
-            CornerRadius = canto,
-            Background = RampaAte(f, paraCima),
-            MinHeight = f > 0 ? 3 : 0
-        };
-        Grid.SetRow(enchimento, paraCima ? 1 : 0);
-        grade.Children.Add(enchimento);
-
-        return grade;
     }
 
     /// <summary>
